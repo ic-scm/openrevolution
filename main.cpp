@@ -43,10 +43,6 @@ unsigned long written_samples=0;
 
 #include "brstm.h" //must be included after this stuff
 
-long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
 //-------------------######### STRINGS
 
 const char* helpString0 = "Usage:\n";
@@ -124,7 +120,7 @@ int main( int argc, char* args[] ) {
     //read the brstm
     unsigned char result=readBrstm(memblock,verb+1);
     if(result>127) {
-        std::cout << "Error.";
+        std::cout << "Error.\n";
         return result;
     }
     

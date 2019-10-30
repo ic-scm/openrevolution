@@ -47,63 +47,59 @@ signed   int* PCM_samples[16];
 
 unsigned long written_samples=0;
 
-#include "brstm.h" //must be included after this stuff
-
-long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
+#include "../brstm.h" //must be included after this stuff
 
 //aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 void reverse(char s[]) {
-     int i, j;
-     char c;
-
-     for (i = 0, j = strlen(s)-1; i<j; i++, j--) {
-         c = s[i];
-         s[i] = s[j];
-         s[j] = c;
-     }
+    int i, j;
+    char c;
+    
+    for (i = 0, j = strlen(s)-1; i<j; i++, j--) {
+        c = s[i];
+        s[i] = s[j];
+        s[j] = c;
+    }
 }  
 void itoa(int n, char s[]) {
-     int i, sign;
-
-     if ((sign = n) < 0)  /* record sign */
-         n = -n;          /* make n positive */
-     i = 0;
-     do {       /* generate digits in reverse order */
-         s[i++] = n % 10 + '0';   /* get next digit */
-     } while ((n /= 10) > 0);     /* delete it */
-     if (sign < 0)
-         s[i++] = '-';
-     s[i] = '\0';
-     reverse(s);
+    int i, sign;
+    
+    if ((sign = n) < 0)  /* record sign */
+        n = -n;          /* make n positive */
+        i = 0;
+    do {       /* generate digits in reverse order */
+        s[i++] = n % 10 + '0';   /* get next digit */
+    } while ((n /= 10) > 0);     /* delete it */
+    if (sign < 0)
+        s[i++] = '-';
+    s[i] = '\0';
+    reverse(s);
 }  
 //-----------------------------------------whatever
 
 
 char* mString;
 char* secondsToMString(unsigned int sec) {
-delete[] mString;
-mString=new char[10];
-unsigned int min=0;
-unsigned int secs=0;
-unsigned int csec=sec;
-while(csec>=60) {
-    csec-=60;
-    min++;
-}
-secs=csec;
-unsigned int mStringPos=0;
-char* minString = new char[5];
-itoa(min,minString);
-char* secString = new char[3];
-itoa(secs,secString);
-for(unsigned int i=0;i<strlen(minString);i++) {mString[mStringPos++]=minString[i];}
-mString[mStringPos++]=':';
-if(secs<10) {mString[mStringPos++]='0';}
-for(unsigned int i=0;i<strlen(secString);i++) {mString[mStringPos++]=secString[i];}
-mString[mStringPos++]='\0';
-return mString;
+    delete[] mString;
+    mString=new char[10];
+    unsigned int min=0;
+    unsigned int secs=0;
+    unsigned int csec=sec;
+    while(csec>=60) {
+        csec-=60;
+        min++;
+    }
+    secs=csec;
+    unsigned int mStringPos=0;
+    char* minString = new char[5];
+    itoa(min,minString);
+    char* secString = new char[3];
+    itoa(secs,secString);
+    for(unsigned int i=0;i<strlen(minString);i++) {mString[mStringPos++]=minString[i];}
+    mString[mStringPos++]=':';
+    if(secs<10) {mString[mStringPos++]='0';}
+    for(unsigned int i=0;i<strlen(secString);i++) {mString[mStringPos++]=secString[i];}
+    mString[mStringPos++]='\0';
+    return mString;
 }
 
 char getch(void) {
@@ -125,7 +121,7 @@ char getch(void) {
     if(tcsetattr(0, TCSADRAIN, &old) < 0)
         perror("tcsetattr ~ICANON");
     return buf;
- }
+}
 
 long playback_current_sample=0;
 unsigned int Channels=0;
@@ -138,39 +134,39 @@ unsigned int update_display_i=0;
 
 //RtAudio callback
 int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames, double streamTime, RtAudioStreamStatus status, void *userData) {
-  unsigned int i, c;
-  double *buffer = (double *) outputBuffer;
-  if (status) {std::cout << "Stream underflow detected!\n";}
-  
-  //Display
-  playback_seconds=playback_current_sample/HEAD1_sample_rate;
-  //std::cout << "\rCurrent time: " << secondsToMString(playback_seconds) << " Buffer frames: " << nBufferFrames << " Channels: " << Channels << " Played samples: " << playback_current_sample << "              ";
-  if(update_display_i>0) {
-      update_display_i=0; 
-      std::cout << '\r';
-      if(paused) {std::cout << "Paused ";}
-      std::cout /*<< "\e[?25l"*/ << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds) << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m                           \r" /*<< "\e[?25h"*/;
-  }
-  update_display_i++;
-  
-  //Write data
-  if(!paused) {for (i=0;i<nBufferFrames;i+=1) {
-      for(c=0;c<Channels;c++) {
-        unsigned char tchannel;
-        if(c==0) {tchannel=HEAD2_track_lchannel_id[current_track];}
-        else {tchannel=HEAD2_track_rchannel_id[current_track];}
-        *buffer++ = (double)PCM_samples[tchannel][playback_current_sample]/(double)32768;
-      }
-      playback_current_sample++;
-      if(playback_current_sample>HEAD1_total_samples) {if(HEAD1_loop) {playback_current_sample=HEAD1_loop_start;} else {stop_playing=1; return 1;}}
-  }} else {
-      for(i=0;i<nBufferFrames;i+=1) {
-          for(c=0;c<Channels;c++) {
-              *buffer++ = 0;
-          }
-      }
-  }
-  return 0;
+    unsigned int i, c;
+    double *buffer = (double *) outputBuffer;
+    if (status) {std::cout << "Stream underflow detected!\n";}
+    
+    //Display
+    playback_seconds=playback_current_sample/HEAD1_sample_rate;
+    //std::cout << "\rCurrent time: " << secondsToMString(playback_seconds) << " Buffer frames: " << nBufferFrames << " Channels: " << Channels << " Played samples: " << playback_current_sample << "              ";
+    if(update_display_i>0) {
+        update_display_i=0; 
+        std::cout << '\r';
+        if(paused) {std::cout << "Paused ";}
+        std::cout /*<< "\e[?25l"*/ << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds) << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m                           \r" /*<< "\e[?25h"*/;
+    }
+    update_display_i++;
+    
+    //Write data
+    if(!paused) {for (i=0;i<nBufferFrames;i+=1) {
+        for(c=0;c<Channels;c++) {
+            unsigned char tchannel;
+            if(c==0) {tchannel=HEAD2_track_lchannel_id[current_track];}
+            else {tchannel=HEAD2_track_rchannel_id[current_track];}
+            *buffer++ = (double)PCM_samples[tchannel][playback_current_sample]/(double)32768;
+        }
+        playback_current_sample++;
+        if(playback_current_sample>HEAD1_total_samples) {if(HEAD1_loop) {playback_current_sample=HEAD1_loop_start;} else {stop_playing=1; return 1;}}
+    }} else {
+        for(i=0;i<nBufferFrames;i+=1) {
+            for(c=0;c<Channels;c++) {
+                *buffer++ = 0;
+            }
+        }
+    }
+    return 0;
 }
 
 //-------------------######### STRINGS
@@ -232,7 +228,7 @@ int main( int argc, char* args[] ) {
     //read the brstm
     unsigned char result=readBrstm(memblock,verb);
     if(result>127) {
-        std::cout << "Error.";
+        std::cout << "Error.\n";
         return result;
     }
     delete[] memblock;
