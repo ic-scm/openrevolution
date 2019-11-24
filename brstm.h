@@ -123,7 +123,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel) 
     signed   int* ADPC_hsamples_2[16];
     //DATA
     unsigned long DATA_total_length;
-    //signed   int* PCM_samples[16]; //Should be declared in main file
+    //int16_t* PCM_samples[16]; //Should be declared in main file
     //Check if the header matches RSTM
     char* magicstr=getSliceAsString(fileData,0,4);
     char  emagic1[5]="RSTM";
@@ -292,7 +292,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel) 
                     if(HEAD1_codec!=2) {std::cout << "Unsupported codec.\n"; return 220;}
                     for(unsigned int c=0;c<HEAD3_num_channels;c++) {
                         //Create new array of samples for the current channel
-                        PCM_samples[c] = new signed int[((DATA_total_length-32)*2)/HEAD3_num_channels];
+                        PCM_samples[c] = new int16_t[((DATA_total_length-32)*2)/HEAD3_num_channels];
                         
                         posOffset=0+(HEAD1_blocks_size*c);
                         unsigned long outputPos = 0; //position in PCM samples output array

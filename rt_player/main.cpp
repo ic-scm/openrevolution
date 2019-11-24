@@ -43,7 +43,7 @@ unsigned int  HEAD2_track_panning     [8] = {0,0,0,0,0,0,0,0};
 //HEAD3
 unsigned int  HEAD3_num_channels;
 
-signed   int* PCM_samples[16];
+int16_t* PCM_samples[16];
 
 unsigned long written_samples=0;
 
