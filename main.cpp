@@ -83,23 +83,17 @@ int main( int argc, char* args[] ) {
     //read the file
     if(verb) {std::cout << "Reading file " << args[1];}
     std::streampos fsize;
-    char * memblocksigned;
+    unsigned char * memblock;
     std::ifstream file (args[1], std::ios::in|std::ios::binary|std::ios::ate);
     if (file.is_open()) {
         fsize = file.tellg();
-        memblocksigned = new char [fsize];
+        memblock = new unsigned char [fsize];
         file.seekg (0, std::ios::beg);
-        file.read (memblocksigned, fsize);
+        file.read ((char*)memblock, fsize);
         if(verb) {std::cout << " size " << fsize << '\n';}
         //file.close();
         //delete[] memblock;
     } else {std::cout << "\nUnable to open file\n"; return 255;}
-    
-    //unsigned data array
-    unsigned char* memblock;
-    memblock = new unsigned char[fsize];
-    for(unsigned int i=0;i<fsize;i++) {memblock[i]=memblocksigned[i];}
-    delete[] memblocksigned;
     
     /*//show some of the first bytes for debugging
     for(unsigned char t=0;t<3;t++) {
