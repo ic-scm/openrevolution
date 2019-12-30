@@ -46,6 +46,8 @@ unsigned int  HEAD3_num_channels;
 
 int16_t* PCM_samples[16];
 
+int16_t* PCM_buffer[16]; //not used here
+
 unsigned long written_samples=0;
 
 #include "../brstm.h" //must be included after this stuff
