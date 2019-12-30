@@ -1,6 +1,6 @@
 //C++ BRSTM reader
 //Made by extrasklep copyright license bla bla bla
-//This is the old version that decodes the entire song into memory before playing
+//This is the old version that decodes the entire song into memory before playing and it probably won't be updated anymore.
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
