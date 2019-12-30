@@ -59,6 +59,10 @@ char* getSliceAsString(const unsigned char* data,unsigned long start,unsigned lo
     return slicestring;
 }
 
+signed int  HEAD3_int16_adpcm  [16][16];
+signed   int* ADPC_hsamples_1[16];
+signed   int* ADPC_hsamples_2[16];
+
 unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,bool decodeADPCM) {
     //Read the headers
     //Header
@@ -108,7 +112,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
     unsigned int  HEAD3_num_channels;*/ //Should be declared in main file
     unsigned long HEAD3_ch_info_offsets  [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     
-      signed int  HEAD3_int16_adpcm  [16][16];
+      /*signed int  HEAD3_int16_adpcm  [16][16];*/ //declared as global
     unsigned int  HEAD3_ch_gain          [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     unsigned int  HEAD3_ch_initial_scale [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
       signed int  HEAD3_ch_hsample_1     [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -119,11 +123,12 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
     //ADPC
     unsigned long ADPC_total_length;
     unsigned long ADPC_total_entries;
-    signed   int* ADPC_hsamples_1[16];
-    signed   int* ADPC_hsamples_2[16];
+    /*signed   int* ADPC_hsamples_1[16];
+    signed   int* ADPC_hsamples_2[16];*/ //declared as global
     //DATA
     unsigned long DATA_total_length;
     //int16_t* PCM_samples[16]; //Should be declared in main file
+    
     //Check if the header matches RSTM
     char* magicstr=getSliceAsString(fileData,0,4);
     char  emagic1[5]="RSTM";
@@ -369,4 +374,118 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
         
     } else {std::cout << "Invalid BRSTM file.\n"; return 255;}
     return 0;
+}
+
+//int16_t* PCM_buffer[16]; Should be declared in main file
+
+//block cache
+int16_t* PCM_blockbuffer[16];
+int PCM_blockbuffer_currentBlock = -1;
+
+void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples,bool useBuffer) {
+    if(PCM_blockbuffer_currentBlock != sampleOffset/HEAD1_blocks_samples) {
+        //Read the ADPCM data
+        unsigned long posOffset=0;
+        if(HEAD1_codec!=2) {std::cout << "Unsupported codec.\n"; exit(220);}
+        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            //Create new array of samples for the current channel
+            delete[] PCM_blockbuffer[c];
+            PCM_blockbuffer[c] = new int16_t[HEAD1_blocks_samples];
+            
+            posOffset=0+(HEAD1_blocks_size*c);
+            unsigned long outputPos = 0; //position in PCM block samples output array
+            
+            unsigned long b=sampleOffset/HEAD1_blocks_samples;
+            unsigned long c_writtensamples = 0;
+            
+            posOffset+=b*(HEAD1_blocks_size*HEAD3_num_channels);
+            
+            //Read block
+            unsigned int currentBlockSize    = HEAD1_blocks_size;
+            unsigned int currentBlockSamples = HEAD1_blocks_samples;
+            //Final block
+            if(b==HEAD1_total_blocks-1) {
+                currentBlockSize    = HEAD1_final_block_size;
+                currentBlockSamples = HEAD1_final_block_samples;
+            }
+            if(b>=HEAD1_total_blocks-1 && c>0) {
+                //Go back to the previous position
+                posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
+                //Go to the next block in position of first channel
+                posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
+                //Jump to the correct channel in the final block
+                posOffset+=HEAD1_final_block_size_p*c;
+            }
+            //Get data from just the current block
+            unsigned char* blockData = getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+            
+            //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
+            const unsigned char ps = blockData[0];
+            const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
+            
+            //Magic adapted from brawllib's ADPCMState.cs
+            signed int 
+            cps = ps,
+            cyn1 = yn1,
+            cyn2 = yn2;
+            unsigned long dataIndex = 0;
+            
+            for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
+                long outSample = 0;
+                if (sampleIndex % 14 == 0) {
+                    cps = blockData[dataIndex++];
+                }
+                if ((sampleIndex++ & 1) == 0) {
+                    outSample = blockData[dataIndex] >> 4;
+                } else {
+                    outSample = blockData[dataIndex++] & 0x0f;
+                }
+                if (outSample >= 8) {
+                    outSample -= 16;
+                }
+                const long scale = 1 << (cps & 0x0f);
+                const long cIndex = (cps >> 4) << 1;
+                
+                outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                
+                cyn2 = cyn1;
+                cyn1 = clamp(outSample, -32768, 32767);
+                
+                PCM_blockbuffer[c][outputPos++] = cyn1;
+                c_writtensamples++;
+            }
+            PCM_blockbuffer_currentBlock = b;
+            //std::cout << ">>" << c << b << yn1 << yn2 << ps << blockData << sampleResult << '\n';
+            posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
+        }
+    }
+    if(useBuffer) {
+        //Put it in the pcm buffer
+        bool blockEndReached = false;
+        unsigned int blockEndReachedAt = 0;
+        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            //Create new array of samples for the current channel
+            delete[] PCM_buffer[c];
+            PCM_buffer[c] = new int16_t[bufferSamples];
+            //offset in current block
+            unsigned long dataIndex = sampleOffset-HEAD1_blocks_samples*(unsigned int)(sampleOffset/HEAD1_blocks_samples);
+            for(unsigned int p=0;p<bufferSamples;p++) {
+                if(dataIndex+p >= HEAD1_blocks_samples) {
+                    blockEndReached=true;
+                    blockEndReachedAt=p;
+                    break;
+                }
+                PCM_buffer[c][p] = PCM_blockbuffer[c][dataIndex+p];
+            }
+        }
+        if(blockEndReached) {
+            brstm_getbuffer(fileData,sampleOffset+blockEndReachedAt,0,false);
+            for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+                unsigned int dataIndex=0;
+                for(unsigned int p=blockEndReachedAt;p<bufferSamples;p++) {
+                    PCM_buffer[c][p] = PCM_blockbuffer[c][dataIndex++];
+                }
+            }
+        }
+    }
 }
