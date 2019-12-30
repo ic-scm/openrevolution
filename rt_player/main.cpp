@@ -45,9 +45,13 @@ unsigned int  HEAD3_num_channels;
 
 int16_t* PCM_samples[16];
 
+int16_t* PCM_buffer[16];
+
 unsigned long written_samples=0;
 
 #include "../brstm.h" //must be included after this stuff
+
+unsigned char* memblock;
 
 //aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 void reverse(char s[]) {
@@ -149,23 +153,34 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     }
     update_display_i++;
     
-    //Write data
-    if(!paused) {for (i=0;i<nBufferFrames;i+=1) {
-        for(c=0;c<Channels;c++) {
-            unsigned char tchannel;
-            if(c==0) {tchannel=HEAD2_track_lchannel_id[current_track];}
-            else {tchannel=HEAD2_track_rchannel_id[current_track];}
-            *buffer++ = (double)PCM_samples[tchannel][playback_current_sample]/(double)32768;
-        }
-        playback_current_sample++;
-        if(playback_current_sample>HEAD1_total_samples) {if(HEAD1_loop) {playback_current_sample=HEAD1_loop_start;} else {stop_playing=1; return 1;}}
-    }} else {
-        for(i=0;i<nBufferFrames;i+=1) {
+    //Get buffer and write data
+    if(!paused) {
+        brstm_getbuffer(memblock,playback_current_sample,nBufferFrames,true);
+        int ioffset=0;
+        for (i=0;i<nBufferFrames;i+=1) {
             for(c=0;c<Channels;c++) {
-                *buffer++ = 0;
+                unsigned char tchannel;
+                if(c==0) {tchannel=HEAD2_track_lchannel_id[current_track];}
+                else {tchannel=HEAD2_track_rchannel_id[current_track];}
+                *buffer++ = (double)PCM_buffer[tchannel][i+ioffset]/(double)32768;
+            }
+            playback_current_sample++;
+            if(playback_current_sample>HEAD1_total_samples) {
+                if(HEAD1_loop) {
+                    playback_current_sample=HEAD1_loop_start;
+                    //refill buffer
+                    brstm_getbuffer(memblock,playback_current_sample,nBufferFrames,true);
+                    ioffset-=i;
+                } else {stop_playing=1; return 1;}
             }
         }
-    }
+    } else {
+            for(i=0;i<nBufferFrames;i+=1) {
+                for(c=0;c<Channels;c++) {
+                    *buffer++ = 0;
+                }
+            }
+        }
     return 0;
 }
 
@@ -220,18 +235,17 @@ int main( int argc, char* args[] ) {
     } else {std::cout << "\nUnable to open file\n"; return 255;}
     
     //unsigned data array
-    unsigned char* memblock;
+    //unsigned char* memblock;
     memblock = new unsigned char[fsize];
     for(unsigned int i=0;i<fsize;i++) {memblock[i]=memblocksigned[i];}
     delete[] memblocksigned;
     
     //read the brstm
-    unsigned char result=readBrstm(memblock,verb,true);
+    unsigned char result=readBrstm(memblock,verb,false);
     if(result>127) {
         std::cout << "Error.\n";
         return result;
     }
-    delete[] memblock;
     
     //initialize rtaudio
     RtAudio dac;
