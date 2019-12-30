@@ -226,7 +226,7 @@ int main( int argc, char* args[] ) {
     delete[] memblocksigned;
     
     //read the brstm
-    unsigned char result=readBrstm(memblock,verb);
+    unsigned char result=readBrstm(memblock,verb,true);
     if(result>127) {
         std::cout << "Error.\n";
         return result;

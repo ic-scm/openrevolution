@@ -118,7 +118,7 @@ int main( int argc, char* args[] ) {
     }*/
     
     //read the brstm
-    unsigned char result=readBrstm(memblock,verb+1);
+    unsigned char result=readBrstm(memblock,verb+1,true);
     if(result>127) {
         std::cout << "Error.\n";
         return result;
