@@ -508,8 +508,6 @@ void brstm_close() {
         delete[] ADPC_hsamples_1[i];
         delete[] ADPC_hsamples_2[i];
         delete[] PCM_samples[i];
-        delete[] PCM_buffer[i];
-        delete[] PCM_blockbuffer[i];
     }
     
     HEAD1_codec = 0;
