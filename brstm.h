@@ -383,6 +383,15 @@ int16_t* PCM_blockbuffer[16];
 int PCM_blockbuffer_currentBlock = -1;
 
 void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples,bool useBuffer) {
+    if(sampleOffset>HEAD1_total_samples) {
+        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            delete[] PCM_buffer[c];
+            PCM_buffer[c] = new int16_t[bufferSamples];
+            for(unsigned int i=0;i<bufferSamples;i++) {
+                PCM_buffer[c][i] = 0;
+            }
+        }
+    }
     if(PCM_blockbuffer_currentBlock != sampleOffset/HEAD1_blocks_samples) {
         //Read the ADPCM data
         unsigned long posOffset=0;
