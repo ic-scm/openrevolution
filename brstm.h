@@ -391,6 +391,7 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
                 PCM_buffer[c][i] = 0;
             }
         }
+        return;
     }
     if(PCM_blockbuffer_currentBlock != sampleOffset/HEAD1_blocks_samples) {
         //Read the ADPCM data
