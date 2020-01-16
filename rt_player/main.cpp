@@ -1,5 +1,5 @@
 //C++ BRSTM reader
-//Made by extrasklep copyright license bla bla bla
+//Copyright (C) 2020 Extrasklep
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -278,6 +278,8 @@ int main( int argc, char* args[] ) {
         e.printMessage();
     }
     if (dac.isStreamOpen()) dac.closeStream();
+    
+    brstm_close();
     
     return 0;
 }

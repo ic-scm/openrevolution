@@ -1,5 +1,5 @@
- //C++ BRSTM reader
-//Made by extrasklep copyright license bla bla bla
+//C++ BRSTM reader
+//Copyright (C) 2020 Extrasklep
 
 unsigned char* slice;
 char* slicestring;
@@ -488,4 +488,47 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
             }
         }
     }
+}
+
+void brstm_close() {
+    for(unsigned char i=0;i<16;i++) {
+        for(unsigned char j=0;j<16;j++) {
+            HEAD3_int16_adpcm[i][j] = 0;
+        }
+        delete[] ADPC_hsamples_1[i];
+        delete[] ADPC_hsamples_2[i];
+        delete[] PCM_samples[i];
+        delete[] PCM_buffer[i];
+        delete[] PCM_blockbuffer[i];
+    }
+    
+    HEAD1_codec = 0;
+    HEAD1_loop = 0;
+    HEAD1_num_channels = 0;
+    HEAD1_sample_rate = 0;
+    HEAD1_loop_start = 0;
+    HEAD1_total_samples = 0;
+    HEAD1_ADPCM_offset = 0;
+    HEAD1_total_blocks = 0;
+    HEAD1_blocks_size = 0;
+    HEAD1_blocks_samples = 0;
+    HEAD1_final_block_size = 0;
+    HEAD1_final_block_samples = 0;
+    HEAD1_final_block_size_p = 0;
+    HEAD1_samples_per_ADPC = 0;
+    HEAD1_bytes_per_ADPC = 0;
+    
+    HEAD2_num_tracks = 0;
+    HEAD2_track_type = 0;
+    
+    for(unsigned char i=0; i<8; i++) {
+        HEAD2_track_num_channels[i] = 0;
+        HEAD2_track_lchannel_id [i] = 0;
+        HEAD2_track_rchannel_id [i] = 0;
+        HEAD2_track_volume      [i] = 0;
+        HEAD2_track_panning     [i] = 0;
+    }
+    HEAD3_num_channels = 0;
+    written_samples=0;
+    PCM_blockbuffer_currentBlock = -1;
 }

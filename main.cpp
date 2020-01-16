@@ -1,5 +1,5 @@
 //C++ BRSTM reader
-//Made by extrasklep copyright license bla bla bla
+//Copyright (C) 2020 Extrasklep
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -148,5 +148,8 @@ int main( int argc, char* args[] ) {
             ofile.close();
         } else {std::cout << "\nUnable to open file\n"; return 255;}
     }
+    
+    brstm_close();
+    
     return 0;
 }
