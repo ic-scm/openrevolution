@@ -8,6 +8,7 @@ long clamp(long value, long min, long max) {
   return value <= min ? min : value >= max ? max : value;
 }
 
+//Get slice of data
 unsigned char* getSlice(const unsigned char* data,unsigned long start,unsigned long length) {
     delete[] slice;
     slice = new unsigned char[length];
@@ -17,6 +18,7 @@ unsigned char* getSlice(const unsigned char* data,unsigned long start,unsigned l
     return slice;
 }
 
+//Get slice and convert it to a number
 unsigned long getSliceAsNumber(const unsigned char* data,unsigned long start,unsigned long length) {
     if(length>4) {length=4;}
     unsigned long number=0;
@@ -33,6 +35,7 @@ unsigned long getSliceAsNumber(const unsigned char* data,unsigned long start,uns
     return number;
 }
 
+//Get slice as signed 16 bit number
 signed int getSliceAsInt16Sample(const unsigned char * data,unsigned long start) {
     unsigned int length=2;
     unsigned long number=0;
@@ -43,6 +46,7 @@ signed int getSliceAsInt16Sample(const unsigned char * data,unsigned long start)
     return number;
 }
 
+//Get slice as a null terminated string
 char* getSliceAsString(const unsigned char* data,unsigned long start,unsigned long length) {
     unsigned char slicestr[length+1];
     unsigned char* bytes=getSlice(data,start,length);
@@ -63,7 +67,32 @@ signed int  HEAD3_int16_adpcm  [16][16];
 signed   int* ADPC_hsamples_1[16];
 signed   int* ADPC_hsamples_2[16];
 
-unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,bool decodeADPCM) {
+/* 
+ * Read the BRSTM file headers and optionally decode the audio data.
+ * 
+ * fileData: BRSTM file
+ * debugLevel:
+ *    -1 = Never output anything
+ *     0 = Only output when an error occurs
+ *     1 = Output information about the BRSTM
+ *     2 = Output all information about the BRSTM (offsets, sizes, ADPCM information etc.)
+ * decodeADPCM:
+ *     false = Don't decode the audio data
+ *     true  = Decode audio data into PCM_samples
+ * 
+ * Returns:
+ *        0 = No error
+ *      255 = Invalid BRSTM file (Doesn't begin with RSTM)
+ *      254 = Unknown track info type
+ *      250 = Invalid HEAD chunk (Doesn't begin with HEAD)
+ *      249 = Too many channels
+ *      248 = Too many tracks
+ *      240 = Invalid ADPC chunk (Doesn't begin with ADPC)
+ *      230 = Invalid DATA chunk (Doesn't begin with DATA)
+ *      220 = Unsupported or unknown audio codec
+ *      200 = Unknown error (this should never happen)
+ */
+unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
     //Read the headers
     //Header
     unsigned long file_size;
@@ -150,6 +179,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
         ADPC_size   = getSliceAsNumber(fileData,0x1C,4);
         DATA_offset = getSliceAsNumber(fileData,0x20,4);
         DATA_size   = getSliceAsNumber(fileData,0x24,4);
+        
         if(debugLevel>1) {std::cout << "File size: " << file_size << "\nHeader size: " << header_size << "\nChunks: " << num_chunks << "\nHEAD offset: " << HEAD_offset << "\nHEAD size: " << HEAD_size << "\nADPC offset: " << ADPC_offset << "\nADPC size: " << ADPC_size << "\nDATA offset: " << DATA_offset << "\nDATA size: " << DATA_size << "\n\n";}
         
         //HEAD
@@ -163,7 +193,9 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
             HEAD1_offset = getSliceAsNumber(fileData,HEAD_offset+0x0C,4);
             HEAD2_offset = getSliceAsNumber(fileData,HEAD_offset+0x14,4);
             HEAD3_offset = getSliceAsNumber(fileData,HEAD_offset+0x1C,4);
+            
             if(debugLevel>1) {std::cout << "HEAD length: " << HEAD_length << "\nHEAD1 offset: " << HEAD1_offset << "\nHEAD2 offset: " << HEAD2_offset << "\nHEAD3 offset: " << HEAD3_offset << "\n\n";}
+            
             //HEAD1
             HEAD1_offset+=8;
             HEAD1_codec               = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x00,1);
@@ -182,10 +214,11 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
             HEAD1_samples_per_ADPC    = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x2C,4);
             HEAD1_bytes_per_ADPC      = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x30,4);
             HEAD1_offset-=8;
+            
             if(debugLevel>0) {std::cout << "Codec: " << HEAD1_codec << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
             
             //safety
-            if(HEAD1_num_channels>16) {std::cout << "Too many channels. Max supported is 16.\n"; return 249;}
+            if(HEAD1_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels. Max supported is 16.\n";} return 249;}
             
             //HEAD2
             HEAD2_offset+=8;
@@ -193,7 +226,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
             HEAD2_track_type = getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x01,1);
             
             //safety
-            if(HEAD2_num_tracks>8) {std::cout << "Too many tracks. Max supported is 8.\n"; return 248;}
+            if(HEAD2_num_tracks>8) { if(debugLevel>=0) {std::cout << "Too many tracks. Max supported is 8.\n";} return 248;}
             
             //read info for each track
             for(unsigned char i=0;i<HEAD2_num_tracks;i++) {
@@ -211,7 +244,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
                     //type 1 stuff
                     HEAD2_track_volume      [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
                     HEAD2_track_panning     [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
-                } else {std::cout << "Unknown track type.\n"; return 254;}
+                } else { if(debugLevel>=0) {std::cout << "Unknown track type.\n";} return 254;}
                 HEAD2_track_info_offsets[i]-=8;
             }
             
@@ -219,6 +252,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
             if(debugLevel>1) {for(unsigned char i=0;i<HEAD2_num_tracks;i++) {
                 std::cout << "\nTrack " << i+1 << "\nOffset: " << HEAD2_track_info_offsets[i] << "\nVolume: " << HEAD2_track_volume[i] << "\nPanning: " << HEAD2_track_panning[i] << "\nChannels: " << HEAD2_track_num_channels[i] << "\nLeft channel ID:  " << HEAD2_track_lchannel_id[i] << "\nRight channel ID: " << HEAD2_track_rchannel_id[i] << "\n\n";
             }}
+            
             HEAD2_offset-=8;
             
             //HEAD3
@@ -226,7 +260,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
             HEAD3_num_channels = getSliceAsNumber(fileData,HEAD_offset+HEAD3_offset+0x00,1);
             
             //safety
-            if(HEAD3_num_channels>16) {std::cout << "Too many channels. Max supported is 16.\n"; return 249;}
+            if(HEAD3_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels. Max supported is 16.\n";} return 249;}
             
             for(unsigned char i=0;i<HEAD3_num_channels;i++) {
                 unsigned int readOffset = HEAD_offset+HEAD3_offset+0x04+4+(i*8);
@@ -253,6 +287,7 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
                 }
                 std::cout << "\n\n";
             }}
+            
             HEAD3_offset-=8;
             
             //ADPC chunk
@@ -267,17 +302,19 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
                 for(unsigned int n=0;n<HEAD3_num_channels;n++) {
                     ADPC_hsamples_1[n] = new signed int[ADPC_total_entries/HEAD3_num_channels];
                     ADPC_hsamples_2[n] = new signed int[ADPC_total_entries/HEAD3_num_channels];
+                    
                     if(debugLevel>1) {std::cout << "Channel " << n << ": ";}
+                    
                     unsigned int it;
                     for(unsigned int i=0;i<ADPC_total_entries/HEAD3_num_channels;i++) {
                         unsigned int offset=ADPC_offset+8+(n*HEAD1_bytes_per_ADPC)+((i*HEAD1_bytes_per_ADPC)*HEAD3_num_channels);
                         ADPC_hsamples_1[n][i] = getSliceAsInt16Sample(fileData,offset);
                         ADPC_hsamples_2[n][i] = getSliceAsInt16Sample(fileData,offset+2);
-                        //std::cout << "\nRead at offset " << offset << " result " << ADPC_hsamples_1[n][i] << ", " << ADPC_hsamples_2[n][i] << '\n';
                         it=i+1;
                     }
                     if(debugLevel>1) {std::cout << it << " history sample pairs read.\n";}
                 }
+                
                 if(debugLevel>1) {std::cout << "ADPC length: " << ADPC_total_length << "\nTotal entries: " << ADPC_total_entries << "\n\n";}
                 
                 //DATA chunk
@@ -288,14 +325,17 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
                 if(magic) {
                     //Start reading DATA
                     DATA_total_length = getSliceAsNumber(fileData,DATA_offset+0x04,4);
+                    
                     if(debugLevel>1) {std::cout << "DATA length: " << DATA_total_length << '\n';}
+                    
+                    if(HEAD1_codec!=2) { if(debugLevel>=0) {std::cout << "Unsupported codec.\n";} return 220;}
                     
                     if(decodeADPCM) {
                         //Read the ADPCM data
                         //unsigned long written_samples=0; //#########################################################################################################-Should be declared in main file
                         
                         unsigned long posOffset=0;
-                        if(HEAD1_codec!=2) {std::cout << "Unsupported codec.\n"; return 220;}
+                        
                         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
                             //Create new array of samples for the current channel
                             PCM_samples[c] = new int16_t[((DATA_total_length-32)*2)/HEAD3_num_channels];
@@ -357,7 +397,6 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
                                     PCM_samples[c][outputPos++] = cyn1;
                                     written_samples++;
                                 }
-                                //std::cout << ">>" << c << b << yn1 << yn2 << ps << blockData << sampleResult << '\n';
                                 posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
                             }
                         }
@@ -366,14 +405,14 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
                     //end
                     return 0;
                     
-                } else {std::cout << "Invalid DATA chunk.\n"; return 230;}
+                } else { if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";} return 230;}
                 
-            } else {std::cout << "Invalid ADPC chunk.\n"; return 240;}
+            } else { if(debugLevel>=0) {std::cout << "Invalid ADPC chunk.\n";} return 240;}
             
-        } else {std::cout << "Invalid HEAD chunk.\n"; return 250;}
+        } else { if(debugLevel>=0) {std::cout << "Invalid HEAD chunk.\n";} return 250;}
         
-    } else {std::cout << "Invalid BRSTM file.\n"; return 255;}
-    return 0;
+    } else { if(debugLevel>=0) {std::cout << "Invalid BRSTM file.\n";} return 255;}
+    return 200;
 }
 
 //int16_t* PCM_buffer[16]; Should be declared in main file
@@ -382,6 +421,15 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel,b
 int16_t* PCM_blockbuffer[16];
 int PCM_blockbuffer_currentBlock = -1;
 
+/* 
+ * Get a buffer of audio data
+ * 
+ * fileData: BRSTM file
+ * sampleOffset: Offset to the first sample in the buffer
+ * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
+ * useBuffer: [true] Make the requested buffer or [false] only decode the block into the cache (This should always be true)
+ * 
+ */
 void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples,bool useBuffer) {
     if(sampleOffset>HEAD1_total_samples) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -396,7 +444,7 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
     if(PCM_blockbuffer_currentBlock != sampleOffset/HEAD1_blocks_samples) {
         //Read the ADPCM data
         unsigned long posOffset=0;
-        if(HEAD1_codec!=2) {std::cout << "Unsupported codec.\n"; exit(220);}
+        if(HEAD1_codec!=2) {exit(220);}
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
             //Create new array of samples for the current channel
             delete[] PCM_blockbuffer[c];
@@ -470,7 +518,7 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
         }
     }
     if(useBuffer) {
-        //Put it in the pcm buffer
+        //Put it in the PCM buffer
         bool blockEndReached = false;
         unsigned int blockEndReachedAt = 0;
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -500,6 +548,10 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
     }
 }
 
+/* 
+ * Close the BRSTM file (reset variables and free memory)
+ * You still have to free PCM_samples manually if you're using it!
+ */
 void brstm_close() {
     for(unsigned char i=0;i<16;i++) {
         for(unsigned char j=0;j<16;j++) {
