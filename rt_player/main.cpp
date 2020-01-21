@@ -130,7 +130,10 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     unsigned char ch2id = HEAD3_num_channels > 1 ? HEAD2_track_rchannel_id[current_track] : ch1id;
     
     if(!paused) {
-        brstm_getbuffer(memblock,playback_current_sample,nBufferFrames,true);
+        brstm_getbuffer(memblock,playback_current_sample,
+                        //Avoid reading garbage outside the file
+                        HEAD1_total_samples-playback_current_sample < nBufferFrames ? HEAD1_total_samples-playback_current_sample : nBufferFrames,
+                        true);
         int ioffset=0;
         for (i=0;i<nBufferFrames;i+=1) {
             *buffer++ = (double)PCM_buffer[ch1id][i+ioffset] / 32768;
