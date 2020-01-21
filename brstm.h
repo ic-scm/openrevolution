@@ -1,5 +1,6 @@
 //C++ BRSTM reader
 //Copyright (C) 2020 Extrasklep
+//https://github.com/Extrasklep/brstm
 
 unsigned char* slice;
 char* slicestring;
