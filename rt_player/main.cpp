@@ -259,7 +259,7 @@ int main( int argc, char* args[] ) {
             case 'a': case 'A': break;
             case 'd': case 'D': break;*/
             case ' ': paused=!paused; break;
-            case 'q': stop_playing = 1;
+            case 'q': case 'Q': stop_playing = 1;
         }
         //std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
