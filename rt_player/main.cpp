@@ -1,4 +1,4 @@
-//C++ BRSTM reader
+//C++ BRSTM reader/player
 //Copyright (C) 2020 Extrasklep
 #include <iostream>
 #include <fstream>
@@ -132,8 +132,8 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     if(!paused) {
         brstm_getbuffer(memblock,playback_current_sample,
                         //Avoid reading garbage outside the file
-                        HEAD1_total_samples-playback_current_sample < nBufferFrames ? HEAD1_total_samples-playback_current_sample : nBufferFrames,
-                        true);
+                        HEAD1_total_samples-playback_current_sample < nBufferFrames ? HEAD1_total_samples-playback_current_sample : nBufferFrames
+                        );
         int ioffset=0;
         for (i=0;i<nBufferFrames;i+=1) {
             *buffer++ = (double)PCM_buffer[ch1id][i+ioffset] / 32768;
@@ -144,7 +144,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
                 if(HEAD1_loop) {
                     playback_current_sample=HEAD1_loop_start;
                     //refill buffer
-                    brstm_getbuffer(memblock,playback_current_sample,nBufferFrames,true);
+                    brstm_getbuffer(memblock,playback_current_sample,nBufferFrames);
                     ioffset-=i;
                 } else {
                     stop_playing=1; 
@@ -195,7 +195,6 @@ int main( int argc, char* args[] ) {
     }
     
     //Read the file
-    if(verb) {std::cout << "Reading file " << args[1];}
     std::streampos fsize;
     std::ifstream file (args[1], std::ios::in|std::ios::binary|std::ios::ate);
     if (file.is_open()) {
@@ -203,9 +202,9 @@ int main( int argc, char* args[] ) {
         memblock = new unsigned char [fsize];
         file.seekg (0, std::ios::beg);
         file.read ((char*)memblock, fsize);
-        if(verb) {std::cout << " size " << fsize << '\n';}
+        if(verb) {std::cout << "Read file " << args[1] << " size " << fsize << '\n';}
         file.close();
-    } else {std::cout << "\nUnable to open file\n"; return 255;}
+    } else {std::cout << "Unable to open file \"" << args[1] << "\".\n"; return 255;}
     
     //Read the BRSTM headers
     unsigned char result=brstm_read(memblock,verb,false);
@@ -259,7 +258,7 @@ int main( int argc, char* args[] ) {
             case 'a': case 'A': break;
             case 'd': case 'D': break;*/
             case ' ': paused=!paused; break;
-            case 'q': case 'Q': stop_playing = 1;
+            case 'q': case 'Q': stop_playing = 1; break;
         }
         //std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }

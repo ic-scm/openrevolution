@@ -74,20 +74,20 @@ signed   int* ADPC_hsamples_2[16];
  * fileData: BRSTM file
  * debugLevel:
  *    -1 = Never output anything
- *     0 = Only output when an error occurs
+ *     0 = Only output errors/warnings
  *     1 = Output information about the BRSTM
  *     2 = Output all information about the BRSTM (offsets, sizes, ADPCM information etc.)
  * decodeADPCM:
- *     false = Don't decode the audio data
+ *     false = Don't decode the audio data (Don't read the DATA chunk)
  *     true  = Decode audio data into PCM_samples
  * 
- * Returns:
+ * Returns error code (>127) or warning code (<128):
  *        0 = No error
  *      255 = Invalid BRSTM file (Doesn't begin with RSTM)
- *      254 = Unknown track info type
  *      250 = Invalid HEAD chunk (Doesn't begin with HEAD)
  *      249 = Too many channels
  *      248 = Too many tracks
+ *      244 = Unknown track info type
  *      240 = Invalid ADPC chunk (Doesn't begin with ADPC)
  *      230 = Invalid DATA chunk (Doesn't begin with DATA)
  *      220 = Unsupported or unknown audio codec
@@ -245,7 +245,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
                     //type 1 stuff
                     HEAD2_track_volume      [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
                     HEAD2_track_panning     [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
-                } else { if(debugLevel>=0) {std::cout << "Unknown track type.\n";} return 254;}
+                } else { if(debugLevel>=0) {std::cout << "Unknown track type.\n";} return 244;}
                 HEAD2_track_info_offsets[i]-=8;
             }
             
@@ -432,16 +432,17 @@ unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel) 
 int16_t* PCM_blockbuffer[16];
 int PCM_blockbuffer_currentBlock = -1;
 
+bool brstm_getbuffer_useBuffer = true;
+
 /* 
  * Get a buffer of audio data
  * 
  * fileData: BRSTM file
  * sampleOffset: Offset to the first sample in the buffer
  * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
- * useBuffer: [true] Make the requested buffer or [false] only decode the block into the cache (This should always be true)
  * 
  */
-void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples,bool useBuffer) {
+void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples) {
     if(sampleOffset>HEAD1_total_samples) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
             delete[] PCM_buffer[c];
@@ -528,7 +529,7 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
             posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
         }
     }
-    if(useBuffer) {
+    if(brstm_getbuffer_useBuffer) {
         //Put it in the PCM buffer
         bool blockEndReached = false;
         unsigned int blockEndReachedAt = 0;
@@ -548,7 +549,9 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
             }
         }
         if(blockEndReached) {
-            brstm_getbuffer(fileData,sampleOffset+blockEndReachedAt,0,false);
+            brstm_getbuffer_useBuffer = false; //don't make a new buffer in PCM_buffer
+            brstm_getbuffer(fileData,sampleOffset+blockEndReachedAt,0);
+            brstm_getbuffer_useBuffer = true;
             for(unsigned int c=0;c<HEAD3_num_channels;c++) {
                 unsigned int dataIndex=0;
                 for(unsigned int p=blockEndReachedAt;p<bufferSamples;p++) {
@@ -559,9 +562,13 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
     }
 }
 
+//backwards comaptibility
+void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples,bool useBuffer) {
+    brstm_getbuffer(fileData,sampleOffset,bufferSamples);
+}
+
 /* 
  * Close the BRSTM file (reset variables and free memory)
- * You still have to free PCM_samples manually if you're using it!
  */
 void brstm_close() {
     for(unsigned char i=0;i<16;i++) {
