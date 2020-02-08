@@ -5,12 +5,12 @@
 unsigned char* slice;
 char* slicestring;
 
-long clamp(long value, long min, long max) {
+long brstm_clamp(long value, long min, long max) {
   return value <= min ? min : value >= max ? max : value;
 }
 
 //Get slice of data
-unsigned char* getSlice(const unsigned char* data,unsigned long start,unsigned long length) {
+unsigned char* brstm_getSlice(const unsigned char* data,unsigned long start,unsigned long length) {
     delete[] slice;
     slice = new unsigned char[length];
     for(unsigned int i=0;i<length;i++) {
@@ -20,10 +20,10 @@ unsigned char* getSlice(const unsigned char* data,unsigned long start,unsigned l
 }
 
 //Get slice and convert it to a number
-unsigned long getSliceAsNumber(const unsigned char* data,unsigned long start,unsigned long length) {
+unsigned long brstm_getSliceAsNumber(const unsigned char* data,unsigned long start,unsigned long length) {
     if(length>4) {length=4;}
     unsigned long number=0;
-    unsigned char* bytes=getSlice(data,start,length);
+    unsigned char* bytes=brstm_getSlice(data,start,length);
     unsigned char pos=length-1; //Read as big endian
     unsigned long pw=1; //Multiply by 1,256,65536...
     //std::cout << length << '\n';
@@ -37,10 +37,10 @@ unsigned long getSliceAsNumber(const unsigned char* data,unsigned long start,uns
 }
 
 //Get slice as signed 16 bit number
-signed int getSliceAsInt16Sample(const unsigned char * data,unsigned long start) {
+signed int brstm_getSliceAsInt16Sample(const unsigned char * data,unsigned long start) {
     unsigned int length=2;
     unsigned long number=0;
-    unsigned char* bytes=getSlice(data,start,length);
+    unsigned char* bytes=brstm_getSlice(data,start,length);
     unsigned char little=bytes[1];
     signed   char big=bytes[0];
     number=little+big*256;
@@ -48,9 +48,9 @@ signed int getSliceAsInt16Sample(const unsigned char * data,unsigned long start)
 }
 
 //Get slice as a null terminated string
-char* getSliceAsString(const unsigned char* data,unsigned long start,unsigned long length) {
+char* brstm_getSliceAsString(const unsigned char* data,unsigned long start,unsigned long length) {
     unsigned char slicestr[length+1];
-    unsigned char* bytes=getSlice(data,start,length);
+    unsigned char* bytes=brstm_getSlice(data,start,length);
     for(unsigned int i=0;i<length;i++) {
         slicestr[i]=bytes[i];
         if(slicestr[i]=='\0') {slicestr[i]=' ';}
@@ -93,7 +93,7 @@ signed   int* ADPC_hsamples_2[16];
  *      220 = Unsupported or unknown audio codec
  *      200 = Unknown error (this should never happen)
  */
-unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
+unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
     //Read the headers
     //Header
     unsigned long file_size;
@@ -160,7 +160,7 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
     //int16_t* PCM_samples[16]; //Should be declared in main file
     
     //Check if the header matches RSTM
-    char* magicstr=getSliceAsString(fileData,0,4);
+    char* magicstr=brstm_getSliceAsString(fileData,0,4);
     char  emagic1[5]="RSTM";
     char  emagic2[5]="HEAD";
     char  emagic3[5]="ADPC";
@@ -171,49 +171,49 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
     }
     if(magic) {
         //Start reading header
-        file_size   = getSliceAsNumber(fileData,0x08,4);
-        header_size = getSliceAsNumber(fileData,0x0C,2);
-        num_chunks  = getSliceAsNumber(fileData,0x0E,2);
-        HEAD_offset = getSliceAsNumber(fileData,0x10,4);
-        HEAD_size   = getSliceAsNumber(fileData,0x14,4);
-        ADPC_offset = getSliceAsNumber(fileData,0x18,4);
-        ADPC_size   = getSliceAsNumber(fileData,0x1C,4);
-        DATA_offset = getSliceAsNumber(fileData,0x20,4);
-        DATA_size   = getSliceAsNumber(fileData,0x24,4);
+        file_size   = brstm_getSliceAsNumber(fileData,0x08,4);
+        header_size = brstm_getSliceAsNumber(fileData,0x0C,2);
+        num_chunks  = brstm_getSliceAsNumber(fileData,0x0E,2);
+        HEAD_offset = brstm_getSliceAsNumber(fileData,0x10,4);
+        HEAD_size   = brstm_getSliceAsNumber(fileData,0x14,4);
+        ADPC_offset = brstm_getSliceAsNumber(fileData,0x18,4);
+        ADPC_size   = brstm_getSliceAsNumber(fileData,0x1C,4);
+        DATA_offset = brstm_getSliceAsNumber(fileData,0x20,4);
+        DATA_size   = brstm_getSliceAsNumber(fileData,0x24,4);
         
         if(debugLevel>1) {std::cout << "File size: " << file_size << "\nHeader size: " << header_size << "\nChunks: " << num_chunks << "\nHEAD offset: " << HEAD_offset << "\nHEAD size: " << HEAD_size << "\nADPC offset: " << ADPC_offset << "\nADPC size: " << ADPC_size << "\nDATA offset: " << DATA_offset << "\nDATA size: " << DATA_size << "\n\n";}
         
         //HEAD
-        magicstr=getSliceAsString(fileData,HEAD_offset,4);
+        magicstr=brstm_getSliceAsString(fileData,HEAD_offset,4);
         for(unsigned int i=0;i<strlen(magicstr);i++) {
             if(magicstr[i]!=emagic2[i]) {magic=0;}
         }
         if(magic) {
             //Start reading HEAD
-            HEAD_length  = getSliceAsNumber(fileData,HEAD_offset+0x04,4);
-            HEAD1_offset = getSliceAsNumber(fileData,HEAD_offset+0x0C,4);
-            HEAD2_offset = getSliceAsNumber(fileData,HEAD_offset+0x14,4);
-            HEAD3_offset = getSliceAsNumber(fileData,HEAD_offset+0x1C,4);
+            HEAD_length  = brstm_getSliceAsNumber(fileData,HEAD_offset+0x04,4);
+            HEAD1_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x0C,4);
+            HEAD2_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x14,4);
+            HEAD3_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x1C,4);
             
             if(debugLevel>1) {std::cout << "HEAD length: " << HEAD_length << "\nHEAD1 offset: " << HEAD1_offset << "\nHEAD2 offset: " << HEAD2_offset << "\nHEAD3 offset: " << HEAD3_offset << "\n\n";}
             
             //HEAD1
             HEAD1_offset+=8;
-            HEAD1_codec               = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x00,1);
-            HEAD1_loop                = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x01,1);
-            HEAD1_num_channels        = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x02,1);
-            HEAD1_sample_rate         = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x04,2);
-            HEAD1_loop_start          = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x08,4);
-            HEAD1_total_samples       = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x0C,4);
-            HEAD1_ADPCM_offset        = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x10,4);
-            HEAD1_total_blocks        = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x14,4);
-            HEAD1_blocks_size         = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x18,4);
-            HEAD1_blocks_samples      = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x1C,4);
-            HEAD1_final_block_size    = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x20,4);
-            HEAD1_final_block_samples = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x24,4);
-            HEAD1_final_block_size_p  = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x28,4);
-            HEAD1_samples_per_ADPC    = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x2C,4);
-            HEAD1_bytes_per_ADPC      = getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x30,4);
+            HEAD1_codec               = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x00,1);
+            HEAD1_loop                = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x01,1);
+            HEAD1_num_channels        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x02,1);
+            HEAD1_sample_rate         = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x04,2);
+            HEAD1_loop_start          = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x08,4);
+            HEAD1_total_samples       = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x0C,4);
+            HEAD1_ADPCM_offset        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x10,4);
+            HEAD1_total_blocks        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x14,4);
+            HEAD1_blocks_size         = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x18,4);
+            HEAD1_blocks_samples      = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x1C,4);
+            HEAD1_final_block_size    = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x20,4);
+            HEAD1_final_block_samples = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x24,4);
+            HEAD1_final_block_size_p  = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x28,4);
+            HEAD1_samples_per_ADPC    = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x2C,4);
+            HEAD1_bytes_per_ADPC      = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x30,4);
             HEAD1_offset-=8;
             
             if(debugLevel>0) {std::cout << "Codec: " << HEAD1_codec << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
@@ -223,8 +223,8 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
             
             //HEAD2
             HEAD2_offset+=8;
-            HEAD2_num_tracks = getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x00,1);
-            HEAD2_track_type = getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x01,1);
+            HEAD2_num_tracks = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x00,1);
+            HEAD2_track_type = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x01,1);
             
             //safety
             if(HEAD2_num_tracks>8) { if(debugLevel>=0) {std::cout << "Too many tracks. Max supported is 8.\n";} return 248;}
@@ -232,19 +232,19 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
             //read info for each track
             for(unsigned char i=0;i<HEAD2_num_tracks;i++) {
                 unsigned int readOffset = HEAD_offset+HEAD2_offset+0x04+4+(i*8);
-                unsigned int infoOffset = getSliceAsNumber(fileData,readOffset,4);
+                unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4);
                 HEAD2_track_info_offsets[i]=infoOffset+8;
                 if(HEAD2_track_type==0) {
-                    HEAD2_track_num_channels[i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
-                    HEAD2_track_lchannel_id [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
-                    HEAD2_track_rchannel_id [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x02,1);
+                    HEAD2_track_num_channels[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
+                    HEAD2_track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
+                    HEAD2_track_rchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x02,1);
                 } else if(HEAD2_track_type==1) {
-                    HEAD2_track_num_channels[i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x08,1);
-                    HEAD2_track_lchannel_id [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x09,1);
-                    HEAD2_track_rchannel_id [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x0A,1);
+                    HEAD2_track_num_channels[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x08,1);
+                    HEAD2_track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x09,1);
+                    HEAD2_track_rchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x0A,1);
                     //type 1 stuff
-                    HEAD2_track_volume      [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
-                    HEAD2_track_panning     [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
+                    HEAD2_track_volume      [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
+                    HEAD2_track_panning     [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
                 } else { if(debugLevel>=0) {std::cout << "Unknown track type.\n";} return 254;}
                 HEAD2_track_info_offsets[i]-=8;
             }
@@ -258,25 +258,25 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
             
             //HEAD3
             HEAD3_offset+=8;
-            HEAD3_num_channels = getSliceAsNumber(fileData,HEAD_offset+HEAD3_offset+0x00,1);
+            HEAD3_num_channels = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_offset+0x00,1);
             
             //safety
             if(HEAD3_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels. Max supported is 16.\n";} return 249;}
             
             for(unsigned char i=0;i<HEAD3_num_channels;i++) {
                 unsigned int readOffset = HEAD_offset+HEAD3_offset+0x04+4+(i*8);
-                unsigned int infoOffset = getSliceAsNumber(fileData,readOffset,4);
+                unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4);
                 HEAD3_ch_info_offsets[i]=infoOffset+8;
                 for(unsigned char x=0;x<32;x+=2) {
-                    HEAD3_int16_adpcm[i][x/2] = getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x08+x);
+                    HEAD3_int16_adpcm[i][x/2] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x08+x);
                 }
-                HEAD3_ch_gain          [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x28,2);
-                HEAD3_ch_initial_scale [i] = getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2A,2);
-                HEAD3_ch_hsample_1     [i] = getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2C);
-                HEAD3_ch_hsample_2     [i] = getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2E);
-                HEAD3_ch_loop_ini_scale[i] = getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x30,2);
-                HEAD3_ch_loop_hsample_1[i] = getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x32);
-                HEAD3_ch_loop_hsample_2[i] = getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x34);
+                HEAD3_ch_gain          [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x28,2);
+                HEAD3_ch_initial_scale [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2A,2);
+                HEAD3_ch_hsample_1     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2C);
+                HEAD3_ch_hsample_2     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2E);
+                HEAD3_ch_loop_ini_scale[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x30,2);
+                HEAD3_ch_loop_hsample_1[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x32);
+                HEAD3_ch_loop_hsample_2[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x34);
                 HEAD3_ch_info_offsets[i]-=8;
             }
             
@@ -292,13 +292,13 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
             HEAD3_offset-=8;
             
             //ADPC chunk
-            magicstr=getSliceAsString(fileData,ADPC_offset,4);
+            magicstr=brstm_getSliceAsString(fileData,ADPC_offset,4);
             for(unsigned int i=0;i<strlen(magicstr);i++) {
                 if(magicstr[i]!=emagic3[i]) {magic=0;}
             }
             if(magic) {
                 //Start reading ADPC
-                ADPC_total_length  = getSliceAsNumber(fileData,ADPC_offset+0x04,4);
+                ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4);
                 ADPC_total_entries = (ADPC_total_length-8)/HEAD1_bytes_per_ADPC;
                 for(unsigned int n=0;n<HEAD3_num_channels;n++) {
                     ADPC_hsamples_1[n] = new signed int[ADPC_total_entries/HEAD3_num_channels];
@@ -309,8 +309,8 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
                     unsigned int it;
                     for(unsigned int i=0;i<ADPC_total_entries/HEAD3_num_channels;i++) {
                         unsigned int offset=ADPC_offset+8+(n*HEAD1_bytes_per_ADPC)+((i*HEAD1_bytes_per_ADPC)*HEAD3_num_channels);
-                        ADPC_hsamples_1[n][i] = getSliceAsInt16Sample(fileData,offset);
-                        ADPC_hsamples_2[n][i] = getSliceAsInt16Sample(fileData,offset+2);
+                        ADPC_hsamples_1[n][i] = brstm_getSliceAsInt16Sample(fileData,offset);
+                        ADPC_hsamples_2[n][i] = brstm_getSliceAsInt16Sample(fileData,offset+2);
                         it=i+1;
                     }
                     if(debugLevel>1) {std::cout << it << " history sample pairs read.\n";}
@@ -319,13 +319,13 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
                 if(debugLevel>1) {std::cout << "ADPC length: " << ADPC_total_length << "\nTotal entries: " << ADPC_total_entries << "\n\n";}
                 
                 //DATA chunk
-                magicstr=getSliceAsString(fileData,DATA_offset,4);
+                magicstr=brstm_getSliceAsString(fileData,DATA_offset,4);
                 for(unsigned int i=0;i<strlen(magicstr);i++) {
                     if(magicstr[i]!=emagic4[i]) {magic=0;}
                 }
                 if(magic) {
                     //Start reading DATA
-                    DATA_total_length = getSliceAsNumber(fileData,DATA_offset+0x04,4);
+                    DATA_total_length = brstm_getSliceAsNumber(fileData,DATA_offset+0x04,4);
                     
                     if(debugLevel>1) {std::cout << "DATA length: " << DATA_total_length << '\n';}
                     
@@ -361,7 +361,7 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
                                     posOffset+=HEAD1_final_block_size_p*c;
                                 }
                                 //Get data from just the current block
-                                unsigned char* blockData = getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+                                unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
                                 
                                 //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
                                 const unsigned char ps = blockData[0];
@@ -390,10 +390,10 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
                                     const long scale = 1 << (cps & 0x0f);
                                     const long cIndex = (cps >> 4) << 1;
                                     
-                                    outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                                    outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
                                     
                                     cyn2 = cyn1;
-                                    cyn1 = clamp(outSample, -32768, 32767);
+                                    cyn1 = brstm_clamp(outSample, -32768, 32767);
                                     
                                     PCM_samples[c][outputPos++] = cyn1;
                                     written_samples++;
@@ -414,6 +414,16 @@ unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool
         
     } else { if(debugLevel>=0) {std::cout << "Invalid BRSTM file.\n";} return 255;}
     return 200;
+}
+
+//backwards comaptibility
+unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
+    std::cout << "Warning: readBrstm is now brstm_read, please update your code\n";
+    return brstm_read(fileData,debugLevel,decodeADPCM);
+}
+
+unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel) {
+    return readBrstm(fileData,debugLevel,true);
 }
 
 //int16_t* PCM_buffer[16]; Should be declared in main file
@@ -476,7 +486,7 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
                 posOffset+=HEAD1_final_block_size_p*c;
             }
             //Get data from just the current block
-            unsigned char* blockData = getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+            unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
             
             //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
             const unsigned char ps = blockData[0];
@@ -505,10 +515,10 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
                 const long scale = 1 << (cps & 0x0f);
                 const long cIndex = (cps >> 4) << 1;
                 
-                outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
                 
                 cyn2 = cyn1;
-                cyn1 = clamp(outSample, -32768, 32767);
+                cyn1 = brstm_clamp(outSample, -32768, 32767);
                 
                 PCM_blockbuffer[c][outputPos++] = cyn1;
                 c_writtensamples++;
