@@ -208,7 +208,7 @@ int main( int argc, char* args[] ) {
     } else {std::cout << "\nUnable to open file\n"; return 255;}
     
     //Read the BRSTM headers
-    unsigned char result=readBrstm(memblock,verb,false);
+    unsigned char result=brstm_read(memblock,verb,false);
     if(result>127) {
         std::cout << "Error.\n";
         return result;
