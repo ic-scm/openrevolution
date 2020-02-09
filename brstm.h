@@ -569,20 +569,27 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
 
 //Read BRSTM directly from an ifstream (helper function)
 unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
+    unsigned char* brstm_header;
     //check if the file has the RSTM word before allocating memory for the full BRSTM header
-    //so you won't try to allocate and read huge amounts of memory if an invalid file has a big number in the place where the offset to the DATA chunk usually is
+    //so you won't try to allocate and read huge amounts of memory if an invalid file
+    //has a big number in the place where the offset to the DATA chunk usually is
     stream.seekg(0);
     const char* emagic = "RSTM";
     char magicword[5];
     stream.read(magicword,4);
     magicword[4] = '\0';
     if(strcmp(magicword,emagic) != 0) {
-        std::cout << "Magic doesn't match\n"; //remove in prod
+        if(debugLevel>=0) {std::cout << "Invalid BRSTM file.\n";}
         return 255;
     }
     
     //get offset to DATA chunk
     stream.seekg(0x20);
+    unsigned char of0x20[4];
+    stream.read((char*)of0x20,4);
+    unsigned int headerSize = brstm_getSliceAsNumber(of0x20,0,4) + 512;
+    std::cout << "headerSize " << headerSize << '\n'; //remove in prod
+    
     return 0;
 }
 
