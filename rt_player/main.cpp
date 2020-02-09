@@ -260,6 +260,8 @@ int main( int argc, char* args[] ) {
         }
     } else {
         //disk streaming mode
+        brstm_fstream_read(file,verb);
+        
         std::cout << "Mode 1 not implemented yet\n";
         exit(255);
     }
