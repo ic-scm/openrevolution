@@ -434,6 +434,83 @@ int PCM_blockbuffer_currentBlock = -1;
 
 bool brstm_getbuffer_useBuffer = true;
 
+//This function is used by brstm_getbuffer
+void brstm_fillblockbuffer(const unsigned char* fileData, unsigned long b) {
+    //Read the ADPCM data
+    unsigned long posOffset=0;
+    if(HEAD1_codec!=2) {exit(220);}
+    for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+        //Create new array of samples for the current channel
+        delete[] PCM_blockbuffer[c];
+        PCM_blockbuffer[c] = new int16_t[HEAD1_blocks_samples];
+        
+        posOffset=0+(HEAD1_blocks_size*c);
+        unsigned long outputPos = 0; //position in PCM block samples output array
+        
+        unsigned long c_writtensamples = 0;
+        
+        posOffset+=b*(HEAD1_blocks_size*HEAD3_num_channels);
+        
+        //Read block
+        unsigned int currentBlockSize    = HEAD1_blocks_size;
+        unsigned int currentBlockSamples = HEAD1_blocks_samples;
+        //Final block
+        if(b==HEAD1_total_blocks-1) {
+            currentBlockSize    = HEAD1_final_block_size;
+            currentBlockSamples = HEAD1_final_block_samples;
+        }
+        if(b>=HEAD1_total_blocks-1 && c>0) {
+            //Go back to the previous position
+            posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
+            //Go to the next block in position of first channel
+            posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
+            //Jump to the correct channel in the final block
+            posOffset+=HEAD1_final_block_size_p*c;
+        }
+        //Get data from just the current block
+        unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+        
+        //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
+        const unsigned char ps = blockData[0];
+        const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
+        
+        //Magic adapted from brawllib's ADPCMState.cs
+        signed int 
+        cps = ps,
+        cyn1 = yn1,
+        cyn2 = yn2;
+        unsigned long dataIndex = 0;
+        
+        for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
+            long outSample = 0;
+            if (sampleIndex % 14 == 0) {
+                cps = blockData[dataIndex++];
+            }
+            if ((sampleIndex++ & 1) == 0) {
+                outSample = blockData[dataIndex] >> 4;
+            } else {
+                outSample = blockData[dataIndex++] & 0x0f;
+            }
+            if (outSample >= 8) {
+                outSample -= 16;
+            }
+            const long scale = 1 << (cps & 0x0f);
+            const long cIndex = (cps >> 4) << 1;
+            
+            outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+            
+            cyn2 = cyn1;
+            cyn1 = brstm_clamp(outSample, -32768, 32767);
+            
+            PCM_blockbuffer[c][outputPos++] = cyn1;
+            c_writtensamples++;
+        }
+        PCM_blockbuffer_currentBlock = b;
+        //std::cout << ">>" << c << b << yn1 << yn2 << ps << blockData << sampleResult << '\n';
+        posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
+    }
+}
+
 /* 
  * Get a buffer of audio data
  * 
@@ -454,80 +531,8 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
         return;
     }
     if(PCM_blockbuffer_currentBlock != sampleOffset/HEAD1_blocks_samples) {
-        //Read the ADPCM data
-        unsigned long posOffset=0;
-        if(HEAD1_codec!=2) {exit(220);}
-        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-            //Create new array of samples for the current channel
-            delete[] PCM_blockbuffer[c];
-            PCM_blockbuffer[c] = new int16_t[HEAD1_blocks_samples];
-            
-            posOffset=0+(HEAD1_blocks_size*c);
-            unsigned long outputPos = 0; //position in PCM block samples output array
-            
-            unsigned long b=sampleOffset/HEAD1_blocks_samples;
-            unsigned long c_writtensamples = 0;
-            
-            posOffset+=b*(HEAD1_blocks_size*HEAD3_num_channels);
-            
-            //Read block
-            unsigned int currentBlockSize    = HEAD1_blocks_size;
-            unsigned int currentBlockSamples = HEAD1_blocks_samples;
-            //Final block
-            if(b==HEAD1_total_blocks-1) {
-                currentBlockSize    = HEAD1_final_block_size;
-                currentBlockSamples = HEAD1_final_block_samples;
-            }
-            if(b>=HEAD1_total_blocks-1 && c>0) {
-                //Go back to the previous position
-                posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
-                //Go to the next block in position of first channel
-                posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
-                //Jump to the correct channel in the final block
-                posOffset+=HEAD1_final_block_size_p*c;
-            }
-            //Get data from just the current block
-            unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
-            
-            //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
-            const unsigned char ps = blockData[0];
-            const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
-            
-            //Magic adapted from brawllib's ADPCMState.cs
-            signed int 
-            cps = ps,
-            cyn1 = yn1,
-            cyn2 = yn2;
-            unsigned long dataIndex = 0;
-            
-            for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
-                long outSample = 0;
-                if (sampleIndex % 14 == 0) {
-                    cps = blockData[dataIndex++];
-                }
-                if ((sampleIndex++ & 1) == 0) {
-                    outSample = blockData[dataIndex] >> 4;
-                } else {
-                    outSample = blockData[dataIndex++] & 0x0f;
-                }
-                if (outSample >= 8) {
-                    outSample -= 16;
-                }
-                const long scale = 1 << (cps & 0x0f);
-                const long cIndex = (cps >> 4) << 1;
-                
-                outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
-                
-                cyn2 = cyn1;
-                cyn1 = brstm_clamp(outSample, -32768, 32767);
-                
-                PCM_blockbuffer[c][outputPos++] = cyn1;
-                c_writtensamples++;
-            }
-            PCM_blockbuffer_currentBlock = b;
-            //std::cout << ">>" << c << b << yn1 << yn2 << ps << blockData << sampleResult << '\n';
-            posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
-        }
+        unsigned long b=sampleOffset/HEAD1_blocks_samples;
+        brstm_fillblockbuffer(fileData,b);
     }
     if(brstm_getbuffer_useBuffer) {
         //Put it in the PCM buffer
@@ -590,7 +595,15 @@ unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
     unsigned int headerSize = brstm_getSliceAsNumber(of0x20,0,4) + 512;
     std::cout << "headerSize " << headerSize << '\n'; //remove in prod
     
-    return 0;
+    //read header into memory
+    stream.seekg(0);
+    brstm_header = new unsigned char[headerSize];
+    stream.read((char*)brstm_header,headerSize);
+    
+    //call main brstm read function
+    unsigned char res = brstm_read(brstm_header,debugLevel,false);
+    delete[] brstm_header;
+    return res;
 }
 
 /* 
