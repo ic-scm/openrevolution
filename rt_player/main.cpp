@@ -123,7 +123,16 @@ void getBufferHelper(unsigned long sampleOffset,unsigned int bufferSize) {
     switch(memoryMode) {
         case 0: brstm_getbuffer(memblock,sampleOffset,bufferSize); break;
         case 1: std::cout << "Mode 1 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n"; exit(255);
-        case 2: std::cout << "Mode 2 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n"; exit(255);
+        case 2:
+        //full decode mode
+        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            delete[] PCM_buffer[c];
+            PCM_buffer[c] = new int16_t[bufferSize];
+            for(unsigned int i=0;i<bufferSize;i++) {
+                PCM_buffer[c][i] = PCM_samples[c][sampleOffset+i];
+            }
+        }
+        break;
     }
 }
 
@@ -180,7 +189,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 //-------------------######### STRINGS
 
 const char* helpString0 = "Usage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n";
+const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n\nMemory modes:\n(default) - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\n";
 
 const char* opts[] = {"-v","-s","-d"};
 //____________________________________
@@ -198,16 +207,22 @@ int main( int argc, char* args[] ) {
         int vOpt=-1;
         for(unsigned int o=0;o<3 /*replace this number with the amount of strings in opts*/;o++) {
             unsigned int matched=0;
-        for(unsigned int s=0;s<strlen(currentArg);s++) {
-            if(args[i][s]==opts[o][s]) {matched++;}
-        }
+            for(unsigned int s=0;s<strlen(currentArg);s++) {
+                if(args[i][s]==opts[o][s]) {matched++;}
+            }
             if(matched>=2) {
                 vOpt=o;
             }
         }
         if(vOpt==0) {verb=1;}
-        if(vOpt==1) {memoryMode=1; std::cout << "Disk stream mode\n";}
-        if(vOpt==2) {memoryMode=2; std::cout << "Full decode mode\n";}
+        if(vOpt==1) {memoryMode=1;}
+        if(vOpt==2) {memoryMode=2;}
+    }
+    
+    if(verb) switch(memoryMode) {
+        case 0: std::cout << "Realtime decoding mode\n"; break;
+        case 1: std::cout << "Disk stream mode\n"; break;
+        case 2: std::cout << "Full decode mode\n"; break;
     }
     
     //Read the file
