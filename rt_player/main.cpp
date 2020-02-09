@@ -54,10 +54,11 @@ unsigned long written_samples=0;
 //BRSTM file memblock
 unsigned char* memblock;
 
-unsigned char memoryMode = 0;
-//0 - load file into memory and decode in real time
-//1 - stream file from disk
-//2 - decode all audio data into memory before playing
+signed char memoryMode = -1;
+//-1 - default
+// 0 - load file into memory and decode in real time
+// 1 - stream file from disk
+// 2 - decode all audio data into memory before playing
 
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);
@@ -210,7 +211,7 @@ int main( int argc, char* args[] ) {
             for(unsigned int s=0;s<strlen(currentArg);s++) {
                 if(args[i][s]==opts[o][s]) {matched++;}
             }
-            if(matched>=2) {
+            if(matched>=strlen(opts[o])) {
                 vOpt=o;
             }
         }
@@ -219,36 +220,52 @@ int main( int argc, char* args[] ) {
         if(vOpt==2) {memoryMode=2;}
     }
     
+    //Read the file
+    std::streampos fsize;
+    std::ifstream file (args[1], std::ios::in|std::ios::binary|std::ios::ate);
+    if (file.is_open()) {
+        fsize = file.tellg();
+        file.seekg (0, std::ios::beg);
+        if(memoryMode == -1) {
+            //pick default memory mode
+            memoryMode = 0;
+        }
+        //don't read the file in mode 1
+        if(memoryMode != 1) {
+            memblock = new unsigned char [fsize];
+            file.read ((char*)memblock, fsize);
+            if(verb) {std::cout << "Read file " << args[1] << " size " << fsize << '\n';}
+            file.close();
+        }
+    } else {std::cout << "Unable to open file \"" << args[1] << "\".\n"; return 255;}
+    
     if(verb) switch(memoryMode) {
         case 0: std::cout << "Realtime decoding mode\n"; break;
         case 1: std::cout << "Disk stream mode\n"; break;
         case 2: std::cout << "Full decode mode\n"; break;
     }
     
-    //Read the file
-    std::streampos fsize;
-    std::ifstream file (args[1], std::ios::in|std::ios::binary|std::ios::ate);
-    if (file.is_open()) {
-        fsize = file.tellg();
-        memblock = new unsigned char [fsize];
-        file.seekg (0, std::ios::beg);
-        file.read ((char*)memblock, fsize);
-        if(verb) {std::cout << "Read file " << args[1] << " size " << fsize << '\n';}
-        file.close();
-    } else {std::cout << "Unable to open file \"" << args[1] << "\".\n"; return 255;}
-    
     //Read the BRSTM headers
-    unsigned char result=brstm_read(memblock,verb,
-        //decode the audio data if memory mode is 2
-        memoryMode == 2 ? true : false
-    );
-    //the file data will not be needed anymore in memory mode 2
-    if(memoryMode == 2) {delete[] memblock;}
-    
-    if(result>127) {
-        std::cout << "Error.\n";
-        return result;
+    if(memoryMode != 1) {
+        //use normal brstm functions
+        unsigned char result=brstm_read(memblock,verb,
+            //decode the audio data if memory mode is 2
+            memoryMode == 2 ? true : false
+        );
+        //the file data will not be needed anymore in memory mode 2
+        if(memoryMode == 2) {delete[] memblock;}
+        if(result>127) {
+            std::cout << "Error.\n";
+            return result;
+        }
+    } else {
+        //disk streaming mode
+        std::cout << "Mode 1 not implemented yet\n";
+        exit(255);
     }
+    
+    //calculate total seconds
+    total_seconds=HEAD1_total_samples/HEAD1_sample_rate;
     
     //Initialize rtaudio
     RtAudio dac;
@@ -264,9 +281,8 @@ int main( int argc, char* args[] ) {
     options.streamName = "BRSTM";
     unsigned int sampleRate = HEAD1_sample_rate;
     unsigned int bufferFrames = 256; // 256 sample frames
-    double data[2];
     try {
-        dac.openStream( &parameters, NULL, RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &RtAudioCb, (void *)&data, &options);
+        dac.openStream( &parameters, NULL, RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &RtAudioCb, (void *)&file, &options);
         dac.startStream();
     } catch (RtAudioError& e) {
         e.printMessage();
@@ -275,8 +291,6 @@ int main( int argc, char* args[] ) {
     
     //User input
     char input;
-    total_seconds=HEAD1_total_samples/HEAD1_sample_rate;
-    
     while(stop_playing==0) {
         input=getch();
         if(input=='\033') {
