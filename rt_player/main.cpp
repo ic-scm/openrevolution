@@ -125,7 +125,10 @@ void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int buff
         return;
         
         //streaming
-        case 1: std::cout << "Mode 1 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n"; exit(255);
+        case 1:
+        std::cout << "Mode 1 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n";
+        exit(255);
+        return;
         
         //full decode
         case 2:
@@ -144,7 +147,7 @@ void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int buff
 //RtAudio callback
 int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames, double streamTime, RtAudioStreamStatus status, void *userData) {
     unsigned int i;
-    double *buffer = (double *) outputBuffer;
+    int16_t *buffer = (int16_t*) outputBuffer;
     //if(status) {std::cout << "Stream underflow detected!\n";}
     
     //Update the display
@@ -166,8 +169,8 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
                         );
         int ioffset=0;
         for (i=0;i<nBufferFrames;i+=1) {
-            *buffer++ = (double)PCM_buffer[ch1id][i+ioffset] / 32768;
-            *buffer++ = (double)PCM_buffer[ch2id][i+ioffset] / 32768;
+            *buffer++ = PCM_buffer[ch1id][i+ioffset];
+            *buffer++ = PCM_buffer[ch2id][i+ioffset];
             
             playback_current_sample++;
             if(playback_current_sample > HEAD1_total_samples) {
@@ -292,7 +295,7 @@ int main( int argc, char* args[] ) {
     unsigned int sampleRate = HEAD1_sample_rate;
     unsigned int bufferFrames = 256; // 256 sample frames
     try {
-        dac.openStream( &parameters, NULL, RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &RtAudioCb, memoryMode == 1 ? (void *)&file : (void*)memblock, &options);
+        dac.openStream( &parameters, NULL, RTAUDIO_SINT16, sampleRate, &bufferFrames, &RtAudioCb, memoryMode == 1 ? (void *)&file : (void*)memblock, &options);
         dac.startStream();
     } catch (RtAudioError& e) {
         e.printMessage();
