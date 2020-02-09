@@ -54,6 +54,11 @@ unsigned long written_samples=0;
 //BRSTM file memblock
 unsigned char* memblock;
 
+unsigned char memoryMode = 0;
+//0 - load file into memory and decode in real time
+//1 - stream file from disk
+//2 - decode all audio data into memory before playing
+
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);
     strcpy(s,ss.c_str());
@@ -113,6 +118,15 @@ unsigned long total_seconds=0;
 bool stop_playing=0;
 bool paused=0;
 
+//get the buffer in different ways depending on the memory mode
+void getBufferHelper(unsigned long sampleOffset,unsigned int bufferSize) {
+    switch(memoryMode) {
+        case 0: brstm_getbuffer(memblock,sampleOffset,bufferSize); break;
+        case 1: std::cout << "Mode 1 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n"; exit(255);
+        case 2: std::cout << "Mode 2 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n"; exit(255);
+    }
+}
+
 //RtAudio callback
 int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames, double streamTime, RtAudioStreamStatus status, void *userData) {
     unsigned int i;
@@ -123,14 +137,15 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     playback_seconds=playback_current_sample/HEAD1_sample_rate;
     std::cout << '\r';
     if(paused) {std::cout << "Paused ";}
-    std::cout << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds) << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m                           \r";
+    std::cout << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds) << " Track: " << current_track+1
+    << ") (< >:Seek /\\ \\/:Switch track):\033[0m                           \r";
     
     //Get buffer and write data
     unsigned char ch1id = HEAD2_track_lchannel_id[current_track];
     unsigned char ch2id = HEAD3_num_channels > 1 ? HEAD2_track_rchannel_id[current_track] : ch1id;
     
     if(!paused) {
-        brstm_getbuffer(memblock,playback_current_sample,
+        getBufferHelper(playback_current_sample,
                         //Avoid reading garbage outside the file
                         HEAD1_total_samples-playback_current_sample < nBufferFrames ? HEAD1_total_samples-playback_current_sample : nBufferFrames
                         );
@@ -144,7 +159,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
                 if(HEAD1_loop) {
                     playback_current_sample=HEAD1_loop_start;
                     //refill buffer
-                    brstm_getbuffer(memblock,playback_current_sample,nBufferFrames);
+                    getBufferHelper(playback_current_sample,nBufferFrames);
                     ioffset-=i;
                 } else {
                     stop_playing=1; 
@@ -167,7 +182,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 const char* helpString0 = "Usage:\n";
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n";
 
-const char* opts[] = {"-v"};
+const char* opts[] = {"-v","-s","-d"};
 //____________________________________
 bool verb=0;
 
@@ -176,13 +191,12 @@ int main( int argc, char* args[] ) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
     }
-    const char* outputName;
     //Check user arguments
     //TODO replace this with something better and cleaner?
     for(unsigned int i=2;i<argc;i++) {
         char* currentArg=args[i];
         int vOpt=-1;
-        for(unsigned int o=0;o<1;o++) {
+        for(unsigned int o=0;o<3 /*replace this number with the amount of strings in opts*/;o++) {
             unsigned int matched=0;
         for(unsigned int s=0;s<strlen(currentArg);s++) {
             if(args[i][s]==opts[o][s]) {matched++;}
@@ -192,6 +206,8 @@ int main( int argc, char* args[] ) {
             }
         }
         if(vOpt==0) {verb=1;}
+        if(vOpt==1) {memoryMode=1; std::cout << "Disk stream mode\n";}
+        if(vOpt==2) {memoryMode=2; std::cout << "Full decode mode\n";}
     }
     
     //Read the file
@@ -207,7 +223,13 @@ int main( int argc, char* args[] ) {
     } else {std::cout << "Unable to open file \"" << args[1] << "\".\n"; return 255;}
     
     //Read the BRSTM headers
-    unsigned char result=brstm_read(memblock,verb,false);
+    unsigned char result=brstm_read(memblock,verb,
+        //decode the audio data if memory mode is 2
+        memoryMode == 2 ? true : false
+    );
+    //the file data will not be needed anymore in memory mode 2
+    if(memoryMode == 2) {delete[] memblock;}
+    
     if(result>127) {
         std::cout << "Error.\n";
         return result;
