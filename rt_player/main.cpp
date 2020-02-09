@@ -51,15 +51,6 @@ unsigned long written_samples=0;
 
 #include "../brstm.h" //must be included after this stuff
 
-//BRSTM file memblock
-unsigned char* memblock;
-
-signed char memoryMode = -1;
-//-1 - default
-// 0 - load file into memory and decode in real time
-// 1 - stream file from disk
-// 2 - decode all audio data into memory before playing
-
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);
     strcpy(s,ss.c_str());
@@ -119,11 +110,24 @@ unsigned long total_seconds=0;
 bool stop_playing=0;
 bool paused=0;
 
+signed char memoryMode = -1;
+//-1 - default
+// 0 - load file into memory and decode in real time
+// 1 - stream file from disk
+// 2 - decode all audio data into memory before playing
+
 //get the buffer in different ways depending on the memory mode
-void getBufferHelper(unsigned long sampleOffset,unsigned int bufferSize) {
+void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int bufferSize) {
     switch(memoryMode) {
-        case 0: brstm_getbuffer(memblock,sampleOffset,bufferSize); break;
+        //realtime
+        case 0:
+        brstm_getbuffer((const unsigned char*) userData,sampleOffset,bufferSize);
+        return;
+        
+        //streaming
         case 1: std::cout << "Mode 1 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n"; exit(255);
+        
+        //full decode
         case 2:
         //full decode mode
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -133,7 +137,7 @@ void getBufferHelper(unsigned long sampleOffset,unsigned int bufferSize) {
                 PCM_buffer[c][i] = PCM_samples[c][sampleOffset+i];
             }
         }
-        break;
+        return;
     }
 }
 
@@ -155,7 +159,8 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     unsigned char ch2id = HEAD3_num_channels > 1 ? HEAD2_track_rchannel_id[current_track] : ch1id;
     
     if(!paused) {
-        getBufferHelper(playback_current_sample,
+        //userData is either the file data or the ifstream depending on the memory mode
+        getBufferHelper(userData,playback_current_sample,
                         //Avoid reading garbage outside the file
                         HEAD1_total_samples-playback_current_sample < nBufferFrames ? HEAD1_total_samples-playback_current_sample : nBufferFrames
                         );
@@ -169,7 +174,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
                 if(HEAD1_loop) {
                     playback_current_sample=HEAD1_loop_start;
                     //refill buffer
-                    getBufferHelper(playback_current_sample,nBufferFrames);
+                    getBufferHelper(userData,playback_current_sample,nBufferFrames);
                     ioffset-=i;
                 } else {
                     stop_playing=1; 
@@ -194,9 +199,9 @@ const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose 
 
 const char* opts[] = {"-v","-s","-d"};
 //____________________________________
-bool verb=0;
 
 int main( int argc, char* args[] ) {
+    bool verb=0;
     if(argc<2) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
@@ -219,6 +224,9 @@ int main( int argc, char* args[] ) {
         if(vOpt==1) {memoryMode=1;}
         if(vOpt==2) {memoryMode=2;}
     }
+    
+    //BRSTM file memblock
+    unsigned char* memblock;
     
     //Read the file
     std::streampos fsize;
@@ -284,7 +292,7 @@ int main( int argc, char* args[] ) {
     unsigned int sampleRate = HEAD1_sample_rate;
     unsigned int bufferFrames = 256; // 256 sample frames
     try {
-        dac.openStream( &parameters, NULL, RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &RtAudioCb, (void *)&file, &options);
+        dac.openStream( &parameters, NULL, RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &RtAudioCb, memoryMode == 1 ? (void *)&file : (void*)memblock, &options);
         dac.startStream();
     } catch (RtAudioError& e) {
         e.printMessage();
