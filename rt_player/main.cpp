@@ -126,8 +126,7 @@ void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int buff
         
         //streaming
         case 1:
-        std::cout << "Mode 1 not implemented yet\n\n\nyour terminal is probably messed up now sorry\n";
-        exit(255);
+        brstm_fstream_getbuffer((std::ifstream&) userData,sampleOffset,bufferSize);
         return;
         
         //full decode
@@ -271,10 +270,11 @@ int main( int argc, char* args[] ) {
         }
     } else {
         //disk streaming mode
-        brstm_fstream_read(file,verb);
-        
-        std::cout << "Mode 1 not implemented yet\n";
-        exit(255);
+        unsigned char result = brstm_fstream_read(file,verb);
+        if(result>127) {
+            std::cout << "Error.\n";
+            return result;
+        }
     }
     
     //calculate total seconds

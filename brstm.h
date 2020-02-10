@@ -435,81 +435,7 @@ int PCM_blockbuffer_currentBlock = -1;
 bool brstm_getbuffer_useBuffer = true;
 
 //This function is used by brstm_getbuffer
-void brstm_fillblockbuffer(const unsigned char* fileData, unsigned long b) {
-    //Read the ADPCM data
-    unsigned long posOffset=0;
-    if(HEAD1_codec!=2) {exit(220);}
-    for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-        //Create new array of samples for the current channel
-        delete[] PCM_blockbuffer[c];
-        PCM_blockbuffer[c] = new int16_t[HEAD1_blocks_samples];
-        
-        posOffset=0+(HEAD1_blocks_size*c);
-        unsigned long outputPos = 0; //position in PCM block samples output array
-        
-        unsigned long c_writtensamples = 0;
-        
-        posOffset+=b*(HEAD1_blocks_size*HEAD3_num_channels);
-        
-        //Read block
-        unsigned int currentBlockSize    = HEAD1_blocks_size;
-        unsigned int currentBlockSamples = HEAD1_blocks_samples;
-        //Final block
-        if(b==HEAD1_total_blocks-1) {
-            currentBlockSize    = HEAD1_final_block_size;
-            currentBlockSamples = HEAD1_final_block_samples;
-        }
-        if(b>=HEAD1_total_blocks-1 && c>0) {
-            //Go back to the previous position
-            posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
-            //Go to the next block in position of first channel
-            posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
-            //Jump to the correct channel in the final block
-            posOffset+=HEAD1_final_block_size_p*c;
-        }
-        //Get data from just the current block
-        unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
-        
-        //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
-        const unsigned char ps = blockData[0];
-        const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
-        
-        //Magic adapted from brawllib's ADPCMState.cs
-        signed int 
-        cps = ps,
-        cyn1 = yn1,
-        cyn2 = yn2;
-        unsigned long dataIndex = 0;
-        
-        for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
-            long outSample = 0;
-            if (sampleIndex % 14 == 0) {
-                cps = blockData[dataIndex++];
-            }
-            if ((sampleIndex++ & 1) == 0) {
-                outSample = blockData[dataIndex] >> 4;
-            } else {
-                outSample = blockData[dataIndex++] & 0x0f;
-            }
-            if (outSample >= 8) {
-                outSample -= 16;
-            }
-            const long scale = 1 << (cps & 0x0f);
-            const long cIndex = (cps >> 4) << 1;
-            
-            outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
-            
-            cyn2 = cyn1;
-            cyn1 = brstm_clamp(outSample, -32768, 32767);
-            
-            PCM_blockbuffer[c][outputPos++] = cyn1;
-            c_writtensamples++;
-        }
-        PCM_blockbuffer_currentBlock = b;
-        //std::cout << ">>" << c << b << yn1 << yn2 << ps << blockData << sampleResult << '\n';
-        posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
-    }
-}
+unsigned char* brstm_getblock(void* fileData,bool dataType,unsigned long start,unsigned long length);
 
 /* 
  * Get a buffer of audio data
@@ -519,7 +445,26 @@ void brstm_fillblockbuffer(const unsigned char* fileData, unsigned long b) {
  * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
  * 
  */
-void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples) {
+void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples);
+
+/*
+ * Get a buffer of audio data (fstream mode)
+ * 
+ * stream: std::ifstream with an open BRSTM file
+ * sampleOffset: Offset to the first sample in the buffer
+ * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
+ * 
+ */
+void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples);
+
+/*
+ * Main function for both memory modes
+ * fileData will be either const unsigned char* or std::ifstream and the function will know it from the dataType arg
+ * fileData and dataType are then passed to brstm_getblock which either reads the block from the full brstm memblock
+ * or does the disk streaming stuff
+ */
+void brstm_getbuffer_main(void* fileData,bool dataType,unsigned long sampleOffset,unsigned int bufferSamples) {
+    //safety
     if(sampleOffset>HEAD1_total_samples) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
             delete[] PCM_buffer[c];
@@ -530,12 +475,86 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
         }
         return;
     }
+    //decode a new block if we don't have the current block in the blockbuffer cache
     if(PCM_blockbuffer_currentBlock != sampleOffset/HEAD1_blocks_samples) {
+        //calculate block number
         unsigned long b=sampleOffset/HEAD1_blocks_samples;
-        brstm_fillblockbuffer(fileData,b);
+        //Read the ADPCM data
+        unsigned long posOffset=0;
+        if(HEAD1_codec!=2) {exit(220);}
+        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            //Create new array of samples for the current channel
+            delete[] PCM_blockbuffer[c];
+            PCM_blockbuffer[c] = new int16_t[HEAD1_blocks_samples];
+            
+            posOffset=0+(HEAD1_blocks_size*c);
+            unsigned long outputPos = 0; //position in PCM block samples output array
+            
+            unsigned long c_writtensamples = 0;
+            
+            posOffset+=b*(HEAD1_blocks_size*HEAD3_num_channels);
+            
+            //Read block
+            unsigned int currentBlockSize    = HEAD1_blocks_size;
+            unsigned int currentBlockSamples = HEAD1_blocks_samples;
+            //Final block
+            if(b==HEAD1_total_blocks-1) {
+                currentBlockSize    = HEAD1_final_block_size;
+                currentBlockSamples = HEAD1_final_block_samples;
+            }
+            if(b>=HEAD1_total_blocks-1 && c>0) {
+                //Go back to the previous position
+                posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
+                //Go to the next block in position of first channel
+                posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
+                //Jump to the correct channel in the final block
+                posOffset+=HEAD1_final_block_size_p*c;
+            }
+            //Get data from just the current block
+            unsigned char* blockData = brstm_getblock(fileData,dataType,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+            
+            //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
+            const unsigned char ps = blockData[0];
+            const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
+            
+            //Magic adapted from brawllib's ADPCMState.cs
+            signed int 
+            cps = ps,
+            cyn1 = yn1,
+            cyn2 = yn2;
+            unsigned long dataIndex = 0;
+            
+            for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
+                long outSample = 0;
+                if (sampleIndex % 14 == 0) {
+                    cps = blockData[dataIndex++];
+                }
+                if ((sampleIndex++ & 1) == 0) {
+                    outSample = blockData[dataIndex] >> 4;
+                } else {
+                    outSample = blockData[dataIndex++] & 0x0f;
+                }
+                if (outSample >= 8) {
+                    outSample -= 16;
+                }
+                const long scale = 1 << (cps & 0x0f);
+                const long cIndex = (cps >> 4) << 1;
+                
+                outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                
+                cyn2 = cyn1;
+                cyn1 = brstm_clamp(outSample, -32768, 32767);
+                
+                PCM_blockbuffer[c][outputPos++] = cyn1;
+                c_writtensamples++;
+            }
+            PCM_blockbuffer_currentBlock = b;
+            //std::cout << ">>" << c << b << yn1 << yn2 << ps << blockData << sampleResult << '\n';
+            posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
+        }
     }
+    //create the requested buffer
     if(brstm_getbuffer_useBuffer) {
-        //Put it in the PCM buffer
         bool blockEndReached = false;
         unsigned int blockEndReachedAt = 0;
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -555,7 +574,7 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
         }
         if(blockEndReached) {
             brstm_getbuffer_useBuffer = false; //don't make a new buffer in PCM_buffer
-            brstm_getbuffer(fileData,sampleOffset+blockEndReachedAt,0);
+            brstm_getbuffer_main(fileData,dataType,sampleOffset+blockEndReachedAt,0);
             brstm_getbuffer_useBuffer = true;
             for(unsigned int c=0;c<HEAD3_num_channels;c++) {
                 unsigned int dataIndex=0;
@@ -567,13 +586,64 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
     }
 }
 
+void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples) {
+    brstm_getbuffer_main((void*)fileData,0,sampleOffset,bufferSamples);
+}
+
+void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples) {
+    brstm_getbuffer_main((void*)&stream,1,sampleOffset,bufferSamples);
+}
+
 //backwards comaptibility
 void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples,bool useBuffer) {
     brstm_getbuffer(fileData,sampleOffset,bufferSamples);
 }
 
-//Read BRSTM directly from an ifstream (helper function)
+//This function is used by brstm_getbuffer
+unsigned char* brstm_getblock(void* fileData,bool dataType,unsigned long start,unsigned long length) {
+    if(dataType == 0) {
+        return brstm_getSlice((const unsigned char*)fileData,start,length);
+    } else {
+        //disk streaming
+        std::ifstream& stream = (std::ifstream&) fileData;
+        if(stream.bad()) {
+        std::cout << "brstm_getblock: ifstream error.\n";
+        exit(255);
+        } else {
+            std::cout << "ifstream OK\n";
+        }
+        delete[] slice;
+        slice = new unsigned char[length];
+        stream.seekg(start);
+        if(stream.bad()) {
+        std::cout << "brstm_getblock: ifstream error.\n";
+        exit(255);
+        } else {
+            std::cout << "ifstream OK\n";
+        }
+        stream.read((char*)slice,length);
+        if(stream.bad()) {
+        std::cout << "brstm_getblock: ifstream error.\n";
+        exit(255);
+        } else {
+            std::cout << "ifstream OK\n";
+        }
+        std::cout << "\n" << std::hex << start << std::dec << ": " << (int)slice[0] << " " << (int)slice[1] << " " << (int)slice[2] << " " << (int)slice[3] << " total len " << length << "\n";
+        return slice;
+    }
+}
+
+/*
+ * Read BRSTM directly from an ifstream
+ * 
+ * stream: std::ifstream with an open BRSTM file
+ * debugLevel: console debug level, same as brstm_read
+ */
 unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
+    if(!stream.is_open()) {
+        if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream& stream.\n";}
+        return 255;
+    }
     unsigned char* brstm_header;
     //check if the file has the RSTM word before allocating memory for the full BRSTM header
     //so you won't try to allocate and read huge amounts of memory if an invalid file
@@ -599,6 +669,7 @@ unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
     stream.seekg(0);
     brstm_header = new unsigned char[headerSize];
     stream.read((char*)brstm_header,headerSize);
+    stream.seekg(0);
     
     //call main brstm read function
     unsigned char res = brstm_read(brstm_header,debugLevel,false);
