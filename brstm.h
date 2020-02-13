@@ -435,7 +435,7 @@ int PCM_blockbuffer_currentBlock = -1;
 bool brstm_getbuffer_useBuffer = true;
 
 //This function is used by brstm_getbuffer
-unsigned char* brstm_getblock(void* fileData,bool dataType,unsigned long start,unsigned long length);
+unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsigned long start,unsigned long length);
 
 /* 
  * Get a buffer of audio data
@@ -459,11 +459,10 @@ void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,un
 
 /*
  * Main function for both memory modes
- * fileData will be either const unsigned char* or std::ifstream and the function will know it from the dataType arg
- * fileData and dataType are then passed to brstm_getblock which either reads the block from the full brstm memblock
- * or does the disk streaming stuff
+ * dataType will be 1 for disk streaming mode (fileData will be null) so brstm_getblock
+ * will know to do disk streaming stuff instead of just getting a slice of fileData
  */
-void brstm_getbuffer_main(void* fileData,bool dataType,unsigned long sampleOffset,unsigned int bufferSamples) {
+void brstm_getbuffer_main(const unsigned char* fileData,bool dataType,unsigned long sampleOffset,unsigned int bufferSamples) {
     //safety
     if(sampleOffset>HEAD1_total_samples) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -587,11 +586,16 @@ void brstm_getbuffer_main(void* fileData,bool dataType,unsigned long sampleOffse
 }
 
 void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples) {
-    brstm_getbuffer_main((void*)fileData,0,sampleOffset,bufferSamples);
+    brstm_getbuffer_main(fileData,0,sampleOffset,bufferSamples);
 }
 
+//don't do void* kids
+std::ifstream* brstm_ifstream;
+
 void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples) {
-    brstm_getbuffer_main((void*)&stream,1,sampleOffset,bufferSamples);
+    if(!stream.is_open()) {perror("brstm_fstream_getbuffer: No file open in ifstream"); exit(255);}
+    brstm_ifstream = &stream;
+    brstm_getbuffer_main(nullptr,1,sampleOffset,bufferSamples);
 }
 
 //backwards comaptibility
@@ -600,35 +604,20 @@ void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,un
 }
 
 //This function is used by brstm_getbuffer
-unsigned char* brstm_getblock(void* fileData,bool dataType,unsigned long start,unsigned long length) {
+unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsigned long start,unsigned long length) {
     if(dataType == 0) {
         return brstm_getSlice((const unsigned char*)fileData,start,length);
     } else {
         //disk streaming
-        std::ifstream& stream = (std::ifstream&) fileData;
-        if(stream.bad()) {
-        std::cout << "brstm_getblock: ifstream error.\n";
-        exit(255);
-        } else {
-            std::cout << "ifstream OK\n";
-        }
         delete[] slice;
         slice = new unsigned char[length];
-        stream.seekg(start);
-        if(stream.bad()) {
-        std::cout << "brstm_getblock: ifstream error.\n";
-        exit(255);
-        } else {
-            std::cout << "ifstream OK\n";
-        }
-        stream.read((char*)slice,length);
-        if(stream.bad()) {
-        std::cout << "brstm_getblock: ifstream error.\n";
-        exit(255);
-        } else {
-            std::cout << "ifstream OK\n";
-        }
-        std::cout << "\n" << std::hex << start << std::dec << ": " << (int)slice[0] << " " << (int)slice[1] << " " << (int)slice[2] << " " << (int)slice[3] << " total len " << length << "\n";
+        
+        brstm_ifstream->seekg(start);
+        
+        if(brstm_ifstream->bad()) {perror("brstm_getblock: ifstream error"); exit(255);}
+        
+        brstm_ifstream->read((char*)slice,length);
+        //std::cout << "\n" << std::hex << start << std::dec << ": " << (int)slice[0] << " " << (int)slice[1] << " " << (int)slice[2] << " " << (int)slice[3] << " total len " << length << "\n";
         return slice;
     }
 }

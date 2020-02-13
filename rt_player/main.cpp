@@ -110,6 +110,8 @@ unsigned long total_seconds=0;
 bool stop_playing=0;
 bool paused=0;
 
+std::ifstream file;
+
 signed char memoryMode = -1;
 //-1 - default
 // 0 - load file into memory and decode in real time
@@ -126,7 +128,7 @@ void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int buff
         
         //streaming
         case 1:
-        brstm_fstream_getbuffer((std::ifstream&) userData,sampleOffset,bufferSize);
+        brstm_fstream_getbuffer(file,sampleOffset,bufferSize);
         return;
         
         //full decode
@@ -161,7 +163,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     unsigned char ch2id = HEAD3_num_channels > 1 ? HEAD2_track_rchannel_id[current_track] : ch1id;
     
     if(!paused) {
-        //userData is either the file data or the ifstream depending on the memory mode
+        //userData is the file data (unsigned char*)
         getBufferHelper(userData,playback_current_sample,
                         //Avoid reading garbage outside the file
                         HEAD1_total_samples-playback_current_sample < nBufferFrames ? HEAD1_total_samples-playback_current_sample : nBufferFrames
@@ -232,12 +234,12 @@ int main( int argc, char* args[] ) {
     
     //Read the file
     std::streampos fsize;
-    std::ifstream file (args[1], std::ios::in|std::ios::binary|std::ios::ate);
+    file.open(args[1], std::ios::in|std::ios::binary|std::ios::ate);
     if (file.is_open()) {
         fsize = file.tellg();
         file.seekg (0, std::ios::beg);
+        //pick default memory mode
         if(memoryMode == -1) {
-            //pick default memory mode
             memoryMode = 0;
         }
         //don't read the file in mode 1
@@ -295,7 +297,7 @@ int main( int argc, char* args[] ) {
     unsigned int sampleRate = HEAD1_sample_rate;
     unsigned int bufferFrames = 256; // 256 sample frames
     try {
-        dac.openStream( &parameters, NULL, RTAUDIO_SINT16, sampleRate, &bufferFrames, &RtAudioCb, memoryMode == 1 ? (void *)&file : (void*)memblock, &options);
+        dac.openStream( &parameters, NULL, RTAUDIO_SINT16, sampleRate, &bufferFrames, &RtAudioCb,(void*)memblock, &options);
         dac.startStream();
     } catch (RtAudioError& e) {
         e.printMessage();
