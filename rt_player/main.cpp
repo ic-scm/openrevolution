@@ -202,9 +202,9 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 //-------------------######### STRINGS
 
 const char* helpString0 = "Usage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n\nMemory modes:\n(default) - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\n";
+const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
-const char* opts[] = {"-v","-s","-d"};
+const char* opts[] = {"-v","-m","-s","-d"};
 //____________________________________
 
 int main( int argc, char* args[] ) {
@@ -218,7 +218,7 @@ int main( int argc, char* args[] ) {
     for(unsigned int i=2;i<argc;i++) {
         char* currentArg=args[i];
         int vOpt=-1;
-        for(unsigned int o=0;o<3 /*replace this number with the amount of strings in opts*/;o++) {
+        for(unsigned int o=0;o<4 /*replace this number with the amount of strings in opts*/;o++) {
             unsigned int matched=0;
             for(unsigned int s=0;s<strlen(currentArg);s++) {
                 if(args[i][s]==opts[o][s]) {matched++;}
@@ -228,8 +228,9 @@ int main( int argc, char* args[] ) {
             }
         }
         if(vOpt==0) {verb=1;}
-        if(vOpt==1) {memoryMode=1;}
-        if(vOpt==2) {memoryMode=2;}
+        if(vOpt==1) {memoryMode=0;}
+        if(vOpt==2) {memoryMode=1;}
+        if(vOpt==3) {memoryMode=2;}
     }
     
     //BRSTM file memblock
@@ -243,7 +244,10 @@ int main( int argc, char* args[] ) {
         file.seekg (0, std::ios::beg);
         //pick default memory mode
         if(memoryMode == -1) {
-            memoryMode = 0;
+            //Streaming for >15MB files
+            if(fsize > 15 * 1000000) {memoryMode = 1;}
+            //Default realtime decoding mode
+            else {memoryMode = 0;}
         }
         //don't read the file in mode 1
         if(memoryMode != 1) {
