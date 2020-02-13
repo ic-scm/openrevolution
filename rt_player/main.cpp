@@ -56,10 +56,11 @@ void itoa(int n, char* s) {
     strcpy(s,ss.c_str());
 }  
 
-char* mString;
+char mString[10];
 char* secondsToMString(unsigned int sec) {
-    delete[] mString;
-    mString=new char[10];
+    for(unsigned char i=0;i<10;i++) {
+        mString[i] = 0;
+    }
     unsigned int min=0;
     unsigned int secs=0;
     unsigned int csec=sec;
@@ -78,6 +79,8 @@ char* secondsToMString(unsigned int sec) {
     if(secs<10) {mString[mStringPos++]='0';}
     for(unsigned int i=0;i<strlen(secString);i++) {mString[mStringPos++]=secString[i];}
     mString[mStringPos++]='\0';
+    delete[] minString;
+    delete[] secString;
     return mString;
 }
 
