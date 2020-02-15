@@ -20,6 +20,14 @@ Usage:
 
 -v - Verbose output
 
+**Memory modes**
+
+-m - Load the entire file into memory (default for <15MB files)
+
+-s - Stream the file from disk (default for >15MB files)
+
+-d - Decode all audio data into memory before playing
+
 **Controls**
 
 Left and right arrow keys: Seek 1 second
@@ -105,3 +113,35 @@ Amount of samples in the buffer (can't be bigger than the amount of samples per 
 )
 ```
 You can then read the requested buffer from PCM_buffer[channel][sample offset (from the sample offset passed to brstm_getbuffer)].
+
+### Streaming
+Read a file:
+```
+brstm_fstream_read (
+
+std::ifstream with an open BRSTM file (std::ifstream&),
+
+Console debug level (same as brstm_read) (signed int)
+
+)
+```
+Returns error/warning codes like brstm_read. (unsigned char)
+
+You can then read information about the BRSTM just like with brstm_read.
+
+Get buffer:
+```
+brstm_fstream_getbuffer (
+
+std::ifstream with an open BRSTM file (std::ifstream&),
+
+Sample offset (unsigned long),
+
+Amount of samples in the buffer (can't be bigger than the amount of samples per block (HEAD1_blocks_samples)!)
+(unsigned int)
+
+)
+```
+You can then read the requested buffer from PCM_buffer[channel][sample offset (from the sample offset passed to brstm_fstream_getbuffer)].
+
+Close the file with brstm_close() like with the normal memory mode.
