@@ -116,7 +116,7 @@ bool paused=0;
 std::ifstream file;
 
 signed char memoryMode = -1;
-//-1 - default
+//-1 - automatic
 // 0 - load file into memory and decode in real time
 // 1 - stream file from disk
 // 2 - decode all audio data into memory before playing

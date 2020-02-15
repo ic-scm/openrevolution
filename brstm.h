@@ -30,7 +30,6 @@ unsigned long brstm_getSliceAsNumber(const unsigned char* data,unsigned long sta
     for(unsigned int i=0;i<length;i++) {
         if(i>0) {pw*=256;}
         number+=bytes[pos]*pw;
-        //unsigned int n=bytes[pos]; std::cout << n << ' ' << number << '\n';
         pos--;
     }
     return number;
@@ -64,9 +63,9 @@ char* brstm_getSliceAsString(const unsigned char* data,unsigned long start,unsig
     return slicestring;
 }
 
-signed int  HEAD3_int16_adpcm  [16][16];
-signed   int* ADPC_hsamples_1[16];
-signed   int* ADPC_hsamples_2[16];
+int16_t  HEAD3_int16_adpcm  [16][16];
+int16_t* ADPC_hsamples_1[16];
+int16_t* ADPC_hsamples_2[16];
 
 /* 
  * Read the BRSTM file headers and optionally decode the audio data.
@@ -301,8 +300,8 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
                 ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4);
                 ADPC_total_entries = (ADPC_total_length-8)/HEAD1_bytes_per_ADPC;
                 for(unsigned int n=0;n<HEAD3_num_channels;n++) {
-                    ADPC_hsamples_1[n] = new signed int[ADPC_total_entries/HEAD3_num_channels];
-                    ADPC_hsamples_2[n] = new signed int[ADPC_total_entries/HEAD3_num_channels];
+                    ADPC_hsamples_1[n] = new int16_t[ADPC_total_entries/HEAD3_num_channels];
+                    ADPC_hsamples_2[n] = new int16_t[ADPC_total_entries/HEAD3_num_channels];
                     
                     if(debugLevel>1) {std::cout << "Channel " << n << ": ";}
                     
@@ -418,7 +417,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
 
 //backwards comaptibility
 unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
-    std::cout << "Warning: readBrstm is now brstm_read, please update your code\n";
+    if(debugLevel>=0) {std::cout << "Warning: readBrstm is now brstm_read, please update your code\n";}
     return brstm_read(fileData,debugLevel,decodeADPCM);
 }
 
@@ -617,7 +616,6 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
         if(brstm_ifstream->bad()) {perror("brstm_getblock: ifstream error"); exit(255);}
         
         brstm_ifstream->read((char*)slice,length);
-        //std::cout << "\n" << std::hex << start << std::dec << ": " << (int)slice[0] << " " << (int)slice[1] << " " << (int)slice[2] << " " << (int)slice[3] << " total len " << length << "\n";
         return slice;
     }
 }
@@ -652,7 +650,6 @@ unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
     unsigned char of0x20[4];
     stream.read((char*)of0x20,4);
     unsigned int headerSize = brstm_getSliceAsNumber(of0x20,0,4) + 512;
-    std::cout << "headerSize " << headerSize << '\n'; //remove in prod
     
     //read header into memory
     stream.seekg(0);
