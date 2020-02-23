@@ -156,9 +156,8 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     
     //Update the display
     playback_seconds=playback_current_sample/HEAD1_sample_rate;
-    std::cout << '\r';
-    std::cout << (paused ? "Paused " : "") << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds) << " Track: " << current_track+1
-    << ") (< >:Seek /\\ \\/:Switch track):\033[0m                           \r";
+    std::cout << '\r' << (paused ? "Paused " : "") << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds)
+    << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m        " << (!paused ? "       " : "") << "\r";
     
     //Get buffer and write data
     unsigned char ch1id = HEAD2_track_lchannel_id[current_track];
