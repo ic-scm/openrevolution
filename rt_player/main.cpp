@@ -176,15 +176,15 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             
             playback_current_sample++;
             if(playback_current_sample > HEAD1_total_samples) {
-                if(HEAD1_loop) {
+                //if(HEAD1_loop) {
                     playback_current_sample=HEAD1_loop_start;
                     //refill buffer
                     getBufferHelper(userData,playback_current_sample,nBufferFrames);
                     ioffset-=i;
-                } else {
+                /*} else {
                     stop_playing=1; 
                     return 1;
-                }
+                }*/
             }
         }
     } else {
@@ -282,6 +282,10 @@ int main( int argc, char* args[] ) {
             std::cout << "Error.\n";
             return result;
         }
+    }
+    
+    if(!HEAD1_loop) {
+        std::cout << "Warning: This file has no loop but it will be looped E to S\n";
     }
     
     //calculate total seconds
