@@ -78,8 +78,6 @@ int main( int argc, char* args[] ) {
         else if(vOpt==1) {if(argc-1>i) {outputName=args[++i]; saveFile=1;}}
     }
     
-    //file data
-    
     //read the file
     if(verb) {std::cout << "Reading file " << args[1];}
     std::streampos fsize;
@@ -94,24 +92,6 @@ int main( int argc, char* args[] ) {
         //file.close();
         //delete[] memblock;
     } else {std::cout << "\nUnable to open file\n"; return 255;}
-    
-    /*//show some of the first bytes for debugging
-    for(unsigned char t=0;t<3;t++) {
-    for(unsigned int i=0;i<40;i++) {
-        unsigned int byte=memblock[i];
-        if(t==0) {std::cout << std::hex << byte;}
-        else if(t==1) {std::cout << std::dec << byte;}
-        else {std::cout << memblock[i];}
-        std::cout << ' ';
-        if(t==0) {std::cout << ' ';}
-        else if(t==2) {std::cout << "  ";}
-        else {
-            if(byte<10) {std::cout << ' ';}
-            else if(byte<100) {std::cout << ' ';}
-        }
-    }
-    std::cout << '\n';
-    }*/
     
     //read the brstm
     unsigned char result=brstm_read(memblock,verb+1,true);
@@ -128,8 +108,8 @@ int main( int argc, char* args[] ) {
         if(ofile.is_open()) {
             const unsigned long TotalPCMSampleCount=written_samples;
             const unsigned long PCMSampleCountPerChannel=written_samples/HEAD3_num_channels;
-            signed int* rawAudioData;
-            rawAudioData = new signed int[TotalPCMSampleCount];
+            int16_t* rawAudioData;
+            rawAudioData = new int16_t[TotalPCMSampleCount];
             unsigned long rawAudioPos=0;
             for(unsigned long i=0;i<PCMSampleCountPerChannel;i++) {
                 for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -144,7 +124,9 @@ int main( int argc, char* args[] ) {
                 rawFileData[i]   = cSample&0xFF;
                 rawFileData[i+1] = (cSample>>8)&0xFF;
             }
+            delete[] rawAudioData;
             ofile.write(rawFileData,TotalPCMSampleCount*2);
+            delete[] rawFileData;
             ofile.close();
         } else {std::cout << "\nUnable to open file\n"; return 255;}
     }
