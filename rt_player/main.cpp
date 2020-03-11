@@ -54,7 +54,7 @@ unsigned long written_samples=0;
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);
     strcpy(s,ss.c_str());
-}  
+}
 
 char mString[10];
 char* secondsToMString(unsigned int sec) {
