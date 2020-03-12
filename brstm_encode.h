@@ -158,6 +158,39 @@ unsigned char brstm_encode() {
         brstm_encoder_writebyte(buffer,0,bufpos); //padding
     }
     
+    //HEAD3
+    HEAD3_num_channels = HEAD1_num_channels;
+    //Write HEAD3 offset to HEAD header
+    unsigned int HEAD3offset = bufpos - HEADchunkoffset - 8;
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD3offset,4),4,off=HEADchunkoffset+0x1C);
+    //HEAD3 header
+    brstm_encoder_writebyte(buffer,HEAD3_num_channels,bufpos);
+    brstm_encoder_writebytes_i(buffer,new unsigned char[3]{0x00,0x00,0x00},3,bufpos); //padding
+    //offset table
+    unsigned long HEAD3_ch_info_offsets  [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    for(unsigned int i=0;i<HEAD3_num_channels;i++) {
+        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
+        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); //Offset to channel information, will be written later from HEAD3_ch_info_offsets
+    }
+    /*/track descriptions
+    for(unsigned int i=0;i<HEAD2_num_tracks;i++) {
+        //write offset to offset table
+        HEAD2_track_info_offsets[i] = bufpos - HEADchunkoffset - 8;
+        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD2_track_info_offsets[i],4),4,off=HEADchunkoffset + HEAD2offset + 12 + 8*i + 4);
+        //write additional type 1 data
+        if(HEAD2_track_type == 1) {
+            brstm_encoder_writebyte(buffer,HEAD2_track_volume[i],bufpos);
+            brstm_encoder_writebyte(buffer,HEAD2_track_panning[i],bufpos);
+            brstm_encoder_writebytes_i(buffer,new unsigned char[6]{0x00,0x00,0x00,0x00,0x00,0x00},6,bufpos); //padding
+        }
+        //standard data
+        brstm_encoder_writebyte(buffer,HEAD2_track_num_channels[i],bufpos);
+        brstm_encoder_writebyte(buffer,HEAD2_track_lchannel_id [i],bufpos);
+        brstm_encoder_writebyte(buffer,HEAD2_track_rchannel_id [i],bufpos);
+        brstm_encoder_writebyte(buffer,0,bufpos); //padding
+    }/*/
+    
+    
     unsigned int HEADchunksize = bufpos - HEADchunkoffset;
     //Write HEAD chunk length
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEADchunksize,4),4,off=HEADchunkoffset+4);
