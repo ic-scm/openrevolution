@@ -51,8 +51,25 @@ unsigned char* brstm_encoder_getBEint16(int16_t num) {
 }
 
 unsigned char brstm_encode() {
+    //Check for invalid requests
+    //Too many tracks
+    if(HEAD2_num_tracks > 8) {
+        return 248;
+    }
+    //Too many channels
+    if(HEAD1_num_channels > 16 || HEAD3_num_channels > 16) {
+        return 249;
+    }
+    //Unsupported codec
+    if(HEAD1_codec != 2) {
+        return 220;
+    }
+    //Unsupported track description type
+    if(!(HEAD2_track_type >= 0 && HEAD2_track_type <= 1)) {
+        return 244;
+    }
     delete[] brstm_encoded_data;
-    unsigned char* buffer = new unsigned char[HEAD1_total_samples*HEAD3_num_channels+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
+    unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels/2)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
     unsigned long  bufpos = 0;
     unsigned long  off; //for argument 4 of brstm_encoder_writebytes
     
@@ -115,6 +132,31 @@ unsigned char brstm_encode() {
     brstm_encoder_writebyte(buffer,HEAD2_num_tracks,bufpos);
     brstm_encoder_writebyte(buffer,HEAD2_track_type,bufpos);
     brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //padding
+    //offset table
+    unsigned long HEAD2_track_info_offsets[8] = {0,0,0,0,0,0,0,0};
+    for(unsigned int i=0;i<HEAD2_num_tracks;i++) {
+        brstm_encoder_writebyte(buffer,1,bufpos);
+        brstm_encoder_writebyte(buffer,HEAD2_track_type,bufpos);
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //padding
+        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); //Offset to track description, will be written later from HEAD2_track_info_offsets
+    }
+    //track descriptions
+    for(unsigned int i=0;i<HEAD2_num_tracks;i++) {
+        //write offset to offset table
+        HEAD2_track_info_offsets[i] = bufpos - HEADchunkoffset - 8;
+        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD2_track_info_offsets[i],4),4,off=HEADchunkoffset + HEAD2offset + 12 + 8*i + 4);
+        //write additional type 1 data
+        if(HEAD2_track_type == 1) {
+            brstm_encoder_writebyte(buffer,HEAD2_track_volume[i],bufpos);
+            brstm_encoder_writebyte(buffer,HEAD2_track_panning[i],bufpos);
+            brstm_encoder_writebytes_i(buffer,new unsigned char[6]{0x00,0x00,0x00,0x00,0x00,0x00},6,bufpos); //padding
+        }
+        //standard data
+        brstm_encoder_writebyte(buffer,HEAD2_track_num_channels[i],bufpos);
+        brstm_encoder_writebyte(buffer,HEAD2_track_lchannel_id [i],bufpos);
+        brstm_encoder_writebyte(buffer,HEAD2_track_rchannel_id [i],bufpos);
+        brstm_encoder_writebyte(buffer,0,bufpos); //padding
+    }
     
     unsigned int HEADchunksize = bufpos - HEADchunkoffset;
     //Write HEAD chunk length
