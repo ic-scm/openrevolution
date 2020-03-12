@@ -114,6 +114,10 @@ int main( int argc, char* args[] ) {
         std::ofstream ofile (outputName,std::ios::out|std::ios::binary|std::ios::trunc);
         if(ofile.is_open()) {
             unsigned char res = brstm_encode();
+            if(res>127) {
+                std::cout << "BRSTM encode error.\n";
+                exit(res);
+            }
             ofile.write((char*)brstm_encoded_data,brstm_encoded_data_size);
             ofile.close();
         } else {std::cout << "\nUnable to open file\n"; return 255;}
