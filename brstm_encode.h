@@ -214,7 +214,11 @@ unsigned char brstm_encode() {
     brstm_encoder_writebytes(buffer,(unsigned char*)"ADPC",4,bufpos);
     //ADPC chunk size (will be written later)
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
-    
+    //Write dummy ADPC data because we don't have any audio yet
+    {
+        unsigned long l = HEAD3_num_channels * HEAD1_total_blocks;
+        for(unsigned long i=0;i<l;i++) {brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);}
+    }
     unsigned int ADPCchunksize = bufpos - ADPCchunkoffset;
     //Padding
     while(bufpos % 16 != 0) {
@@ -233,6 +237,29 @@ unsigned char brstm_encode() {
     //Padding
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x18},4,bufpos);
     for(unsigned int i=0;i<5;i++) {brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);}
+    
+    //Write APDCM data
+    for(unsigned long b=0;b<HEAD1_total_blocks-1;b++) {
+        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            //dummy data for now
+            for(unsigned int i=0;i<HEAD1_blocks_size;i++) {
+                brstm_encoder_writebyte(buffer,0xFF,bufpos);
+            }
+        }
+    }
+    //Final block
+    for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+        //dummy data for now
+        unsigned int i;
+        for(i=0;i<HEAD1_final_block_size;i++) {
+            brstm_encoder_writebyte(buffer,0xFF,bufpos);
+        }
+        //padding
+        while(i<HEAD1_final_block_size_p) {
+            brstm_encoder_writebyte(buffer,0x00,bufpos);
+            i++;
+        }
+    }
     
     unsigned int DATAchunksize = bufpos - DATAchunkoffset;
     //Write DATA chunk length
