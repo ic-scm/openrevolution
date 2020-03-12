@@ -160,6 +160,9 @@ unsigned char brstm_encode() {
     
     //HEAD3
     HEAD3_num_channels = HEAD1_num_channels;
+    int16_t  HEAD3_int16_adpcm  [16][16];
+    int16_t* ADPC_hsamples_1    [16];
+    int16_t* ADPC_hsamples_2    [16];
     //Write HEAD3 offset to HEAD header
     unsigned int HEAD3offset = bufpos - HEADchunkoffset - 8;
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD3offset,4),4,off=HEADchunkoffset+0x1C);
@@ -172,26 +175,36 @@ unsigned char brstm_encode() {
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); //Offset to channel information, will be written later from HEAD3_ch_info_offsets
     }
-    /*/track descriptions
-    for(unsigned int i=0;i<HEAD2_num_tracks;i++) {
+    //channel info
+    for(unsigned int i=0;i<HEAD3_num_channels;i++) {
         //write offset to offset table
-        HEAD2_track_info_offsets[i] = bufpos - HEADchunkoffset - 8;
-        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD2_track_info_offsets[i],4),4,off=HEADchunkoffset + HEAD2offset + 12 + 8*i + 4);
-        //write additional type 1 data
-        if(HEAD2_track_type == 1) {
-            brstm_encoder_writebyte(buffer,HEAD2_track_volume[i],bufpos);
-            brstm_encoder_writebyte(buffer,HEAD2_track_panning[i],bufpos);
-            brstm_encoder_writebytes_i(buffer,new unsigned char[6]{0x00,0x00,0x00,0x00,0x00,0x00},6,bufpos); //padding
+        HEAD3_ch_info_offsets[i] = bufpos - HEADchunkoffset - 8;
+        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD3_ch_info_offsets[i],4),4,off=HEADchunkoffset + HEAD3offset + 12 + 8*i + 4);
+        //write channel info
+        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
+        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); //Offset to ADPCM coefs?
+        //Coefs
+        for(unsigned int a=0;a<16;a++) {
+            HEAD3_int16_adpcm[i][a] = 1234; //test
+            brstm_encoder_writebytes(buffer,brstm_encoder_getBEint16(HEAD3_int16_adpcm[i][a]),2,bufpos);
         }
-        //standard data
-        brstm_encoder_writebyte(buffer,HEAD2_track_num_channels[i],bufpos);
-        brstm_encoder_writebyte(buffer,HEAD2_track_lchannel_id [i],bufpos);
-        brstm_encoder_writebyte(buffer,HEAD2_track_rchannel_id [i],bufpos);
-        brstm_encoder_writebyte(buffer,0,bufpos); //padding
-    }/*/
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Gain
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Initial scale
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS1
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS2
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop predictor scale
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop HS1
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop HS2
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Padding
+    }
     
     
     unsigned int HEADchunksize = bufpos - HEADchunkoffset;
+    //Padding
+    while(bufpos % 16 != 0) {
+        brstm_encoder_writebyte(buffer,0,bufpos);
+        HEADchunksize = bufpos - HEADchunkoffset;
+    }
     //Write HEAD chunk length
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEADchunksize,4),4,off=HEADchunkoffset+4);
     
