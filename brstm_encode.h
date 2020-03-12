@@ -73,6 +73,48 @@ unsigned char brstm_encode() {
     brstm_encoder_writebytes(buffer,(unsigned char*)"HEAD",4,bufpos);
     //HEAD chunk size (will be written later)
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
+    //HEAD chunk header
+    for(unsigned int i=0;i<3;i++) {
+        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
+        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); //HEAD chunk part offsets (will be written later)
+    }
+    
+    //HEAD1
+    //Write HEAD1 offset to HEAD header
+    unsigned int HEAD1offset = bufpos - HEADchunkoffset - 8;
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1offset,4),4,off=HEADchunkoffset+0x0C);
+    //HEAD1 data
+    brstm_encoder_writebyte(buffer,HEAD1_codec = 2,bufpos); //Support for other codecs in the future maybe?
+    brstm_encoder_writebyte(buffer,HEAD1_loop,bufpos);
+    brstm_encoder_writebyte(buffer,HEAD1_num_channels,bufpos);
+    brstm_encoder_writebyte(buffer,0,bufpos); //padding
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_sample_rate,2),2,bufpos);
+    brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //padding
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_loop_start,4),4,bufpos);
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_total_samples,4),4,bufpos);
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(0,4),4,bufpos); //ADPCM offset, will be written later
+    HEAD1_total_blocks = HEAD1_total_samples / 14336;
+    if(HEAD1_total_samples % 14336 != 0) HEAD1_total_blocks++;
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_total_blocks,4),4,bufpos);
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_blocks_size = 8192,4),4,bufpos);
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_blocks_samples = 14336,4),4,bufpos);
+    HEAD1_final_block_samples = HEAD1_total_samples % 14336;
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_final_block_size = HEAD1_final_block_samples / 1.75 + 2,4),4,bufpos); //Final block size
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_final_block_samples,4),4,bufpos); 
+    HEAD1_final_block_size_p = HEAD1_final_block_size;
+    while(HEAD1_final_block_size_p % 16 != 0) {HEAD1_final_block_size_p++;}
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD1_final_block_size_p,4),4,bufpos); //Padded final block size
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(14336,4),4,bufpos);  //ADPC samples per entry
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(4,4),4,bufpos); //ADPC bytes per entry
+    
+    //HEAD2
+    //Write HEAD2 offset to HEAD header
+    unsigned int HEAD2offset = bufpos - HEADchunkoffset - 8;
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD2offset,4),4,off=HEADchunkoffset+0x14);
+    //HEAD2 header
+    brstm_encoder_writebyte(buffer,HEAD2_num_tracks,bufpos);
+    brstm_encoder_writebyte(buffer,HEAD2_track_type,bufpos);
+    brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //padding
     
     unsigned int HEADchunksize = bufpos - HEADchunkoffset;
     //Write HEAD chunk length
@@ -86,6 +128,11 @@ unsigned char brstm_encode() {
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
     
     unsigned int ADPCchunksize = bufpos - ADPCchunkoffset;
+    //Padding
+    while(bufpos % 16 != 0) {
+        brstm_encoder_writebyte(buffer,0,bufpos);
+        ADPCchunksize = bufpos - ADPCchunkoffset;
+    }
     //Write ADPC chunk length
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCchunksize,4),4,off=ADPCchunkoffset+4);
     
@@ -95,6 +142,9 @@ unsigned char brstm_encode() {
     brstm_encoder_writebytes(buffer,(unsigned char*)"DATA",4,bufpos);
     //DATA chunk size (will be written later)
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
+    //Padding
+    brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x18},4,bufpos);
+    for(unsigned int i=0;i<5;i++) {brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);}
     
     unsigned int DATAchunksize = bufpos - DATAchunkoffset;
     //Write DATA chunk length
@@ -113,6 +163,8 @@ unsigned char brstm_encode() {
     //DATA offset and size
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(DATAchunkoffset,4),4,off=0x20);
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(DATAchunksize,4),4,off=0x24);
+    //ADPCM offset in HEAD1
+    brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(DATAchunkoffset+0x20,4),4,off=HEADchunkoffset + 8 + HEAD1offset + 0x10);
     
     //copy finished file to brstm_encoded_data
     brstm_encoded_data = new unsigned char[bufpos];
