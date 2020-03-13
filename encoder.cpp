@@ -51,7 +51,7 @@ unsigned long  brstm_encoded_data_size;
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "BRSTM Re-encoder example program\nUsage:\n";
+const char* helpString0 = "BRSTM Re-encoder example program\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n";
 
 const char* opts[] = {"-v","-o"};
