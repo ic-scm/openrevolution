@@ -9,6 +9,7 @@
 //declare in including file
 
 #include <math.h>
+#include "dspadpcm_encoder.c"
 
 void brstm_encoder_writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
     for(unsigned int i=0;i<bytes;i++) {
@@ -183,18 +184,19 @@ unsigned char brstm_encode() {
         //write channel info
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); //Offset to ADPCM coefs?
-        //Coefs
+        //Calculate coefs
+        DSPCorrelateCoefs(PCM_samples[i],HEAD1_total_samples,HEAD3_int16_adpcm[i]);
+        //Write coefs
         for(unsigned int a=0;a<16;a++) {
-            HEAD3_int16_adpcm[i][a] = 1234; //test
             brstm_encoder_writebytes(buffer,brstm_encoder_getBEint16(HEAD3_int16_adpcm[i][a]),2,bufpos);
         }
-        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Gain
-        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Initial scale
-        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS1
-        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS2
-        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop predictor scale
-        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop HS1
-        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop HS2
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Gain, always zero
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Initial scale, will be written later
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS1, always zero
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS2, always zero
+        brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop predictor scale, will be written later
+        brstm_encoder_writebytes  (buffer,brstm_encoder_getBEint16( HEAD1_loop_start > 0 ? PCM_samples[i][HEAD1_loop_start-1] : 0 ),2,bufpos); //Loop HS1
+        brstm_encoder_writebytes  (buffer,brstm_encoder_getBEint16( HEAD1_loop_start > 1 ? PCM_samples[i][HEAD1_loop_start-2] : 0 ),2,bufpos); //Loop HS2
         brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Padding
     }
     
@@ -237,6 +239,8 @@ unsigned char brstm_encode() {
     //Padding
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x18},4,bufpos);
     for(unsigned int i=0;i<5;i++) {brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);}
+    
+    //Encode ADPCM for each channel
     
     //Write APDCM data
     for(unsigned long b=0;b<HEAD1_total_blocks-1;b++) {
