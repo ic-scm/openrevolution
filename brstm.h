@@ -2,8 +2,8 @@
 //Copyright (C) 2020 Extrasklep
 //https://github.com/Extrasklep/brstm
 
-unsigned char* slice;
-char* slicestring;
+unsigned char* brstm_slice;
+char* brstm_slicestring;
 
 long brstm_clamp(long value, long min, long max) {
   return value <= min ? min : value >= max ? max : value;
@@ -11,12 +11,12 @@ long brstm_clamp(long value, long min, long max) {
 
 //Get slice of data
 unsigned char* brstm_getSlice(const unsigned char* data,unsigned long start,unsigned long length) {
-    delete[] slice;
-    slice = new unsigned char[length];
+    delete[] brstm_slice;
+    brstm_slice = new unsigned char[length];
     for(unsigned int i=0;i<length;i++) {
-        slice[i]=data[i+start];
+        brstm_slice[i]=data[i+start];
     }
-    return slice;
+    return brstm_slice;
 }
 
 //Get slice and convert it to a number
@@ -55,12 +55,12 @@ char* brstm_getSliceAsString(const unsigned char* data,unsigned long start,unsig
         if(slicestr[i]=='\0') {slicestr[i]=' ';}
     }
     slicestr[length]='\0';
-    delete[] slice;
-    slicestring = new char[length+1];
+    delete[] brstm_slice;
+    brstm_slicestring = new char[length+1];
     for(unsigned int i=0;i<length+1;i++) {
-        slicestring[i]=slicestr[i];
+        brstm_slicestring[i]=slicestr[i];
     }
-    return slicestring;
+    return brstm_slicestring;
 }
 
 int16_t  HEAD3_int16_adpcm  [16][16];
@@ -608,15 +608,15 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
         return brstm_getSlice((const unsigned char*)fileData,start,length);
     } else {
         //disk streaming
-        delete[] slice;
-        slice = new unsigned char[length];
+        delete[] brstm_slice;
+        brstm_slice = new unsigned char[length];
         
         brstm_ifstream->seekg(start);
         
         if(brstm_ifstream->bad()) {perror("brstm_getblock: ifstream error"); exit(255);}
         
-        brstm_ifstream->read((char*)slice,length);
-        return slice;
+        brstm_ifstream->read((char*)brstm_slice,length);
+        return brstm_slice;
     }
 }
 
