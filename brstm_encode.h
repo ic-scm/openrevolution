@@ -32,21 +32,21 @@ void brstm_encoder_writebyte(unsigned char* buf,const unsigned char data,unsigne
 }
 
 //Returns integer as big endian bytes
-unsigned char* BEint;
+unsigned char* brstm_encoder_BEint;
 unsigned char* brstm_encoder_getBEuint(uint64_t num,uint8_t bytes) {
-    delete[] BEint;
-    BEint = new unsigned char[bytes];
+    delete[] brstm_encoder_BEint;
+    brstm_encoder_BEint = new unsigned char[bytes];
     unsigned long pwr;
     unsigned char pwn = bytes-1;
     for(unsigned char i = 0; i < bytes; i++) {
         pwr = pow(256,pwn--);
-        BEint[i]=0;
+        brstm_encoder_BEint[i]=0;
         while(num >= pwr) {
-            BEint[i]++;
+            brstm_encoder_BEint[i]++;
             num -= pwr;
         }
     }
-    return BEint;
+    return brstm_encoder_BEint;
 }
 
 unsigned char* brstm_encoder_getBEint16(int16_t num) {
@@ -64,7 +64,7 @@ char brstm_encoder_nextspinner(char& spinner) {
     return spinner;
 }
 
-unsigned int GetBytesForAdpcmSamples(int samples) {
+unsigned int brstm_encoder_GetBytesForAdpcmSamples(int samples) {
     int extraBytes = 0;
     int packets = samples / PACKET_SAMPLES;
     int extraSamples = samples % PACKET_SAMPLES;
@@ -76,6 +76,25 @@ unsigned int GetBytesForAdpcmSamples(int samples) {
     return PACKET_BYTES * packets + extraBytes;
 }
 
+/* 
+ * Build a BRSTM file and encode audio data
+ * 
+ * debugLevel:
+ *    -1 = Never output anything
+ *     0 = Only output errors/warnings
+ *     1 = Log encoding progress
+ * 
+ * Returns error code (>127) or warning code (<128):
+ *        0 = No error
+ *      249 = Too many channels
+ *      248 = Too many tracks
+ *      244 = Unknown track info type
+ *      220 = Unsupported or unknown audio codec
+ *      200 = Unknown error (this should never happen)
+ * 
+ * Write your audio data in PCM_samples and other BRSTM header information in the brstm.h variables, more info in README
+ * The created file will be in brstm_encoded_data with size brstm_encoded_data_size.
+ */
 unsigned char brstm_encode(signed int debugLevel) {
     //Check for invalid requests
     //Too many tracks
@@ -314,7 +333,7 @@ unsigned char brstm_encode(signed int debugLevel) {
             convSamps[0] = convSamps[14];
             convSamps[1] = convSamps[15];
             
-            brstm_encoder_writebytes(ADPCMdata[c],block,GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
+            brstm_encoder_writebytes(ADPCMdata[c],block,brstm_encoder_GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
             
             //console output
             if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
