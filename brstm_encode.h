@@ -221,7 +221,7 @@ unsigned char brstm_encode(signed int debugLevel) {
         brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD3_ch_info_offsets[i],4),4,off=HEADchunkoffset + HEAD3offset + 12 + 8*i + 4);
         //write channel info
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
-        brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); //Offset to ADPCM coefs?
+        brstm_encoder_writebytes  (buffer,brstm_encoder_getBEuint(bufpos - HEADchunkoffset - 4,4),4,bufpos); //Offset to ADPCM coefs?
         //Calculate coefs
         DSPCorrelateCoefs(PCM_samples[i],HEAD1_total_samples,HEAD3_int16_adpcm[i]);
         //Write coefs
@@ -320,7 +320,8 @@ unsigned char brstm_encode(signed int debugLevel) {
             if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
         }
         //Write ADPCM information to HEAD3
-        
+        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCMdata[c][0],2),2,off=HEAD3_ch_info_offsets[c] + 8 + HEADchunkoffset + 42); //Initial scale
+        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCMdata[c][(unsigned long)(HEAD1_loop_start / 1.75)],2),2,off=HEAD3_ch_info_offsets[c] + 8 + HEADchunkoffset + 48); //Loop initial scale
         
         if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " 100%)          ";
     }
