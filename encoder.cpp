@@ -1,4 +1,4 @@
-//C++ BRSTM encoder test
+//C++ BRSTM re-encoder test
 //Copyright (C) 2020 Extrasklep
 #include <iostream>
 #include <fstream>
@@ -51,7 +51,7 @@ unsigned long  brstm_encoded_data_size;
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "Usage:\n";
+const char* helpString0 = "BRSTM Re-encoder example program\nUsage:\n";
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n";
 
 const char* opts[] = {"-v","-o"};
