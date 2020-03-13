@@ -76,28 +76,36 @@ unsigned int GetBytesForAdpcmSamples(int samples) {
     return PACKET_BYTES * packets + extraBytes;
 }
 
-unsigned char brstm_encode() {
+unsigned char brstm_encode(signed int debugLevel) {
     //Check for invalid requests
     //Too many tracks
     if(HEAD2_num_tracks > 8) {
+        if(debugLevel>=0) std::cout << "Too many tracks. Max supported is 8.\n";
         return 248;
     }
     //Too many channels
     if(HEAD1_num_channels > 16 || HEAD3_num_channels > 16) {
+        if(debugLevel>=0) std::cout << "Too many channels. Max supported is 16.\n";
         return 249;
     }
     //Unsupported codec
     if(HEAD1_codec != 2) {
+        if(debugLevel>=0) std::cout << "Unsupported codec.\n";
         return 220;
     }
     //Unsupported track description type
     if(!(HEAD2_track_type >= 0 && HEAD2_track_type <= 1)) {
+        if(debugLevel>=0) std::cout << "Invalid track description type.\n";
         return 244;
     }
+    char spinner = '/';
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Starting BRSTM encode...                ";
     delete[] brstm_encoded_data;
-    unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
+    unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels/2)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
     unsigned long  bufpos = 0;
-    unsigned long  off; //for argument 4 of brstm_encoder_writebytes
+    unsigned long  off; //for argument 4 of brstm_encoder_writebytes when we don't write to the end of the buffer
+    
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (RSTM)             ";
     
     //Header
     brstm_encoder_writebytes(buffer,(unsigned char*)"RSTM",4,bufpos);
@@ -110,6 +118,7 @@ unsigned char brstm_encode() {
     //Sizes and offsets of chunks (will be written later) + 24 byte zero padding
     for(unsigned int i=0;i<12;i++) { brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); }
     
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (HEAD)             ";
     
     //HEAD chunk
     unsigned int HEADchunkoffset = bufpos;
@@ -187,8 +196,6 @@ unsigned char brstm_encode() {
     //HEAD3
     HEAD3_num_channels = HEAD1_num_channels;
     int16_t  HEAD3_int16_adpcm  [16][16];
-    int16_t* ADPC_hsamples_1    [16];
-    int16_t* ADPC_hsamples_2    [16];
     //Write HEAD3 offset to HEAD header
     unsigned int HEAD3offset = bufpos - HEADchunkoffset - 8;
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEAD3offset,4),4,off=HEADchunkoffset+0x1C);
@@ -235,6 +242,7 @@ unsigned char brstm_encode() {
     //Write HEAD chunk length
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(HEADchunksize,4),4,off=HEADchunkoffset+4);
     
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (ADPC)             ";
     
     //ADPC chunk
     unsigned int ADPCchunkoffset = bufpos;
@@ -255,6 +263,7 @@ unsigned char brstm_encode() {
     //Write ADPC chunk length
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCchunksize,4),4,off=ADPCchunkoffset+4);
     
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (DATA)             \n";
     
     //DATA chunk
     unsigned int DATAchunkoffset = bufpos;
@@ -265,10 +274,11 @@ unsigned char brstm_encode() {
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x18},4,bufpos);
     for(unsigned int i=0;i<5;i++) {brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);}
     
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data...             ";
+    
     //Encode ADPCM for each channel
     unsigned char* ADPCMdata[16];
     unsigned long  ADPCMdataPos[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    char spinner = '/';
     for(unsigned char c=0;c<HEAD3_num_channels;c++) {
         ADPCMdata[c] = new unsigned char[HEAD1_total_samples];
         //Store coefs like this for the DSPEncodeFrame function
@@ -291,10 +301,11 @@ unsigned char brstm_encode() {
             brstm_encoder_writebytes(ADPCMdata[c],block,GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
             
             //console output
-            if (!(p%512)) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+            if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << "/" << HEAD3_num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
         }
-        std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << " 100%)          \n";
+        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << "/" << HEAD3_num_channels << " 100%)          ";
     }
+    if(debugLevel>0) std::cout << "\n" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                 ";
     //Write APDCM data
     for(unsigned long b=0;b<HEAD1_total_blocks-1;b++) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -341,6 +352,8 @@ unsigned char brstm_encode() {
     memcpy(brstm_encoded_data,buffer,bufpos);
     delete[] buffer;
     brstm_encoded_data_size = bufpos;
+    
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " BRSTM encoding done                                                     \n";
     
     return 0;
 }
