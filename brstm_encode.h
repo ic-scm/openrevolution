@@ -101,7 +101,7 @@ unsigned char brstm_encode(signed int debugLevel) {
     char spinner = '/';
     if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Starting BRSTM encode...                ";
     delete[] brstm_encoded_data;
-    unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels/2)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
+    unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
     unsigned long  bufpos = 0;
     unsigned long  off; //for argument 4 of brstm_encoder_writebytes when we don't write to the end of the buffer
     
@@ -263,7 +263,7 @@ unsigned char brstm_encode(signed int debugLevel) {
     //Write ADPC chunk length
     brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCchunksize,4),4,off=ADPCchunkoffset+4);
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (DATA)             \n";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (DATA)             ";
     
     //DATA chunk
     unsigned int DATAchunkoffset = bufpos;
@@ -301,25 +301,23 @@ unsigned char brstm_encode(signed int debugLevel) {
             brstm_encoder_writebytes(ADPCMdata[c],block,GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
             
             //console output
-            if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << "/" << HEAD3_num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+            if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
         }
-        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << "/" << HEAD3_num_channels << " 100%)          ";
+        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " 100%)          ";
     }
-    if(debugLevel>0) std::cout << "\n" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                 ";
-    //Write APDCM data
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                                                                        ";
+    
+    //Write APDCM data to output file buffer
     for(unsigned long b=0;b<HEAD1_total_blocks-1;b++) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-            for(unsigned int i=0;i<HEAD1_blocks_size;i++) {
-                brstm_encoder_writebyte(buffer,ADPCMdata[c][i+b*HEAD1_blocks_size],bufpos);
-            }
+            brstm_encoder_writebytes(buffer,&ADPCMdata[c][b*HEAD1_blocks_size],HEAD1_blocks_size,bufpos);
         }
     }
     //Final block
     for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-        unsigned int i;
-        for(i=0;i<HEAD1_final_block_size;i++) {
-            brstm_encoder_writebyte(buffer,ADPCMdata[c][i+(HEAD1_total_blocks-1)*HEAD1_blocks_size],bufpos);
-        }
+        unsigned int i=HEAD1_final_block_size;
+        brstm_encoder_writebytes(buffer,&ADPCMdata[c][(HEAD1_total_blocks-1)*HEAD1_blocks_size],HEAD1_final_block_size,bufpos);
+        delete[] ADPCMdata[c];
         //padding
         while(i<HEAD1_final_block_size_p) {
             brstm_encoder_writebyte(buffer,0x00,bufpos);
@@ -353,7 +351,7 @@ unsigned char brstm_encode(signed int debugLevel) {
     delete[] buffer;
     brstm_encoded_data_size = bufpos;
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " BRSTM encoding done                                                     \n";
+    if(debugLevel>0) std::cout << "\r" << "BRSTM encoding done                                                     \n";
     
     return 0;
 }
