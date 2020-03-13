@@ -10,6 +10,9 @@
 
 #include <math.h>
 #include "dspadpcm_encoder.c"
+#define PACKET_NIBBLES 16
+#define PACKET_SAMPLES 14
+#define PACKET_BYTES 8
 
 void brstm_encoder_writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
     for(unsigned int i=0;i<bytes;i++) {
@@ -51,6 +54,28 @@ unsigned char* brstm_encoder_getBEint16(int16_t num) {
     return brstm_encoder_getBEuint(unum,2);
 }
 
+char brstm_encoder_nextspinner(char& spinner) {
+    switch(spinner) {
+        case '/':  spinner = '-';  break;
+        case '-':  spinner = '\\'; break;
+        case '\\': spinner = '|';  break;
+        case '|':  spinner = '/';  break;
+    }
+    return spinner;
+}
+
+unsigned int GetBytesForAdpcmSamples(int samples) {
+    int extraBytes = 0;
+    int packets = samples / PACKET_SAMPLES;
+    int extraSamples = samples % PACKET_SAMPLES;
+
+    if (extraSamples != 0) {
+        extraBytes = (extraSamples / 2) + (extraSamples % 2) + 1;
+    }
+
+    return PACKET_BYTES * packets + extraBytes;
+}
+
 unsigned char brstm_encode() {
     //Check for invalid requests
     //Too many tracks
@@ -70,7 +95,7 @@ unsigned char brstm_encode() {
         return 244;
     }
     delete[] brstm_encoded_data;
-    unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels/2)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
+    unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
     unsigned long  bufpos = 0;
     unsigned long  off; //for argument 4 of brstm_encoder_writebytes
     
@@ -241,22 +266,48 @@ unsigned char brstm_encode() {
     for(unsigned int i=0;i<5;i++) {brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);}
     
     //Encode ADPCM for each channel
-    
+    unsigned char* ADPCMdata[16];
+    unsigned long  ADPCMdataPos[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    char spinner = '/';
+    for(unsigned char c=0;c<HEAD3_num_channels;c++) {
+        ADPCMdata[c] = new unsigned char[HEAD1_total_samples];
+        //Store coefs like this for the DSPEncodeFrame function
+        int16_t coefs[8][2]; for(unsigned int i=0;i<16;i++) {coefs[i/2][i%2] = HEAD3_int16_adpcm[c][i];}
+        
+        unsigned long packetCount = HEAD1_total_samples / PACKET_SAMPLES + (HEAD1_total_samples % PACKET_SAMPLES != 0);
+        int16_t convSamps[16] = {0};
+        unsigned char block[8];
+        for (unsigned long p=0;p<packetCount;p++) {
+            memset(convSamps + 2, 0, PACKET_SAMPLES * sizeof(int16_t));
+            int numSamples = MIN(HEAD1_total_samples - p * PACKET_SAMPLES, PACKET_SAMPLES);
+            for (unsigned int s=0; s<numSamples; ++s)
+                convSamps[s+2] = PCM_samples[c][p*PACKET_SAMPLES+s];
+            
+            DSPEncodeFrame(convSamps, PACKET_SAMPLES, block, coefs);
+            
+            convSamps[0] = convSamps[14];
+            convSamps[1] = convSamps[15];
+            
+            brstm_encoder_writebytes(ADPCMdata[c],block,GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
+            
+            //console output
+            if (!(p%512)) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+        }
+        std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c << " 100%)          \n";
+    }
     //Write APDCM data
     for(unsigned long b=0;b<HEAD1_total_blocks-1;b++) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-            //dummy data for now
             for(unsigned int i=0;i<HEAD1_blocks_size;i++) {
-                brstm_encoder_writebyte(buffer,0xFF,bufpos);
+                brstm_encoder_writebyte(buffer,ADPCMdata[c][i+b*HEAD1_blocks_size],bufpos);
             }
         }
     }
     //Final block
     for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-        //dummy data for now
         unsigned int i;
         for(i=0;i<HEAD1_final_block_size;i++) {
-            brstm_encoder_writebyte(buffer,0xFF,bufpos);
+            brstm_encoder_writebyte(buffer,ADPCMdata[c][i+(HEAD1_total_blocks-1)*HEAD1_blocks_size],bufpos);
         }
         //padding
         while(i<HEAD1_final_block_size_p) {
