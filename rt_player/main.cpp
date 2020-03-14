@@ -203,6 +203,11 @@ const char* helpString0 = "BRSTM player\nCopyright (C) 2020 Extrasklep\nThis pro
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
 const char* opts[] = {"-v","-m","-s","-d"};
+const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode"};
+const unsigned int optcount = 4;
+const bool optrequiredarg[optcount] = {0,0,0,0};
+bool  optused  [optcount];
+char* optargstr[optcount];
 //____________________________________
 
 int main( int argc, char* args[] ) {
@@ -211,25 +216,36 @@ int main( int argc, char* args[] ) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
     }
-    //Check user arguments
-    //TODO replace this with something better and cleaner?
-    for(unsigned int i=2;i<argc;i++) {
-        char* currentArg=args[i];
-        int vOpt=-1;
-        for(unsigned int o=0;o<4 /*replace this number with the amount of strings in opts*/;o++) {
-            unsigned int matched=0;
-            for(unsigned int s=0;s<strlen(currentArg);s++) {
-                if(args[i][s]==opts[o][s]) {matched++;}
-            }
-            if(matched>=strlen(opts[o])) {
-                vOpt=o;
+    //Parse command line args
+    for(unsigned int a=2;a<argc;a++) {
+        int vOpt = -1;
+        //Compare cmd arg against each known option
+        for(unsigned int o=0;o<optcount;o++) {
+            if( strcmp(args[a], opts[o]) == 0 || strcmp(args[a], opts_alt[o]) == 0 ) {
+                //Matched
+                vOpt = o;
+                break;
             }
         }
-        if(vOpt==0) {verb=1;}
-        if(vOpt==1) {memoryMode=0;}
-        if(vOpt==2) {memoryMode=1;}
-        if(vOpt==3) {memoryMode=2;}
+        //Continue loop on next cmd arg if there's no match
+        if(vOpt < 0) continue;
+        //Mark the options as used
+        optused[vOpt] = 1;
+        //Read the argument for the option if it requires it
+        if(optrequiredarg[vOpt]) {
+            if(a+1 < argc) {
+                optargstr[vOpt] = args[++a];
+            } else {
+                std::cout << "Option " << opts[vOpt] << " requires an argument\n";
+                exit(255);
+            }
+        }
     }
+    //Apply the options
+    if(optused[0]) verb=1;
+    if(optused[1]) memoryMode=0;
+    if(optused[2]) memoryMode=1;
+    if(optused[3]) memoryMode=2;
     
     //BRSTM file memblock
     unsigned char* memblock;
