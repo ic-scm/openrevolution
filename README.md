@@ -38,6 +38,18 @@ Space: Pause
 
 Q: Quit
 
+## Encoder program
+Usage:
+./brstm_encoder input.wav -o output.brstm
+
+-o [output file name] - If this is not used the output will not be saved.
+
+-v - Verbose output
+
+-l [loop point] - Set the loop point. If this is not used the BRSTM file will have no loop.
+
+-c [1 or 2] - Number of channels for each track
+
 ## Thanks to
 
 - [WiiBrew](https://wiibrew.org/wiki/BRSTM_file): BRSTM file structure reference
