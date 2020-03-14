@@ -259,6 +259,7 @@ unsigned char brstm_encode(signed int debugLevel) {
     
     unsigned int HEADchunksize = bufpos - HEADchunkoffset;
     //Padding
+    brstm_encoder_writebytes_i(buffer,new unsigned char[6]{0x00,0x00,0x00,0x00,0x00,0x00},6,bufpos); //Write some useless padding because all the BRSTM encoders seem to do that
     while(bufpos % 16 != 0) {
         brstm_encoder_writebyte(buffer,0,bufpos);
         HEADchunksize = bufpos - HEADchunkoffset;
