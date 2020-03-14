@@ -168,7 +168,7 @@ int main( int argc, char* args[] ) {
     //Set default BRSTM data
     HEAD1_codec = 2;
     HEAD1_loop = 1;
-    HEAD1_loop_start = 12334;
+    HEAD1_loop_start = 0;
     HEAD2_num_tracks    = 1;
     HEAD2_track_type    = 1;
     
