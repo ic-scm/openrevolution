@@ -168,6 +168,7 @@ Write your Int16 PCM audio data to PCM_samples[c] for each channel
 
 Set audio and BRSTM details:
 ```cpp
+HEAD1_codec         = BRSTM codec (only 2 is supported)
 HEAD1_loop          = 0 or 1, loop flag
 HEAD1_num_channels  = Number of audio channels
 HEAD1_sample_rate   = Audio sample rate
@@ -194,6 +195,7 @@ HEAD2_track_panning[track] = Left to right panning of the track. (0x00 to 0x7F)
 
 // Example - standard stereo BRSTM
 
+HEAD1_codec         = 2;
 HEAD1_loop          = 1;
 HEAD1_num_channels  = 2;
 HEAD1_sample_rate   = 44100;
