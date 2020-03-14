@@ -79,14 +79,14 @@ signed int getSliceAsInt16Sample(const unsigned char * data,unsigned long start)
 //-------------------######### STRINGS
 
 const char* helpString0 = "WAV to BRSTM encoder\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [.wav input file] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n";
+const char* helpString1 = " [.wav input file] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n-l --loop [loop point] - Creating looping BRSTM\n-c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o"};
-const char* opts_alt[] = {"--verbose","--output"};
-const unsigned int optcount = 2;
-const bool optrequiredarg[optcount] = {0,1};
+const char* opts[] = {"-v","-o","-l","-c"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels"};
+const unsigned int optcount = 4;
+const bool optrequiredarg[optcount] = {0,1,1,1};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -98,7 +98,6 @@ int main( int argc, char* args[] ) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
     }
-    
     //Parse command line args
     for(unsigned int a=2;a<argc;a++) {
         int vOpt = -1;
@@ -110,8 +109,8 @@ int main( int argc, char* args[] ) {
                 break;
             }
         }
-        //Continue loop on next cmd arg if there's no match
-        if(vOpt < 0) continue;
+        //No match
+        if(vOpt < 0) {std::cout << "Unknown option '" << args[a] << "'.\n"; exit(255);}
         //Mark the options as used
         optused[vOpt] = 1;
         //Read the argument for the option if it requires it
@@ -128,22 +127,19 @@ int main( int argc, char* args[] ) {
     const char* outputName;
     if(optused[0]) verb=1;
     if(optused[1]) {outputName=optargstr[1]; saveFile=1;}
-    
-    /*for(unsigned int i=2;i<argc;i++) {
-        char* currentArg=args[i];
-        int vOpt=-1;
-        for(unsigned int o=0;o<2;o++) {
-            unsigned int matched=0;
-        for(unsigned int s=0;s<strlen(currentArg);s++) {
-            if(args[i][s]==opts[o][s]) {matched++;}
-        }
-            if(matched>=2) {
-                vOpt=o;
-            }
-        }
-        if(vOpt==0) {verb=1;}
-        else if(vOpt==1) {if(argc-1>i) {outputName=args[++i]; saveFile=1;}}
-    }*/
+    if(optused[2]) {
+        HEAD1_loop = 1;
+        HEAD1_loop_start = atoi(optargstr[2]);
+    } else {
+        HEAD1_loop = 0;
+        HEAD1_loop_start = 0;
+    }
+    bool brstmStereoTracks = 1;
+    if(optused[3]) {
+        unsigned int tmp = atoi(optargstr[3]);
+        if(!(tmp >= 1 && tmp <= 2)) {std::cout << "Track channel count must be 1 or 2.\n"; exit(255);}
+        brstmStereoTracks = (tmp - 1);
+    }
     
     //Read input file
     if(verb) {std::cout << "Reading file " << args[1];}
@@ -173,6 +169,11 @@ int main( int argc, char* args[] ) {
         std::cout << "Only PCM WAVs are supported.\n"; exit(255);
     }
     HEAD1_num_channels = getSliceAsNumber(memblock,22,2);
+    if(HEAD1_num_channels > 16) {
+        std::cout << "Too many channels. Max supported is 16.\n"; exit(255);
+    } else if(!brstmStereoTracks && HEAD1_num_channels > 8) {
+        std::cout << "Too many channels. Max supported tracks is 8 and you're trying to create single channel tracks.\n"; exit(255);
+    }
     HEAD1_sample_rate  = getSliceAsNumber(memblock,24,4);
     if(getSliceAsNumber(memblock,34,2) != 16) {
         std::cout << "Only 16-bit PCM WAVs are supported.\n"; exit(255);
@@ -201,20 +202,26 @@ int main( int argc, char* args[] ) {
         delete[] memblock;
     }
     
-    //Set default BRSTM data
+    //Set other BRSTM data
     HEAD1_codec = 2;
-    HEAD1_loop = 1;
-    HEAD1_loop_start = 0;
-    HEAD2_num_tracks    = 1;
+    //Make sure the amount of channels is valid
+    if((brstmStereoTracks && HEAD1_num_channels < 2) || (brstmStereoTracks && HEAD1_num_channels%2 != 0)) {
+        std::cout << "You cannot create a stereo BRSTM with " << HEAD1_num_channels << " channel" << (HEAD1_num_channels == 1 ? "" : "s") << ".\n";
+        exit(255);
+    }
+    HEAD2_num_tracks    = brstmStereoTracks ? HEAD1_num_channels / 2 : HEAD1_num_channels;
     HEAD2_track_type    = 1;
     
-    HEAD2_track_num_channels[0] = 2;
-    HEAD2_track_lchannel_id [0] = 0;
-    HEAD2_track_rchannel_id [0] = 1;
-    
-    HEAD2_track_volume      [0] = 0x7F;
-    HEAD2_track_panning     [0] = 0x40;
-    
+    for(unsigned int t=0;t<HEAD2_num_tracks;t++) {
+        HEAD2_track_num_channels[t] = brstmStereoTracks ? 2 : 1;
+        
+        HEAD2_track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
+        HEAD2_track_lchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
+        
+        HEAD2_track_volume      [t] = 0x7F;
+        HEAD2_track_panning     [t] = 0x40;
+    }
+    if(verb) std::cout << "Looping BRSTM: " << HEAD1_loop << "\nLoop point: " << HEAD1_loop_start << "\nStereo BRSTM: " << (int)brstmStereoTracks << "\nTracks: " << HEAD2_num_tracks << "\n";
     
     //Encode and save the BRSTM
     if(saveFile) {
