@@ -50,7 +50,14 @@ unsigned long written_samples=0;
 const char* helpString0 = "BRSTM decoder\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n";
 
+//------------------ Command line arguments
+
 const char* opts[] = {"-v","-o"};
+const char* opts_alt[] = {"--verbose","--output"};
+const unsigned int optcount = 2;
+const bool optrequiredarg[optcount] = {0,1};
+bool  optused  [optcount];
+char* optargstr[optcount];
 //____________________________________
 bool verb=0;
 bool saveFile=0;
@@ -60,23 +67,35 @@ int main( int argc, char* args[] ) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
     }
-    const char* outputName;
-    //check user options
-    for(unsigned int i=2;i<argc;i++) {
-        char* currentArg=args[i];
-        int vOpt=-1;
-        for(unsigned int o=0;o<2;o++) {
-            unsigned int matched=0;
-        for(unsigned int s=0;s<strlen(currentArg);s++) {
-            if(args[i][s]==opts[o][s]) {matched++;}
-        }
-            if(matched>=2) {
-                vOpt=o;
+    //Parse command line args
+    for(unsigned int a=2;a<argc;a++) {
+        int vOpt = -1;
+        //Compare cmd arg against each known option
+        for(unsigned int o=0;o<optcount;o++) {
+            if( strcmp(args[a], opts[o]) == 0 || strcmp(args[a], opts_alt[o]) == 0 ) {
+                //Matched
+                vOpt = o;
+                break;
             }
         }
-        if(vOpt==0) {verb=1;}
-        else if(vOpt==1) {if(argc-1>i) {outputName=args[++i]; saveFile=1;}}
+        //Continue loop on next cmd arg if there's no match
+        if(vOpt < 0) continue;
+        //Mark the options as used
+        optused[vOpt] = 1;
+        //Read the argument for the option if it requires it
+        if(optrequiredarg[vOpt]) {
+            if(a+1 < argc) {
+                optargstr[vOpt] = args[++a];
+            } else {
+                std::cout << "Option " << opts[vOpt] << " requires an argument\n";
+                exit(255);
+            }
+        }
     }
+    //Apply the options
+    const char* outputName;
+    if(optused[0]) verb=1;
+    if(optused[1]) {outputName=optargstr[1]; saveFile=1;}
     
     //read the file
     if(verb) {std::cout << "Reading file " << args[1];}
