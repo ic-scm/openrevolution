@@ -43,11 +43,11 @@ int16_t* PCM_buffer[16]; //unused in this program
 
 unsigned long written_samples=0;
 
-#include "brstm.h" //must be included after this stuff
+#include "../brstm.h" //must be included after this stuff
 
 unsigned char* brstm_encoded_data;
 unsigned long  brstm_encoded_data_size;
-#include "brstm_encode.h" //must be included after this stuff
+#include "../brstm_encode.h" //must be included after this stuff
 
 //-------------------######### STRINGS
 
