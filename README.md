@@ -1,10 +1,10 @@
 # brstm
-C++ BRSTM reader and player
+C++ BRSTM tools
 
 Should work with up to 8 tracks and 16 channels.
 Only ADPCM codec is supported (for now).
 
-## Converter program
+## Converter/decoder program
 Usage:
 ./brstm input.brstm -o output.raw
 
@@ -38,7 +38,14 @@ Space: Pause
 
 Q: Quit
 
-## brstm.h file usage
+## Thanks to
+
+- [WiiBrew](https://wiibrew.org/wiki/BRSTM_file): BRSTM file structure reference
+- [kenrick95/nikku](https://github.com/kenrick95/nikku) and [BrawlLib](https://github.com/libertyernie/brawltools): DSPADPCM decoder reference
+- [jackoalan/gc-dspadpcm-encode](https://github.com/jackoalan/gc-dspadpcm-encode): DSPADPCM encoder
+- [RtAudio](https://github.com/thestk/rtaudio): RtAudio library
+
+## brstm.h and brstm_encode.h usage
 Declare these variables in your code before including the brstm.h file:
 ```cpp
 unsigned int  HEAD1_codec;
@@ -72,6 +79,14 @@ unsigned int  HEAD3_num_channels;
 int16_t* PCM_samples[16];
 int16_t* PCM_buffer[16];
 unsigned long written_samples=0;
+//Include the file now
+#include "brstm.h"
+```
+If you want to use the encoder than add this too:
+```cpp
+unsigned char* brstm_encoded_data;
+unsigned long  brstm_encoded_data_size;
+#include "brstm_encode.h"
 ```
 Read a file:
 ```
@@ -107,7 +122,8 @@ Raw file data (const unsigned char*),
 
 Sample offset (unsigned long),
 
-Amount of samples in the buffer (can't be bigger than the amount of samples per block (HEAD1_blocks_samples)!)
+Amount of samples in the buffer
+(can't be bigger than the amount of samples per block (HEAD1_blocks_samples)!)
 (unsigned int)
 
 )
@@ -137,7 +153,8 @@ std::ifstream with an open BRSTM file (std::ifstream&),
 
 Sample offset (unsigned long),
 
-Amount of samples in the buffer (can't be bigger than the amount of samples per block (HEAD1_blocks_samples)!)
+Amount of samples in the buffer
+(can't be bigger than the amount of samples per block (HEAD1_blocks_samples)!)
 (unsigned int)
 
 )
@@ -145,3 +162,73 @@ Amount of samples in the buffer (can't be bigger than the amount of samples per 
 You can then read the requested buffer from PCM_buffer[channel][sample offset (from the sample offset passed to brstm_fstream_getbuffer)].
 
 Close the file with brstm_close() like with the normal memory mode.
+
+### Encoder
+Write your Int16 PCM audio data to PCM_samples[c] for each channel
+
+Set audio and BRSTM details:
+```cpp
+HEAD1_loop          = 0 or 1, loop flag
+HEAD1_num_channels  = Number of audio channels
+HEAD1_sample_rate   = Audio sample rate
+HEAD1_loop_start    = Loop start point (sample number in a single channel)
+HEAD1_total_samples = Total samples (in a single channel)
+
+/*/--- TRACKS ---/*/
+
+HEAD2_num_tracks  = Number of tracks
+HEAD2_track_type  = Track description type
+//You can set this to 0 or 1, but 1 is recommended.
+//See the WiiBrew page about BRSTM files for more information.
+
+HEAD2_track_num_channels[track] = Number of channels in the track. (1 or 2)
+HEAD2_track_lchannel_id [track] = BRSTM Channel ID for the left channel of this track.
+HEAD2_track_rchannel_id [track] = BRSTM Channel ID for the right channel of this track.
+//Set to 0 if this is a mono track. It's recommended to always set the channel IDs in order
+//(from 0) because some decoders probably don't care about this information.
+
+HEAD2_track_volume [track] = Volume of the track. (0x00 to 0x7F)
+HEAD2_track_panning[track] = Left to right panning of the track. (0x00 to 0x7F)
+//Description type 1 only.
+//Most decoders (including this one) probably don't care about this information.
+
+// Example - standard stereo BRSTM
+
+HEAD1_loop          = 1;
+HEAD1_num_channels  = 2;
+HEAD1_sample_rate   = 44100;
+HEAD1_loop_start    = 41234;
+HEAD1_total_samples = 500000;
+
+PCM_samples[0] = new int16_t[500000];
+PCM_samples[1] = new int16_t[500000];
+
+HEAD2_num_tracks    = 1;
+HEAD2_track_type    = 1;
+
+HEAD2_track_num_channels[0] = 2;
+HEAD2_track_lchannel_id [0] = 0;
+HEAD2_track_rchannel_id [0] = 1;
+
+HEAD2_track_volume      [0] = 0x7F;
+HEAD2_track_panning     [0] = 0x40;
+
+brstm_encode(/*
+
+Console debug level:
+-1 = Never output anything
+ 0 = Only output errors/warnings
+ 1 = Log encoding progress
+(signed int),
+
+Returns error code (>127) or warning code (<128)
+(see brstm_encode.h file for full list of error/warning codes). (unsigned char)
+
+*/);
+
+// Remember to free PCM_samples!
+
+file.write(brstm_encoded_data,brstm_encoded_data_size);
+
+```
+
