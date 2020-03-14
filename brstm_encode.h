@@ -122,6 +122,7 @@ unsigned char brstm_encode(signed int debugLevel) {
     if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Starting BRSTM encode...                ";
     
     delete[] brstm_encoded_data;
+    HEAD3_num_channels = HEAD1_num_channels;
     unsigned char* buffer = new unsigned char[(HEAD1_total_samples*HEAD3_num_channels)+((HEAD1_total_samples*HEAD3_num_channels/14336)*4)+HEAD3_num_channels*256+8192];
     unsigned long  bufpos = 0;
     unsigned long  off; //for argument 4 of brstm_encoder_writebytes when we don't write to the end of the buffer
@@ -219,7 +220,6 @@ unsigned char brstm_encode(signed int debugLevel) {
     }
     
     //HEAD3
-    HEAD3_num_channels = HEAD1_num_channels;
     int16_t  HEAD3_int16_adpcm  [16][16];
     //Write HEAD3 offset to HEAD header
     unsigned int HEAD3offset = bufpos - HEADchunkoffset - 8;
