@@ -191,8 +191,10 @@ int main( int argc, char* args[] ) {
                 std::cout << "BRSTM encode error.\n";
                 exit(res);
             }
-            std::cout << "done";
-            brstm_close();
+            
+            for(unsigned int c=0;c<HEAD1_num_channels;c++) {
+                delete[] PCM_samples[c];
+            }
             
             ofile.write((char*)brstm_encoded_data,brstm_encoded_data_size);
             ofile.close();
