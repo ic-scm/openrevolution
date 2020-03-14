@@ -160,8 +160,8 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m        " << (!paused ? "       " : "") << "\r";
     
     //Get buffer and write data
-    unsigned char ch1id = HEAD2_track_lchannel_id[current_track];
-    unsigned char ch2id = HEAD3_num_channels > 1 ? HEAD2_track_rchannel_id[current_track] : ch1id;
+    unsigned char ch1id = HEAD2_track_lchannel_id [current_track];
+    unsigned char ch2id = HEAD2_track_num_channels[current_track] == 2 ? HEAD2_track_rchannel_id[current_track] : ch1id;
     
     if(!paused) {
         //userData is the file data (unsigned char*)
