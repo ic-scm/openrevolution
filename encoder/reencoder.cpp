@@ -82,8 +82,8 @@ int main( int argc, char* args[] ) {
                 break;
             }
         }
-        //Continue loop on next cmd arg if there's no match
-        if(vOpt < 0) continue;
+        //No match
+        if(vOpt < 0) {std::cout << "Unknown option '" << args[a] << "'.\n"; exit(255);}
         //Mark the options as used
         optused[vOpt] = 1;
         //Read the argument for the option if it requires it
