@@ -246,3 +246,5 @@ file.write(brstm_encoded_data,brstm_encoded_data_size);
 
 ```
 
+### Editing headers
+Coming soon.
