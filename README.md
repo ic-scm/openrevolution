@@ -82,7 +82,7 @@ unsigned long written_samples=0;
 //Include the file now
 #include "brstm.h"
 ```
-If you want to use the encoder than add this too:
+If you want to use the encoder then add this too:
 ```cpp
 unsigned char* brstm_encoded_data;
 unsigned long  brstm_encoded_data_size;
