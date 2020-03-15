@@ -216,7 +216,7 @@ int main( int argc, char* args[] ) {
         HEAD2_track_num_channels[t] = brstmStereoTracks ? 2 : 1;
         
         HEAD2_track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
-        HEAD2_track_lchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
+        HEAD2_track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
         
         HEAD2_track_volume      [t] = 0x7F;
         HEAD2_track_panning     [t] = 0x40;
