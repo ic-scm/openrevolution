@@ -57,6 +57,13 @@ Usage:
 - [jackoalan/gc-dspadpcm-encode](https://github.com/jackoalan/gc-dspadpcm-encode): DSPADPCM encoder
 - [RtAudio](https://github.com/thestk/rtaudio): RtAudio library
 
+## Planned features
+
+- Editing BRSTM headers
+- Qt GUI
+- Support for other file formats (BCSTM, BFSTM etc.)
+- Lossless conversion between the other formats
+
 ## brstm.h and brstm_encode.h usage
 Declare these variables in your code before including the brstm.h file:
 ```cpp
