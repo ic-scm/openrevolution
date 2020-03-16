@@ -1,4 +1,4 @@
-//C++ BRSTM re-encoder test
+//C++ BRSTM re-builder test
 //Copyright (C) 2020 Extrasklep
 #include <iostream>
 #include <fstream>
@@ -54,7 +54,7 @@ unsigned long  brstm_encoded_data_size;
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "BRSTM Re-encoder example program\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
+const char* helpString0 = "BRSTM Re-builder example program (rebuild BRSTM file without reencoding ADPCM data)\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n";
 
 //------------------ Command line arguments
@@ -121,7 +121,7 @@ int main( int argc, char* args[] ) {
     
     
     //read the brstm
-    unsigned char result=brstm_read(memblock,verb+1,true);
+    unsigned char result=brstm_read(memblock,verb+1,2);
     if(result>127) {
         std::cout << "Error.\n";
         return result;
@@ -133,7 +133,7 @@ int main( int argc, char* args[] ) {
         
         std::ofstream ofile (outputName,std::ios::out|std::ios::binary|std::ios::trunc);
         if(ofile.is_open()) {
-            unsigned char res = brstm_encode(1,1);
+            unsigned char res = brstm_encode(1,0);
             if(res>127) {
                 std::cout << "BRSTM encode error.\n";
                 exit(res);

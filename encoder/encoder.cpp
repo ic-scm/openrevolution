@@ -232,7 +232,7 @@ int main( int argc, char* args[] ) {
         
         std::ofstream ofile (outputName,std::ios::out|std::ios::binary|std::ios::trunc);
         if(ofile.is_open()) {
-            unsigned char res = brstm_encode(1);
+            unsigned char res = brstm_encode(1,1);
             if(res>127) {
                 std::cout << "BRSTM encode error.\n";
                 exit(res);
