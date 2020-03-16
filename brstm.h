@@ -164,11 +164,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
     char  emagic2[5]="HEAD";
     char  emagic3[5]="ADPC";
     char  emagic4[5]="DATA";
-    bool  magic=1;
-    for(unsigned int i=0;i<strlen(magicstr);i++) {
-        if(magicstr[i]!=emagic1[i]) {magic=0;}
-    }
-    if(magic) {
+    if(strcmp(magicstr,emagic1) == 0) {
         //Start reading header
         file_size   = brstm_getSliceAsNumber(fileData,0x08,4);
         header_size = brstm_getSliceAsNumber(fileData,0x0C,2);
@@ -184,10 +180,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
         
         //HEAD
         magicstr=brstm_getSliceAsString(fileData,HEAD_offset,4);
-        for(unsigned int i=0;i<strlen(magicstr);i++) {
-            if(magicstr[i]!=emagic2[i]) {magic=0;}
-        }
-        if(magic) {
+        if(strcmp(magicstr,emagic2) == 0) {
             //Start reading HEAD
             HEAD_length  = brstm_getSliceAsNumber(fileData,HEAD_offset+0x04,4);
             HEAD1_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x0C,4);
@@ -292,10 +285,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
             
             //ADPC chunk
             magicstr=brstm_getSliceAsString(fileData,ADPC_offset,4);
-            for(unsigned int i=0;i<strlen(magicstr);i++) {
-                if(magicstr[i]!=emagic3[i]) {magic=0;}
-            }
-            if(magic) {
+            if(strcmp(magicstr,emagic3) == 0) {
                 //Start reading ADPC
                 ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4);
                 ADPC_total_entries = (ADPC_total_length-8)/HEAD1_bytes_per_ADPC;
@@ -319,10 +309,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
                 
                 //DATA chunk
                 magicstr=brstm_getSliceAsString(fileData,DATA_offset,4);
-                for(unsigned int i=0;i<strlen(magicstr);i++) {
-                    if(magicstr[i]!=emagic4[i]) {magic=0;}
-                }
-                if(magic) {
+                if(strcmp(magicstr,emagic4) == 0) {
                     //Start reading DATA
                     DATA_total_length = brstm_getSliceAsNumber(fileData,DATA_offset+0x04,4);
                     
@@ -417,7 +404,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
 
 //backwards comaptibility
 unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
-    if(debugLevel>=0) {std::cout << "Warning: readBrstm is now brstm_read, please update your code\n";}
+    if(debugLevel>=0) {std::cout << "Warning: readBrstm is deprecated, use brstm_read instead\n";}
     return brstm_read(fileData,debugLevel,decodeADPCM);
 }
 
