@@ -38,10 +38,13 @@ unsigned int  HEAD2_track_panning     [8] = {0,0,0,0,0,0,0,0};
 unsigned int  HEAD3_num_channels;
 
 int16_t* PCM_samples[16];
+int16_t* PCM_buffer[16]; //Unused in this program
 
-int16_t* PCM_buffer[16]; //unused in this program
-
-unsigned long written_samples=0;
+unsigned char* ADPCM_data  [16];
+unsigned char* ADPCM_buffer[16];
+int16_t  HEAD3_int16_adpcm [16][16]; //Coefs
+int16_t* ADPC_hsamples_1   [16];
+int16_t* ADPC_hsamples_2   [16];
 
 #include "../brstm.h" //must be included after this stuff
 

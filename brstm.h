@@ -707,6 +707,5 @@ void brstm_close() {
         HEAD2_track_panning     [i] = 0;
     }
     HEAD3_num_channels = 0;
-    written_samples=0;
     PCM_blockbuffer_currentBlock = -1;
 }
