@@ -83,6 +83,9 @@ unsigned int brstm_encoder_GetBytesForAdpcmSamples(int samples) {
  *    -1 = Never output anything
  *     0 = Only output errors/warnings
  *     1 = Log encoding progress
+ * encodeADPCM:
+ *     0 = Use ADPCM data from ADPCM_data
+ *     1 = Encode PCM_samples to ADPCM
  * 
  * Returns error code (>127) or warning code (<128):
  *        0 = No error
@@ -95,7 +98,7 @@ unsigned int brstm_encoder_GetBytesForAdpcmSamples(int samples) {
  * Write your audio data in PCM_samples and other BRSTM header information in the brstm.h variables, more info in README
  * The created file will be in brstm_encoded_data with size brstm_encoded_data_size.
  */
-unsigned char brstm_encode(signed int debugLevel) {
+unsigned char brstm_encode(signed int debugLevel,uint8_t encodeADPCM) {
     //Check for invalid requests
     //Too many tracks
     if(HEAD2_num_tracks > 8) {
@@ -310,40 +313,44 @@ unsigned char brstm_encode(signed int debugLevel) {
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x18},4,bufpos);
     for(unsigned int i=0;i<5;i++) {brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);}
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data...             ";
-    
-    //Encode ADPCM for each channel
-    unsigned char* ADPCMdata[16];
+    unsigned char** ADPCMdata;
     unsigned long  ADPCMdataPos[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    for(unsigned char c=0;c<HEAD3_num_channels;c++) {
-        ADPCMdata[c] = new unsigned char[HEAD1_total_samples];
-        //Store coefs like this for the DSPEncodeFrame function
-        int16_t coefs[8][2]; for(unsigned int i=0;i<16;i++) {coefs[i/2][i%2] = HEAD3_int16_adpcm[c][i];}
-        
-        unsigned long packetCount = HEAD1_total_samples / PACKET_SAMPLES + (HEAD1_total_samples % PACKET_SAMPLES != 0);
-        int16_t convSamps[16] = {0};
-        unsigned char block[8];
-        for (unsigned long p=0;p<packetCount;p++) {
-            memset(convSamps + 2, 0, PACKET_SAMPLES * sizeof(int16_t));
-            int numSamples = MIN(HEAD1_total_samples - p * PACKET_SAMPLES, PACKET_SAMPLES);
-            for (unsigned int s=0; s<numSamples; ++s)
-                convSamps[s+2] = PCM_samples[c][p*PACKET_SAMPLES+s];
+    
+    if(encodeADPCM) {
+        ADPCMdata = new unsigned char* [16];
+        //Encode ADPCM for each channel
+        for(unsigned char c=0;c<HEAD3_num_channels;c++) {
+            ADPCMdata[c] = new unsigned char[HEAD1_total_samples];
+            //Store coefs like this for the DSPEncodeFrame function
+            int16_t coefs[8][2]; for(unsigned int i=0;i<16;i++) {coefs[i/2][i%2] = HEAD3_int16_adpcm[c][i];}
             
-            DSPEncodeFrame(convSamps, PACKET_SAMPLES, block, coefs);
+            unsigned long packetCount = HEAD1_total_samples / PACKET_SAMPLES + (HEAD1_total_samples % PACKET_SAMPLES != 0);
+            int16_t convSamps[16] = {0};
+            unsigned char block[8];
+            for (unsigned long p=0;p<packetCount;p++) {
+                memset(convSamps + 2, 0, PACKET_SAMPLES * sizeof(int16_t));
+                int numSamples = MIN(HEAD1_total_samples - p * PACKET_SAMPLES, PACKET_SAMPLES);
+                for (unsigned int s=0; s<numSamples; ++s)
+                    convSamps[s+2] = PCM_samples[c][p*PACKET_SAMPLES+s];
+                
+                DSPEncodeFrame(convSamps, PACKET_SAMPLES, block, coefs);
+                
+                convSamps[0] = convSamps[14];
+                convSamps[1] = convSamps[15];
+                
+                brstm_encoder_writebytes(ADPCMdata[c],block,brstm_encoder_GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
+                
+                //console output
+                if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+            }
+            //Write ADPCM information to HEAD3
+            brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCMdata[c][0],2),2,off=HEAD3_ch_info_offsets[c] + 8 + HEADchunkoffset + 42); //Initial scale
+            brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCMdata[c][(unsigned long)(HEAD1_loop_start / 1.75)],2),2,off=HEAD3_ch_info_offsets[c] + 8 + HEADchunkoffset + 48); //Loop initial scale
             
-            convSamps[0] = convSamps[14];
-            convSamps[1] = convSamps[15];
-            
-            brstm_encoder_writebytes(ADPCMdata[c],block,brstm_encoder_GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
-            
-            //console output
-            if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+            if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " 100%)          ";
         }
-        //Write ADPCM information to HEAD3
-        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCMdata[c][0],2),2,off=HEAD3_ch_info_offsets[c] + 8 + HEADchunkoffset + 42); //Initial scale
-        brstm_encoder_writebytes(buffer,brstm_encoder_getBEuint(ADPCMdata[c][(unsigned long)(HEAD1_loop_start / 1.75)],2),2,off=HEAD3_ch_info_offsets[c] + 8 + HEADchunkoffset + 48); //Loop initial scale
-        
-        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << HEAD3_num_channels << " 100%)          ";
+    } else {
+        ADPCMdata = ADPCM_data;
     }
     
     if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                                                                        ";
@@ -358,13 +365,14 @@ unsigned char brstm_encode(signed int debugLevel) {
     for(unsigned int c=0;c<HEAD3_num_channels;c++) {
         unsigned int i=HEAD1_final_block_size;
         brstm_encoder_writebytes(buffer,&ADPCMdata[c][(HEAD1_total_blocks-1)*HEAD1_blocks_size],HEAD1_final_block_size,bufpos);
-        delete[] ADPCMdata[c];
+        if(encodeADPCM) delete[] ADPCMdata[c]; //delete the ADPCM data only if we made it locally
         //padding
         while(i<HEAD1_final_block_size_p) {
             brstm_encoder_writebyte(buffer,0x00,bufpos);
             i++;
         }
     }
+    if(encodeADPCM) delete[] ADPCMdata; //delete the ADPCM data only if we made it locally
     
     unsigned int DATAchunksize = bufpos - DATAchunkoffset;
     //Write DATA chunk length

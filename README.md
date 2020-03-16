@@ -249,6 +249,10 @@ Console debug level:
  1 = Log encoding progress
 (signed int),
 
+Encode ADPCM flag:
+ 0 = Use the ADPCM data from ADPCM_data;
+ 1 = Encode PCM_samples into ADPCM
+
 Returns error code (>127) or warning code (<128)
 (see brstm_encode.h file for full list of error/warning codes). (unsigned char)
 
