@@ -63,6 +63,7 @@ Usage:
 - Qt GUI
 - Support for other file formats (BCSTM, BFSTM etc.)
 - Lossless conversion between the other formats
+- Use structs instead of global variables declared in main file
 
 ## brstm.h and brstm_encode.h usage
 Declare these variables in your code before including the brstm.h file:
@@ -97,7 +98,12 @@ unsigned int  HEAD3_num_channels;
 
 int16_t* PCM_samples[16];
 int16_t* PCM_buffer[16];
-unsigned long written_samples=0;
+
+unsigned char* ADPCM_data  [16];
+unsigned char* ADPCM_buffer[16]; //Not used yet
+int16_t  HEAD3_int16_adpcm [16][16]; //Coefs
+int16_t* ADPC_hsamples_1   [16];
+int16_t* ADPC_hsamples_2   [16];
 //Include the file now
 #include "brstm.h"
 ```
@@ -121,9 +127,10 @@ Console debug level:
 (signed int),
 
 Decode audio data flag:
-false = Don't decode the audio data (Don't read the DATA chunk)
-true  = Decode the audio data into PCM_samples[channel][sample offset]
-(bool)
+0 = Don't decode the audio data (Don't read the DATA chunk)
+1 = Decode the audio data into PCM_samples[channel][sample offset]
+2 = Write the raw ADPCM data into ADPCM_data
+(unsigned char)
 
 )
 ```

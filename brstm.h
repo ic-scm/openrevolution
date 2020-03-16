@@ -63,9 +63,11 @@ char* brstm_getSliceAsString(const unsigned char* data,unsigned long start,unsig
     return brstm_slicestring;
 }
 
+/*
 int16_t  HEAD3_int16_adpcm  [16][16];
 int16_t* ADPC_hsamples_1[16];
 int16_t* ADPC_hsamples_2[16];
+*/// declared in including file
 
 /* 
  * Read the BRSTM file headers and optionally decode the audio data.
@@ -77,8 +79,9 @@ int16_t* ADPC_hsamples_2[16];
  *     1 = Output information about the BRSTM
  *     2 = Output all information about the BRSTM (offsets, sizes, ADPCM information etc.)
  * decodeADPCM:
- *     false = Don't decode the audio data (Don't read the DATA chunk)
- *     true  = Decode audio data into PCM_samples
+ *     0 = Don't decode the audio data (Don't read the DATA chunk)
+ *     1 = Decode audio data into PCM_samples
+ *     2 = Write the raw ADPCM data into ADPCM_data
  * 
  * Returns error code (>127) or warning code (<128):
  *        0 = No error
@@ -92,7 +95,7 @@ int16_t* ADPC_hsamples_2[16];
  *      220 = Unsupported or unknown audio codec
  *      200 = Unknown error (this should never happen)
  */
-unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
+unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uint8_t decodeADPCM) {
     //Read the headers
     //Header
     unsigned long file_size;
@@ -157,6 +160,8 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
     //DATA
     unsigned long DATA_total_length;
     //int16_t* PCM_samples[16]; //Should be declared in main file
+    //unsigned char* ADPCM_data[16];
+    //unsigned char* ADPCM_buffer[16]; //not used yet
     
     //Check if the header matches RSTM
     char* magicstr=brstm_getSliceAsString(fileData,0,4);
@@ -319,16 +324,19 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
                     
                     if(decodeADPCM) {
                         //Read the ADPCM data
-                        //unsigned long written_samples=0; //#########################################################################################################-Should be declared in main file
+                        unsigned long decoded_samples=0;
                         
                         unsigned long posOffset=0;
                         
                         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
                             //Create new array of samples for the current channel
-                            PCM_samples[c] = new int16_t[((DATA_total_length-32)*2)/HEAD3_num_channels];
+                            switch(decodeADPCM) {
+                                case 1: PCM_samples[c] = new int16_t[((DATA_total_length-32)*2)/HEAD3_num_channels]; break;
+                                case 2: ADPCM_data [c] = new unsigned char[((DATA_total_length-32))/HEAD3_num_channels]; break;
+                            }
                             
                             posOffset=0+(HEAD1_blocks_size*c);
-                            unsigned long outputPos = 0; //position in PCM samples output array
+                            unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
                             for(unsigned long b=0;b<HEAD1_total_blocks;b++) {
                                 //Read every block
                                 unsigned int currentBlockSize    = HEAD1_blocks_size;
@@ -349,45 +357,53 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
                                 //Get data from just the current block
                                 unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
                                 
-                                //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
-                                const unsigned char ps = blockData[0];
-                                const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
-                                
-                                //Magic adapted from brawllib's ADPCMState.cs
-                                signed int 
-                                cps = ps,
-                                cyn1 = yn1,
-                                cyn2 = yn2;
-                                unsigned long dataIndex = 0;
-                                
-                                for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
-                                    long outSample = 0;
-                                    if (sampleIndex % 14 == 0) {
-                                        cps = blockData[dataIndex++];
-                                    }
-                                    if ((sampleIndex++ & 1) == 0) {
-                                        outSample = blockData[dataIndex] >> 4;
-                                    } else {
-                                        outSample = blockData[dataIndex++] & 0x0f;
-                                    }
-                                    if (outSample >= 8) {
-                                        outSample -= 16;
-                                    }
-                                    const long scale = 1 << (cps & 0x0f);
-                                    const long cIndex = (cps >> 4) << 1;
+                                if(decodeADPCM == 1) {
+                                    //Decode 4 bit ADPCM
+                                    const unsigned char ps = blockData[0];
+                                    const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
                                     
-                                    outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                                    //Magic adapted from brawllib's ADPCMState.cs
+                                    signed int 
+                                    cps = ps,
+                                    cyn1 = yn1,
+                                    cyn2 = yn2;
+                                    unsigned long dataIndex = 0;
                                     
-                                    cyn2 = cyn1;
-                                    cyn1 = brstm_clamp(outSample, -32768, 32767);
-                                    
-                                    PCM_samples[c][outputPos++] = cyn1;
-                                    written_samples++;
+                                    for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
+                                        long outSample = 0;
+                                        if (sampleIndex % 14 == 0) {
+                                            cps = blockData[dataIndex++];
+                                        }
+                                        if ((sampleIndex++ & 1) == 0) {
+                                            outSample = blockData[dataIndex] >> 4;
+                                        } else {
+                                            outSample = blockData[dataIndex++] & 0x0f;
+                                        }
+                                        if (outSample >= 8) {
+                                            outSample -= 16;
+                                        }
+                                        const long scale = 1 << (cps & 0x0f);
+                                        const long cIndex = (cps >> 4) << 1;
+                                        
+                                        outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                                        
+                                        cyn2 = cyn1;
+                                        cyn1 = brstm_clamp(outSample, -32768, 32767);
+                                        
+                                        PCM_samples[c][outputPos++] = cyn1;
+                                        decoded_samples++;
+                                    }
+                                } else {
+                                    //Write raw data to ADPCM_data
+                                    for(unsigned int i=0; i<currentBlockSize; i++) {
+                                        ADPCM_data[c][outputPos++] = blockData[i];
+                                    }
                                 }
+                                
                                 posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
                             }
                         }
-                        if(debugLevel>0) {std::cout << "Written PCM samples: " << written_samples << '\n';}
+                        if(debugLevel>0) {std::cout << "Decoded PCM samples: " << decoded_samples << '\n';}
                     }
                     //end
                     return 0;
@@ -399,7 +415,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,boo
         } else { if(debugLevel>=0) {std::cout << "Invalid HEAD chunk.\n";} return 250;}
         
     } else { if(debugLevel>=0) {std::cout << "Invalid BRSTM file.\n";} return 255;}
-    return 200;
+    return 0;
 }
 
 //backwards comaptibility
@@ -661,6 +677,7 @@ void brstm_close() {
         delete[] ADPC_hsamples_1[i];
         delete[] ADPC_hsamples_2[i];
         delete[] PCM_samples[i];
+        delete[] ADPCM_data[i];
     }
     
     HEAD1_codec = 0;
