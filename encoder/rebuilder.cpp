@@ -143,5 +143,7 @@ int main( int argc, char* args[] ) {
         } else {std::cout << "\nUnable to open file\n"; return 255;}
     }
     
+    brstm_close();
+    
     return 0;
 }
