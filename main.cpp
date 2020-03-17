@@ -9,6 +9,7 @@
 
 //brstm stuff
 
+unsigned int  BRSTM_format; //File type, 1 = BRSTM, see brstm.h for full list
 unsigned int  HEAD1_codec; //char
 unsigned int  HEAD1_loop;  //char
 unsigned int  HEAD1_num_channels; //char
