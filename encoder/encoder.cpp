@@ -52,33 +52,6 @@ unsigned char* brstm_encoded_data;
 unsigned long  brstm_encoded_data_size;
 #include "../brstm_encode.h" //must be included after this stuff
 
-//Get slice and convert it to a number (LE)
-unsigned long getSliceAsNumber(const unsigned char* data,unsigned long start,unsigned long length) {
-    if(length>4) {length=4;}
-    unsigned long number=0;
-    unsigned char* bytes=brstm_getSlice(data,start,length);
-    unsigned char pos=0; //Read as little endian
-    unsigned long pw=1; //Multiply by 1,256,65536...
-    //std::cout << length << '\n';
-    for(unsigned int i=0;i<length;i++) {
-        if(i>0) {pw*=256;}
-        number+=bytes[pos]*pw;
-        pos++;
-    }
-    return number;
-}
-
-//Get slice as signed 16 bit number (LE)
-signed int getSliceAsInt16Sample(const unsigned char * data,unsigned long start) {
-    unsigned int length=2;
-    unsigned long number=0;
-    unsigned char* bytes=brstm_getSlice(data,start,length);
-    unsigned char big=bytes[1];
-    signed   char little=bytes[0];
-    number=little+big*256;
-    return number;
-}
-
 //-------------------######### STRINGS
 
 const char* helpString0 = "WAV to BRSTM encoder\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
@@ -163,27 +136,27 @@ int main( int argc, char* args[] ) {
     if(strcmp("RIFF",brstm_getSliceAsString(memblock,0,4)) != 0) {
         std::cout << "Invalid RIFF header.\n"; exit(255);
     }
-    unsigned long wavFileSize = getSliceAsNumber(memblock,4,4) + 8;
+    unsigned long wavFileSize = brstm_getSliceAsNumber(memblock,4,4,0) + 8;
     if(strcmp("WAVEfmt ",brstm_getSliceAsString(memblock,8,8)) != 0) {
         std::cout << "Invalid WAVE header.\n"; exit(255);
     }
-    unsigned long wavFmtSize = getSliceAsNumber(memblock,16,4);
-    if(wavFmtSize != 16 || getSliceAsNumber(memblock,20,2) != 1) {
+    unsigned long wavFmtSize = brstm_getSliceAsNumber(memblock,16,4,0);
+    if(wavFmtSize != 16 || brstm_getSliceAsNumber(memblock,20,2,0) != 1) {
         std::cout << "Only PCM WAVs are supported.\n"; exit(255);
     }
-    HEAD1_num_channels = getSliceAsNumber(memblock,22,2);
+    HEAD1_num_channels = brstm_getSliceAsNumber(memblock,22,2,0);
     if(HEAD1_num_channels > 16) {
         std::cout << "Too many channels. Max supported is 16.\n"; exit(255);
     } else if(!brstmStereoTracks && HEAD1_num_channels > 8) {
         std::cout << "Too many channels. Max supported tracks is 8 and you're trying to create single channel tracks.\n"; exit(255);
     }
-    HEAD1_sample_rate  = getSliceAsNumber(memblock,24,4);
-    if(getSliceAsNumber(memblock,34,2) != 16) {
+    HEAD1_sample_rate = brstm_getSliceAsNumber(memblock,24,4,0);
+    if(brstm_getSliceAsNumber(memblock,34,2,0) != 16) {
         std::cout << "Only 16-bit PCM WAVs are supported.\n"; exit(255);
     }
     unsigned long wavAudioOffset = 36;
     for(;strcmp("data",brstm_getSliceAsString(memblock,wavAudioOffset,4)) != 0 ;wavAudioOffset++) {}
-    HEAD1_total_samples = getSliceAsNumber(memblock,wavAudioOffset+4,4) / HEAD1_num_channels / 2;
+    HEAD1_total_samples = brstm_getSliceAsNumber(memblock,wavAudioOffset+4,4,0) / HEAD1_num_channels / 2;
     wavAudioOffset += 8;
     
     if(verb) {
@@ -199,7 +172,7 @@ int main( int argc, char* args[] ) {
         }
         for(unsigned int i=0;i<HEAD1_total_samples;i++) {
             for(c=0;c<HEAD1_num_channels;c++) {
-                PCM_samples[c][i] = getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*HEAD1_num_channels)+c*2);
+                PCM_samples[c][i] = brstm_getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*HEAD1_num_channels)+c*2,0);
             }
         }
         delete[] memblock;
