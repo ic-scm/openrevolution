@@ -9,6 +9,8 @@ long brstm_clamp(long value, long min, long max) {
   return value <= min ? min : value >= max ? max : value;
 }
 
+//Bool endian: 0 = little endian, 1 = big endian
+
 //Get slice of data
 unsigned char* brstm_getSlice(const unsigned char* data,unsigned long start,unsigned long length) {
     delete[] brstm_slice;
@@ -20,28 +22,33 @@ unsigned char* brstm_getSlice(const unsigned char* data,unsigned long start,unsi
 }
 
 //Get slice and convert it to a number
-unsigned long brstm_getSliceAsNumber(const unsigned char* data,unsigned long start,unsigned long length) {
+unsigned long brstm_getSliceAsNumber(const unsigned char* data,unsigned long start,unsigned long length,bool endian) {
     if(length>4) {length=4;}
     unsigned long number=0;
     unsigned char* bytes=brstm_getSlice(data,start,length);
-    unsigned char pos=length-1; //Read as big endian
+    unsigned char pos;
+    if(endian) {
+        pos=length-1; //Read as big endian
+    } else {
+        pos = 0; //Read as little endian
+    }
     unsigned long pw=1; //Multiply by 1,256,65536...
     //std::cout << length << '\n';
     for(unsigned int i=0;i<length;i++) {
         if(i>0) {pw*=256;}
         number+=bytes[pos]*pw;
-        pos--;
+        if(endian) {pos--;} else {pos++;}
     }
     return number;
 }
 
 //Get slice as signed 16 bit number
-signed int brstm_getSliceAsInt16Sample(const unsigned char * data,unsigned long start) {
+signed int brstm_getSliceAsInt16Sample(const unsigned char * data,unsigned long start,bool endian) {
     unsigned int length=2;
     unsigned long number=0;
     unsigned char* bytes=brstm_getSlice(data,start,length);
-    unsigned char little=bytes[1];
-    signed   char big=bytes[0];
+    unsigned char little=bytes[endian];
+    signed   char big=bytes[!endian];
     number=little+big*256;
     return number;
 }
@@ -97,6 +104,7 @@ int16_t* ADPC_hsamples_2[16];
  */
 unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uint8_t decodeADPCM) {
     //Read the headers
+    bool BOM; //byte order mark
     //Header
     unsigned long file_size;
     unsigned int header_size;
@@ -170,16 +178,23 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
     char  emagic3[5]="ADPC";
     char  emagic4[5]="DATA";
     if(strcmp(magicstr,emagic1) == 0) {
+        //Byte Order Mark
+        if(brstm_getSliceAsInt16Sample(fileData,0x04,1) == -257) {
+            BOM = 1; //Big endian
+        } else {
+            BOM = 0; //Little endian
+        }
+        if(debugLevel>1) {std::cout << "BOM: " << (BOM ? "Big endian" : "Little endian") << '\n';}
         //Start reading header
-        file_size   = brstm_getSliceAsNumber(fileData,0x08,4);
-        header_size = brstm_getSliceAsNumber(fileData,0x0C,2);
-        num_chunks  = brstm_getSliceAsNumber(fileData,0x0E,2);
-        HEAD_offset = brstm_getSliceAsNumber(fileData,0x10,4);
-        HEAD_size   = brstm_getSliceAsNumber(fileData,0x14,4);
-        ADPC_offset = brstm_getSliceAsNumber(fileData,0x18,4);
-        ADPC_size   = brstm_getSliceAsNumber(fileData,0x1C,4);
-        DATA_offset = brstm_getSliceAsNumber(fileData,0x20,4);
-        DATA_size   = brstm_getSliceAsNumber(fileData,0x24,4);
+        file_size   = brstm_getSliceAsNumber(fileData,0x08,4,BOM);
+        header_size = brstm_getSliceAsNumber(fileData,0x0C,2,BOM);
+        num_chunks  = brstm_getSliceAsNumber(fileData,0x0E,2,BOM);
+        HEAD_offset = brstm_getSliceAsNumber(fileData,0x10,4,BOM);
+        HEAD_size   = brstm_getSliceAsNumber(fileData,0x14,4,BOM);
+        ADPC_offset = brstm_getSliceAsNumber(fileData,0x18,4,BOM);
+        ADPC_size   = brstm_getSliceAsNumber(fileData,0x1C,4,BOM);
+        DATA_offset = brstm_getSliceAsNumber(fileData,0x20,4,BOM);
+        DATA_size   = brstm_getSliceAsNumber(fileData,0x24,4,BOM);
         
         if(debugLevel>1) {std::cout << "File size: " << file_size << "\nHeader size: " << header_size << "\nChunks: " << num_chunks << "\nHEAD offset: " << HEAD_offset << "\nHEAD size: " << HEAD_size << "\nADPC offset: " << ADPC_offset << "\nADPC size: " << ADPC_size << "\nDATA offset: " << DATA_offset << "\nDATA size: " << DATA_size << "\n\n";}
         
@@ -187,30 +202,30 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
         magicstr=brstm_getSliceAsString(fileData,HEAD_offset,4);
         if(strcmp(magicstr,emagic2) == 0) {
             //Start reading HEAD
-            HEAD_length  = brstm_getSliceAsNumber(fileData,HEAD_offset+0x04,4);
-            HEAD1_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x0C,4);
-            HEAD2_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x14,4);
-            HEAD3_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x1C,4);
+            HEAD_length  = brstm_getSliceAsNumber(fileData,HEAD_offset+0x04,4,BOM);
+            HEAD1_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x0C,4,BOM);
+            HEAD2_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x14,4,BOM);
+            HEAD3_offset = brstm_getSliceAsNumber(fileData,HEAD_offset+0x1C,4,BOM);
             
             if(debugLevel>1) {std::cout << "HEAD length: " << HEAD_length << "\nHEAD1 offset: " << HEAD1_offset << "\nHEAD2 offset: " << HEAD2_offset << "\nHEAD3 offset: " << HEAD3_offset << "\n\n";}
             
             //HEAD1
             HEAD1_offset+=8;
-            HEAD1_codec               = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x00,1);
-            HEAD1_loop                = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x01,1);
-            HEAD1_num_channels        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x02,1);
-            HEAD1_sample_rate         = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x04,2);
-            HEAD1_loop_start          = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x08,4);
-            HEAD1_total_samples       = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x0C,4);
-            HEAD1_ADPCM_offset        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x10,4);
-            HEAD1_total_blocks        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x14,4);
-            HEAD1_blocks_size         = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x18,4);
-            HEAD1_blocks_samples      = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x1C,4);
-            HEAD1_final_block_size    = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x20,4);
-            HEAD1_final_block_samples = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x24,4);
-            HEAD1_final_block_size_p  = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x28,4);
-            HEAD1_samples_per_ADPC    = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x2C,4);
-            HEAD1_bytes_per_ADPC      = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x30,4);
+            HEAD1_codec               = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x00,1,BOM);
+            HEAD1_loop                = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x01,1,BOM);
+            HEAD1_num_channels        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x02,1,BOM);
+            HEAD1_sample_rate         = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x04,2,BOM);
+            HEAD1_loop_start          = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x08,4,BOM);
+            HEAD1_total_samples       = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x0C,4,BOM);
+            HEAD1_ADPCM_offset        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x10,4,BOM);
+            HEAD1_total_blocks        = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x14,4,BOM);
+            HEAD1_blocks_size         = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x18,4,BOM);
+            HEAD1_blocks_samples      = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x1C,4,BOM);
+            HEAD1_final_block_size    = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x20,4,BOM);
+            HEAD1_final_block_samples = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x24,4,BOM);
+            HEAD1_final_block_size_p  = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x28,4,BOM);
+            HEAD1_samples_per_ADPC    = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x2C,4,BOM);
+            HEAD1_bytes_per_ADPC      = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x30,4,BOM);
             HEAD1_offset-=8;
             
             if(debugLevel>0) {std::cout << "Codec: " << HEAD1_codec << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
@@ -220,8 +235,8 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
             
             //HEAD2
             HEAD2_offset+=8;
-            HEAD2_num_tracks = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x00,1);
-            HEAD2_track_type = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x01,1);
+            HEAD2_num_tracks = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x00,1,BOM);
+            HEAD2_track_type = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x01,1,BOM);
             
             //safety
             if(HEAD2_num_tracks>8) { if(debugLevel>=0) {std::cout << "Too many tracks. Max supported is 8.\n";} return 248;}
@@ -229,19 +244,19 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
             //read info for each track
             for(unsigned char i=0;i<HEAD2_num_tracks;i++) {
                 unsigned int readOffset = HEAD_offset+HEAD2_offset+0x04+4+(i*8);
-                unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4);
+                unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4,BOM);
                 HEAD2_track_info_offsets[i]=infoOffset+8;
                 if(HEAD2_track_type==0) {
-                    HEAD2_track_num_channels[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
-                    HEAD2_track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
-                    HEAD2_track_rchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x02,1);
+                    HEAD2_track_num_channels[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1,BOM);
+                    HEAD2_track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1,BOM);
+                    HEAD2_track_rchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x02,1,BOM);
                 } else if(HEAD2_track_type==1) {
-                    HEAD2_track_num_channels[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x08,1);
-                    HEAD2_track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x09,1);
-                    HEAD2_track_rchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x0A,1);
+                    HEAD2_track_num_channels[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x08,1,BOM);
+                    HEAD2_track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x09,1,BOM);
+                    HEAD2_track_rchannel_id [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x0A,1,BOM);
                     //type 1 stuff
-                    HEAD2_track_volume      [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1);
-                    HEAD2_track_panning     [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1);
+                    HEAD2_track_volume      [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1,BOM);
+                    HEAD2_track_panning     [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1,BOM);
                 } else { if(debugLevel>=0) {std::cout << "Unknown track type.\n";} return 244;}
                 HEAD2_track_info_offsets[i]-=8;
             }
@@ -255,25 +270,25 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
             
             //HEAD3
             HEAD3_offset+=8;
-            HEAD3_num_channels = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_offset+0x00,1);
+            HEAD3_num_channels = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_offset+0x00,1,BOM);
             
             //safety
             if(HEAD3_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels. Max supported is 16.\n";} return 249;}
             
             for(unsigned char i=0;i<HEAD3_num_channels;i++) {
                 unsigned int readOffset = HEAD_offset+HEAD3_offset+0x04+4+(i*8);
-                unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4);
+                unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4,BOM);
                 HEAD3_ch_info_offsets[i]=infoOffset+8;
                 for(unsigned char x=0;x<32;x+=2) {
-                    HEAD3_int16_adpcm[i][x/2] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x08+x);
+                    HEAD3_int16_adpcm[i][x/2] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x08+x,BOM);
                 }
-                HEAD3_ch_gain          [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x28,2);
-                HEAD3_ch_initial_scale [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2A,2);
-                HEAD3_ch_hsample_1     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2C);
-                HEAD3_ch_hsample_2     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2E);
-                HEAD3_ch_loop_ini_scale[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x30,2);
-                HEAD3_ch_loop_hsample_1[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x32);
-                HEAD3_ch_loop_hsample_2[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x34);
+                HEAD3_ch_gain          [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x28,2,BOM);
+                HEAD3_ch_initial_scale [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2A,2,BOM);
+                HEAD3_ch_hsample_1     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2C,BOM);
+                HEAD3_ch_hsample_2     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2E,BOM);
+                HEAD3_ch_loop_ini_scale[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x30,2,BOM);
+                HEAD3_ch_loop_hsample_1[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x32,BOM);
+                HEAD3_ch_loop_hsample_2[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x34,BOM);
                 HEAD3_ch_info_offsets[i]-=8;
             }
             
@@ -292,7 +307,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
             magicstr=brstm_getSliceAsString(fileData,ADPC_offset,4);
             if(strcmp(magicstr,emagic3) == 0) {
                 //Start reading ADPC
-                ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4);
+                ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4,BOM);
                 ADPC_total_entries = (ADPC_total_length-8)/HEAD1_bytes_per_ADPC;
                 for(unsigned int n=0;n<HEAD3_num_channels;n++) {
                     ADPC_hsamples_1[n] = new int16_t[ADPC_total_entries/HEAD3_num_channels];
@@ -303,8 +318,8 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
                     unsigned int it;
                     for(unsigned int i=0;i<ADPC_total_entries/HEAD3_num_channels;i++) {
                         unsigned int offset=ADPC_offset+8+(n*HEAD1_bytes_per_ADPC)+((i*HEAD1_bytes_per_ADPC)*HEAD3_num_channels);
-                        ADPC_hsamples_1[n][i] = brstm_getSliceAsInt16Sample(fileData,offset);
-                        ADPC_hsamples_2[n][i] = brstm_getSliceAsInt16Sample(fileData,offset+2);
+                        ADPC_hsamples_1[n][i] = brstm_getSliceAsInt16Sample(fileData,offset,BOM);
+                        ADPC_hsamples_2[n][i] = brstm_getSliceAsInt16Sample(fileData,offset+2,BOM);
                         it=i+1;
                     }
                     if(debugLevel>1) {std::cout << it << " history sample pairs read.\n";}
@@ -316,7 +331,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
                 magicstr=brstm_getSliceAsString(fileData,DATA_offset,4);
                 if(strcmp(magicstr,emagic4) == 0) {
                     //Start reading DATA
-                    DATA_total_length = brstm_getSliceAsNumber(fileData,DATA_offset+0x04,4);
+                    DATA_total_length = brstm_getSliceAsNumber(fileData,DATA_offset+0x04,4,BOM);
                     
                     if(debugLevel>1) {std::cout << "DATA length: " << DATA_total_length << '\n';}
                     
@@ -648,11 +663,22 @@ unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
         return 255;
     }
     
+    //Byte Order Mark
+    bool BOM;
+    unsigned char bomword[2];
+    stream.seekg(0x04);
+    stream.read((char*)bomword,2);
+    if(brstm_getSliceAsInt16Sample(bomword,0,1) == -257) {
+        BOM = 1; //Big endian
+    } else {
+        BOM = 0; //Little endian
+    }
+    
     //get offset to DATA chunk
     stream.seekg(0x20);
     unsigned char of0x20[4];
     stream.read((char*)of0x20,4);
-    unsigned int headerSize = brstm_getSliceAsNumber(of0x20,0,4) + 512;
+    unsigned int headerSize = brstm_getSliceAsNumber(of0x20,0,4,BOM) + 512;
     
     //read header into memory
     stream.seekg(0);
