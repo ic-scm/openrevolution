@@ -250,7 +250,8 @@ unsigned char brstm_encode(signed int debugLevel,uint8_t encodeADPCM) {
             //Decode 4 bit ADPCM
             unsigned char* blockData = ADPCM_data[c];
             unsigned long currentBlockSamples = HEAD1_total_samples;
-            unsigned long b=0;
+            unsigned long b = 0;
+            unsigned long currentSample = 0;
             
             //Magic adapted from brawllib's ADPCMState.cs
             signed int 
@@ -259,7 +260,7 @@ unsigned char brstm_encode(signed int debugLevel,uint8_t encodeADPCM) {
             cyn2 = 0;
             unsigned long dataIndex = 0;
             
-            for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
+            for (unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;) {
                 long outSample = 0;
                 if (sampleIndex % 14 == 0) {
                     cps = blockData[dataIndex++];
@@ -277,17 +278,25 @@ unsigned char brstm_encode(signed int debugLevel,uint8_t encodeADPCM) {
                 
                 outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
                 
-                if(sampleIndex % HEAD1_blocks_samples == 0) {
-                    HS1[c][b]   = cyn1;
-                    HS2[c][b++] = cyn2;
+                if(currentSample % HEAD1_blocks_samples == 0) {
+                    if(b == 0) {
+                        HS1[c][b] = 0;
+                        HS2[c][b] = 0;
+                    } else {
+                        HS1[c][b] = cyn1;
+                        HS2[c][b] = cyn2;
+                    }
+                    b++;
                 }
-                if(sampleIndex == HEAD1_loop_start) {
-                    LoopHS1[c] = cyn1;
-                    LoopHS2[c] = cyn2;
+                if(currentSample == HEAD1_loop_start) {
+                    if(currentSample > 0) {LoopHS1[c] = cyn1;} else {LoopHS1[c] = 0;}
+                    if(currentSample > 1) {LoopHS2[c] = cyn2;} else {LoopHS2[c] = 0;}
                 }
                 
                 cyn2 = cyn1;
                 cyn1 = brstm_clamp(outSample, -32768, 32767);
+                
+                currentSample++;
             }
         }
         
