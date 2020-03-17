@@ -250,7 +250,7 @@ Console debug level:
 (signed int),
 
 Encode ADPCM flag:
- 0 = Use the ADPCM data from ADPCM_data;
+ 0 = Use the ADPCM data from ADPCM_data (requires coefs in HEAD3_int16_adpcm[ch][coef])
  1 = Encode PCM_samples into ADPCM
 
 Returns error code (>127) or warning code (<128)
