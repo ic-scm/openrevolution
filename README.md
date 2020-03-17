@@ -68,6 +68,7 @@ Usage:
 ## brstm.h and brstm_encode.h usage
 Declare these variables in your code before including the brstm.h file:
 ```cpp
+unsigned int  BRSTM_format; //File type, 1 = BRSTM, see brstm.h for full list
 unsigned int  HEAD1_codec;
 unsigned int  HEAD1_loop;
 unsigned int  HEAD1_num_channels;

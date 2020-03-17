@@ -76,6 +76,9 @@ int16_t* ADPC_hsamples_1[16];
 int16_t* ADPC_hsamples_2[16];
 */// declared in including file
 
+const char* BRSTM_formats_str[5] = {"    ","RSTM","CSTM","FSTM","BWAV"};
+const unsigned int BRSTM_formats_count = 5;
+
 /* 
  * Read the BRSTM file headers and optionally decode the audio data.
  * 
@@ -100,6 +103,7 @@ int16_t* ADPC_hsamples_2[16];
  *      240 = Invalid ADPC chunk (Doesn't begin with ADPC)
  *      230 = Invalid DATA chunk (Doesn't begin with DATA)
  *      220 = Unsupported or unknown audio codec
+ *      210 = Unsupported file format
  *      200 = Unknown error (this should never happen)
  */
 unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uint8_t decodeADPCM) {
@@ -170,6 +174,18 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
     //int16_t* PCM_samples[16]; //Should be declared in main file
     //unsigned char* ADPCM_data[16];
     //unsigned char* ADPCM_buffer[16]; //not used yet
+    
+    //Find filetype
+    BRSTM_format = 0;
+    for(unsigned int t=0;t<BRSTM_formats_count;t++) {
+        if(strcmp(BRSTM_formats_str[t],brstm_getSliceAsString(fileData,0,strlen(BRSTM_formats_str[t]))) == 0) {
+            BRSTM_format = t;
+            break;
+        }
+    }
+    if(BRSTM_format == 0) {
+        return 210;
+    }
     
     //Check if the header matches RSTM
     char* magicstr=brstm_getSliceAsString(fileData,0,4);
@@ -646,39 +662,13 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
  */
 unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
     if(!stream.is_open()) {
-        if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream& stream.\n";}
+        if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream.\n";}
         return 255;
     }
     unsigned char* brstm_header;
-    //check if the file has the RSTM word before allocating memory for the full BRSTM header
-    //so you won't try to allocate and read huge amounts of memory if an invalid file
-    //has a big number in the place where the offset to the DATA chunk usually is
-    stream.seekg(0);
-    const char* emagic = "RSTM";
-    char magicword[5];
-    stream.read(magicword,4);
-    magicword[4] = '\0';
-    if(strcmp(magicword,emagic) != 0) {
-        if(debugLevel>=0) {std::cout << "Invalid BRSTM file.\n";}
-        return 255;
-    }
     
-    //Byte Order Mark
-    bool BOM;
-    unsigned char bomword[2];
-    stream.seekg(0x04);
-    stream.read((char*)bomword,2);
-    if(brstm_getSliceAsInt16Sample(bomword,0,1) == -257) {
-        BOM = 1; //Big endian
-    } else {
-        BOM = 0; //Little endian
-    }
-    
-    //get offset to DATA chunk
-    stream.seekg(0x20);
-    unsigned char of0x20[4];
-    stream.read((char*)of0x20,4);
-    unsigned int headerSize = brstm_getSliceAsNumber(of0x20,0,4,BOM) + 512;
+    //Should be enough for all files
+    unsigned int headerSize = 65535;
     
     //read header into memory
     stream.seekg(0);
@@ -706,6 +696,7 @@ void brstm_close() {
         delete[] ADPCM_data[i];
     }
     
+    BRSTM_format = 0;
     HEAD1_codec = 0;
     HEAD1_loop = 0;
     HEAD1_num_channels = 0;
