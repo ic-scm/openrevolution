@@ -128,6 +128,9 @@ int main( int argc, char* args[] ) {
         return result;
     }
     
+    //Set codec to ADPCM
+    HEAD1_codec = 2;
+    
     //encode new brstm
     if(saveFile) {
         std::cout << "Saving file to " << outputName << "...\n";
