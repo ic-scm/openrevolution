@@ -507,6 +507,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
                 }
             }
         }
+        if(HEAD2_num_tracks>1 && debugLevel>=0) {std::cout << "Warning: Tracks are assumed\n";}
         
         //Log details
         if(debugLevel>0) {std::cout << "Codec: " << HEAD1_codec << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
@@ -607,9 +608,14 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
                             return 220;
                         }
                     } else {
-                        //Write raw data to ADPCM_data
-                        for(unsigned int i=0; i<currentBlockSize; i++) {
-                            ADPCM_data[c][outputPos++] = blockData[i];
+                        if(HEAD1_codec == 2) {
+                            //Write raw data to ADPCM_data
+                            for(unsigned int i=0; i<currentBlockSize; i++) {
+                                ADPCM_data[c][outputPos++] = blockData[i];
+                            }
+                        } else {
+                            if(debugLevel>=0) {std::cout << "Codec is not ADPCM.\n";}
+                            return 220;
                         }
                     }
                     
