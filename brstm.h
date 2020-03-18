@@ -498,7 +498,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
         for(unsigned char c=0; c<HEAD1_num_channels; c++) {
             HEAD2_track_num_channels[c/track_num_channels] = track_num_channels;
             if(track_num_channels == 1 || c%2 == 0) HEAD2_track_lchannel_id[c/track_num_channels] = c;
-            if(track_num_channels == 2 && c%2 == 1) HEAD2_track_lchannel_id[c/track_num_channels] = c;
+            if(track_num_channels == 2 && c%2 == 1) HEAD2_track_rchannel_id[c/track_num_channels] = c;
             
             //Read coefs
             if(HEAD1_codec == 2) {
