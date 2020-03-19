@@ -75,16 +75,6 @@ void writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,
     }
     off += bytes;
 }
-
-void writebytes_i(unsigned char* buf,unsigned char* data,unsigned int bytes,unsigned long& off) {
-    writebytes(buf,data,bytes,off);
-    delete[] data;
-}
-
-void writebyte(unsigned char* buf,const unsigned char data,unsigned long& off) {
-    unsigned char arr[1] = {data};
-    writebytes(buf,arr,1,off);
-}
 //Returns integer as little endian bytes
 unsigned char* BEint;
 unsigned char* getLEuint(uint64_t num,uint8_t bytes) {
@@ -103,12 +93,6 @@ unsigned char* getLEuint(uint64_t num,uint8_t bytes) {
     }
     return BEint;
 }
-
-unsigned char* getLEint16(int16_t num) {
-    uint16_t unum = num;
-    return getLEuint(unum,2);
-}
-
 
 int main( int argc, char* args[] ) {
     if(argc<2) {
