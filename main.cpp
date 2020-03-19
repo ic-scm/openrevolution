@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <cstdlib>
 #include <cstring>
+#include <math.h>
 
 //brstm stuff
 
@@ -52,19 +53,62 @@ int16_t* ADPC_hsamples_2   [16];
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM decoder\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n";
+const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name.wav] - If this is not used the output will not be saved.\n-v - Verbose output\n-r - Output raw file instead of WAV\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o"};
-const char* opts_alt[] = {"--verbose","--output"};
-const unsigned int optcount = 2;
-const bool optrequiredarg[optcount] = {0,1};
+const char* opts[] = {"-v","-o","-r"};
+const char* opts_alt[] = {"--verbose","--output","--raw"};
+const unsigned int optcount = 3;
+const bool optrequiredarg[optcount] = {0,1,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
 bool verb=0;
 bool saveFile=0;
+bool rawOutput=0;
+
+//From brstm_encode.h
+void writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
+    for(unsigned int i=0;i<bytes;i++) {
+        buf[i+off] = data[i];
+    }
+    off += bytes;
+}
+
+void writebytes_i(unsigned char* buf,unsigned char* data,unsigned int bytes,unsigned long& off) {
+    writebytes(buf,data,bytes,off);
+    delete[] data;
+}
+
+void writebyte(unsigned char* buf,const unsigned char data,unsigned long& off) {
+    unsigned char arr[1] = {data};
+    writebytes(buf,arr,1,off);
+}
+//Returns integer as little endian bytes
+unsigned char* BEint;
+unsigned char* getLEuint(uint64_t num,uint8_t bytes) {
+    delete[] BEint;
+    BEint = new unsigned char[bytes];
+    unsigned long pwr;
+    unsigned char pwn = bytes - 1;
+    for(unsigned char i = 0; i < bytes; i++) {
+        pwr = pow(256,pwn--);
+        unsigned int pos = abs(i-bytes+1);
+        BEint[pos]=0;
+        while(num >= pwr) {
+            BEint[pos]++;
+            num -= pwr;
+        }
+    }
+    return BEint;
+}
+
+unsigned char* getLEint16(int16_t num) {
+    uint16_t unum = num;
+    return getLEuint(unum,2);
+}
+
 
 int main( int argc, char* args[] ) {
     if(argc<2) {
@@ -100,6 +144,7 @@ int main( int argc, char* args[] ) {
     const char* outputName;
     if(optused[0]) verb=1;
     if(optused[1]) {outputName=optargstr[1]; saveFile=1;}
+    if(optused[2]) rawOutput=1;
     
     //read the file
     if(verb) {std::cout << "Reading file " << args[1];}
@@ -129,27 +174,73 @@ int main( int argc, char* args[] ) {
         
         std::ofstream ofile (outputName,std::ios::out|std::ios::binary|std::ios::trunc);
         if(ofile.is_open()) {
-            const unsigned long TotalPCMSampleCount=HEAD1_total_samples * HEAD1_num_channels;
-            const unsigned long PCMSampleCountPerChannel=HEAD1_total_samples;
-            int16_t* rawAudioData;
-            rawAudioData = new int16_t[TotalPCMSampleCount];
-            unsigned long rawAudioPos=0;
-            for(unsigned long i=0;i<PCMSampleCountPerChannel;i++) {
-                for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-                    rawAudioData[rawAudioPos] = PCM_samples[c][i];
-                    rawAudioPos++;
+            if(rawOutput) {
+                const unsigned long TotalPCMSampleCount=HEAD1_total_samples * HEAD1_num_channels;
+                const unsigned long PCMSampleCountPerChannel=HEAD1_total_samples;
+                int16_t* rawAudioData;
+                rawAudioData = new int16_t[TotalPCMSampleCount];
+                unsigned long rawAudioPos=0;
+                for(unsigned long i=0;i<PCMSampleCountPerChannel;i++) {
+                    for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+                        rawAudioData[rawAudioPos] = PCM_samples[c][i];
+                        rawAudioPos++;
+                    }
                 }
+                char* rawFileData;
+                rawFileData = new char[TotalPCMSampleCount*2];
+                for(unsigned long i=0;i<TotalPCMSampleCount*2;i+=2) {
+                    int cSample = rawAudioData[i/2];
+                    rawFileData[i]   = cSample&0xFF;
+                    rawFileData[i+1] = (cSample>>8)&0xFF;
+                }
+                delete[] rawAudioData;
+                ofile.write(rawFileData,TotalPCMSampleCount*2);
+                delete[] rawFileData;
+            } else {
+                //Create WAV file
+                unsigned char* wavfiledata = new unsigned char[(HEAD1_total_samples*2)*HEAD3_num_channels+44];
+                unsigned long bufpos=0;
+                writebytes(wavfiledata,(unsigned char*)"RIFF",4,bufpos);
+                //Size
+                writebytes(wavfiledata,getLEuint((HEAD1_total_samples*2)*HEAD3_num_channels+36,4),4,bufpos);
+                writebytes(wavfiledata,(unsigned char*)"WAVEfmt ",8,bufpos);
+                //Subchunk size
+                writebytes(wavfiledata,getLEuint(16,4),4,bufpos);
+                //Format = PCM
+                writebytes(wavfiledata,getLEuint(1,2),2,bufpos);
+                //Number of channels
+                writebytes(wavfiledata,getLEuint(HEAD1_num_channels,2),2,bufpos);
+                //Sample rate
+                writebytes(wavfiledata,getLEuint(HEAD1_sample_rate,4),4,bufpos);
+                //Byterate
+                writebytes(wavfiledata,getLEuint(HEAD1_sample_rate*HEAD1_num_channels*2,4),4,bufpos);
+                //Blockalign
+                writebytes(wavfiledata,getLEuint(HEAD1_num_channels*2,2),2,bufpos);
+                //Bits per sample
+                writebytes(wavfiledata,getLEuint(16,2),2,bufpos);
+                //Data
+                writebytes(wavfiledata,(unsigned char*)"data",4,bufpos);
+                writebytes(wavfiledata,getLEuint(HEAD1_total_samples*HEAD1_num_channels*2,4),4,bufpos);
+                //Audio data
+                for(unsigned long s=0;s<HEAD1_total_samples;s++) {
+                    for(unsigned char c=0;c<HEAD1_num_channels;c++) {
+                        unsigned char samplebytes[2];
+                        int16_t cSample = PCM_samples[c][s];
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+                        samplebytes[1]   = cSample&0xFF;
+                        samplebytes[0] = (cSample>>8)&0xFF;
+#else
+                        samplebytes[0]   = cSample&0xFF;
+                        samplebytes[1] = (cSample>>8)&0xFF;
+#endif
+                        writebytes(wavfiledata,samplebytes,2,bufpos);
+                    }
+                }
+                
+                ofile.write((char*)wavfiledata,(HEAD1_total_samples*2)*HEAD3_num_channels+44);
+                delete[] wavfiledata;
             }
-            char* rawFileData;
-            rawFileData = new char[TotalPCMSampleCount*2];
-            for(unsigned long i=0;i<TotalPCMSampleCount*2;i+=2) {
-                int cSample = rawAudioData[i/2];
-                rawFileData[i]   = cSample&0xFF;
-                rawFileData[i+1] = (cSample>>8)&0xFF;
-            }
-            delete[] rawAudioData;
-            ofile.write(rawFileData,TotalPCMSampleCount*2);
-            delete[] rawFileData;
+            
             ofile.close();
         } else {std::cout << "\nUnable to open file\n"; return 255;}
     }

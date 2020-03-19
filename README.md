@@ -6,11 +6,13 @@ Only ADPCM codec is supported (for now).
 
 ## Converter/decoder program
 Usage:
-./brstm input.brstm -o output.raw
+./brstm input.brstm -o output.wav
 
 -o [output file name] - If this is not used the output will not be saved.
 
 -v - Verbose output
+
+-r - Output a raw audio file instead of WAV
 
 The raw output file can be imported into a program like Audacity as signed 16-bit PCM.
 
