@@ -52,6 +52,29 @@ Usage:
 
 -c [1 or 2] - Number of channels for each track
 
+## Reencoder
+Re-encode a BRSTM (or other supported input format) into a new BRSTM.
+
+Usage:
+./brstm_reencoder input.bwav -o output.brstm --ffmpeg "-af volume=10dB"
+
+-o [output file name] - If this is not used the output will not be saved.
+
+-v - Verbose output
+
+--ffmpeg [ffmpeg arguments] - Use ffmpeg in the middle of re-encoding to edit the audio data with the passed ffmpeg arguments (as a single argument!)
+Requires FFMPEG to be installed and it may not work on non-unix systems.
+
+## Rebuilder
+Losslessly rebuild a BRSTM (or other supported input format) into a new BRSTM.
+
+Usage:
+./brstm_rebuilder input.bwav -o output.brstm
+
+-o [output file name] - If this is not used the output will not be saved.
+
+-v - Verbose output
+
 ## Thanks to
 
 - [WiiBrew](https://wiibrew.org/wiki/BRSTM_file): BRSTM file structure reference
