@@ -1,4 +1,4 @@
-//C++ BRSTM re-encoder test
+//C++ BRSTM re-encoder
 //Copyright (C) 2020 Extrasklep
 #include <iostream>
 #include <fstream>
@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 //brstm stuff
 
@@ -55,20 +56,46 @@ unsigned long  brstm_encoded_data_size;
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "BRSTM Re-encoder example program\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n";
+const char* helpString0 = "BRSTM Re-encoder\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
+const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o"};
-const char* opts_alt[] = {"--verbose","--output"};
-const unsigned int optcount = 2;
-const bool optrequiredarg[optcount] = {0,1};
+const char* opts[] = {"-v","-o","--ffmpeg"};
+const char* opts_alt[] = {"--verbose","--output","--ffmpeg"};
+const unsigned int optcount = 3;
+const bool optrequiredarg[optcount] = {0,1,1};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
 bool verb=0;
 bool saveFile=0;
+
+//Modified functions from brstm_encode.h, used to write WAV files
+void writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
+    for(unsigned int i=0;i<bytes;i++) {
+        buf[i+off] = data[i];
+    }
+    off += bytes;
+}
+//Returns integer as little endian bytes
+unsigned char* BEint;
+unsigned char* getLEuint(uint64_t num,uint8_t bytes) {
+    delete[] BEint;
+    BEint = new unsigned char[bytes];
+    unsigned long pwr;
+    unsigned char pwn = bytes - 1;
+    for(unsigned char i = 0; i < bytes; i++) {
+        pwr = pow(256,pwn--);
+        unsigned int pos = abs(i-bytes+1);
+        BEint[pos]=0;
+        while(num >= pwr) {
+            BEint[pos]++;
+            num -= pwr;
+        }
+    }
+    return BEint;
+}
 
 int main( int argc, char* args[] ) {
     if(argc<2) {
@@ -102,8 +129,11 @@ int main( int argc, char* args[] ) {
     }
     //Apply the options
     const char* outputName;
+    bool useFFMPEG = 0;
+    const char* ffmpegArgs;
     if(optused[0]) verb=1;
     if(optused[1]) {outputName=optargstr[1]; saveFile=1;}
+    if(optused[2]) {ffmpegArgs=optargstr[2]; useFFMPEG=1;}
     
     //read the file
     if(verb) {std::cout << "Reading file " << args[1];}
@@ -127,6 +157,122 @@ int main( int argc, char* args[] ) {
         std::cout << "Error.\n";
         return result;
     }
+    
+    //FFMPEG: save audio to WAV file, run ffmpeg on it, and read the output
+    if(useFFMPEG) {
+        //Create WAV file
+        std::ofstream ofile ("/tmp/brstm-ffmpeg-i.wav",std::ios::out|std::ios::binary|std::ios::trunc);
+        if(ofile.is_open()) {
+            unsigned char* wavfiledata = new unsigned char[(HEAD1_total_samples*2)*HEAD3_num_channels+44];
+            unsigned long bufpos=0;
+            writebytes(wavfiledata,(unsigned char*)"RIFF",4,bufpos);
+            //Size
+            writebytes(wavfiledata,getLEuint((HEAD1_total_samples*2)*HEAD3_num_channels+36,4),4,bufpos);
+            writebytes(wavfiledata,(unsigned char*)"WAVEfmt ",8,bufpos);
+            //Subchunk size
+            writebytes(wavfiledata,getLEuint(16,4),4,bufpos);
+            //Format = PCM
+            writebytes(wavfiledata,getLEuint(1,2),2,bufpos);
+            //Number of channels
+            writebytes(wavfiledata,getLEuint(HEAD1_num_channels,2),2,bufpos);
+            //Sample rate
+            writebytes(wavfiledata,getLEuint(HEAD1_sample_rate,4),4,bufpos);
+            //Byterate
+            writebytes(wavfiledata,getLEuint(HEAD1_sample_rate*HEAD1_num_channels*2,4),4,bufpos);
+            //Blockalign
+            writebytes(wavfiledata,getLEuint(HEAD1_num_channels*2,2),2,bufpos);
+            //Bits per sample
+            writebytes(wavfiledata,getLEuint(16,2),2,bufpos);
+            //Data
+            writebytes(wavfiledata,(unsigned char*)"data",4,bufpos);
+            writebytes(wavfiledata,getLEuint(HEAD1_total_samples*HEAD1_num_channels*2,4),4,bufpos);
+            //Audio data
+            for(unsigned long s=0;s<HEAD1_total_samples;s++) {
+                for(unsigned char c=0;c<HEAD1_num_channels;c++) {
+                    unsigned char samplebytes[2];
+                    int16_t cSample = PCM_samples[c][s];
+                    #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+                    samplebytes[1]   = cSample&0xFF;
+                    samplebytes[0] = (cSample>>8)&0xFF;
+                    #else
+                    samplebytes[0]   = cSample&0xFF;
+                    samplebytes[1] = (cSample>>8)&0xFF;
+                    #endif
+                    writebytes(wavfiledata,samplebytes,2,bufpos);
+                }
+            }
+            ofile.write((char*)wavfiledata,(HEAD1_total_samples*2)*HEAD3_num_channels+44);
+            delete[] wavfiledata;
+            ofile.close();
+        } else {std::cout << "Unable to open temporary FFMPEG file.\n"; return 255;}
+        
+        //Run FFMPEG
+        std::string systemCommand = "ffmpeg -i /tmp/brstm-ffmpeg-i.wav ";
+        systemCommand += ffmpegArgs;
+        systemCommand += " /tmp/brstm-ffmpeg-o.wav";
+        std::cout << systemCommand << '\n';
+        system(systemCommand.c_str());
+        
+        {
+            //Read FFMPEG output WAV
+            unsigned char * memblock;
+            std::ifstream file ("/tmp/brstm-ffmpeg-o.wav", std::ios::in|std::ios::binary|std::ios::ate);
+            if (file.is_open()) {
+                fsize = file.tellg();
+                memblock = new unsigned char [fsize];
+                file.seekg (0, std::ios::beg);
+                file.read ((char*)memblock, fsize);
+                file.close();
+            } else {std::cout << "Unable to open output FFMPEG file.\n"; return 255;}
+            
+            
+            //Read the WAV file data
+            if(strcmp("RIFF",brstm_getSliceAsString(memblock,0,4)) != 0) {
+                goto ffmpegOutputError;
+            }
+            unsigned long wavFileSize = brstm_getSliceAsNumber(memblock,4,4,0) + 8;
+            if(strcmp("WAVEfmt ",brstm_getSliceAsString(memblock,8,8)) != 0) {
+                goto ffmpegOutputError;
+            }
+            if(brstm_getSliceAsNumber(memblock,16,4,0) != 16 || brstm_getSliceAsNumber(memblock,20,2,0) != 1) {
+                goto ffmpegOutputError;
+            }
+            if(HEAD1_num_channels != brstm_getSliceAsNumber(memblock,22,2,0)) {
+                goto ffmpegOutputError;
+            }
+            if(HEAD1_sample_rate != brstm_getSliceAsNumber(memblock,24,4,0)) {
+                goto ffmpegOutputError;
+            }
+            if(brstm_getSliceAsNumber(memblock,34,2,0) != 16) {
+                goto ffmpegOutputError;
+            }
+            unsigned long wavAudioOffset = 36;
+            for(;strcmp("data",brstm_getSliceAsString(memblock,wavAudioOffset,4)) != 0 ;wavAudioOffset++) {}
+            if(HEAD1_total_samples != brstm_getSliceAsNumber(memblock,wavAudioOffset+4,4,0) / HEAD1_num_channels / 2) {
+                goto ffmpegOutputError;
+            }
+            wavAudioOffset += 8;
+            
+            { //Read audio from wav file
+                std::cout << "Reading output FFMPEG audio...\n";
+                unsigned int c;
+                for(unsigned int i=0;i<HEAD1_total_samples;i++) {
+                    for(c=0;c<HEAD1_num_channels;c++) {
+                        PCM_samples[c][i] = brstm_getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*HEAD1_num_channels)+c*2,0);
+                    }
+                }
+                delete[] memblock;
+            }
+        }
+        //Delete FFMPEG files
+        system("rm /tmp/brstm-ffmpeg-i.wav");
+        system("rm /tmp/brstm-ffmpeg-o.wav");
+        goto ffmpegSuccess;
+        ffmpegOutputError:
+        std::cout << "Invalid FFMPEG output file.\n"; exit(255);
+        ffmpegSuccess:;
+    }
+    
     
     //Set codec to ADPCM
     HEAD1_codec = 2;
