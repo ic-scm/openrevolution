@@ -210,6 +210,7 @@ int main( int argc, char* args[] ) {
                     for(unsigned char c=0;c<HEAD1_num_channels;c++) {
                         unsigned char samplebytes[2];
                         int16_t cSample = PCM_samples[c][s];
+                        //big endian still doesn't work
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
                         samplebytes[1]   = cSample&0xFF;
                         samplebytes[0] = (cSample>>8)&0xFF;
