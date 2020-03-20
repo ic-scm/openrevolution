@@ -206,18 +206,16 @@ int main( int argc, char* args[] ) {
                 writebytes(wavfiledata,(unsigned char*)"data",4,bufpos);
                 writebytes(wavfiledata,getLEuint(HEAD1_total_samples*HEAD1_num_channels*2,4),4,bufpos);
                 //Audio data
+                unsigned char samplebytes[2];
+                int16_t cSample;
                 for(unsigned long s=0;s<HEAD1_total_samples;s++) {
                     for(unsigned char c=0;c<HEAD1_num_channels;c++) {
-                        unsigned char samplebytes[2];
-                        int16_t cSample = PCM_samples[c][s];
-                        //big endian still doesn't work
+                        cSample = PCM_samples[c][s];
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-                        samplebytes[1]   = cSample&0xFF;
-                        samplebytes[0] = (cSample>>8)&0xFF;
-#else
+                        cSample = __builtin_bswap16(cSample);
+#endif
                         samplebytes[0]   = cSample&0xFF;
                         samplebytes[1] = (cSample>>8)&0xFF;
-#endif
                         writebytes(wavfiledata,samplebytes,2,bufpos);
                     }
                 }
