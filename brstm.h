@@ -624,8 +624,18 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
             }
             if(debugLevel>0) {std::cout << "Decoded PCM samples: " << decoded_samples << '\n';}
         } else {
-            if(debugLevel>=0) {std::cout << "Realtime decoding is not supported for this format.\n";}
-            return 210;
+            if(HEAD1_codec == 2) {
+                if(debugLevel>=0) {std::cout << "Warning: Realtime decoding works like full decoding for this format\n";}
+                for(unsigned char c=0;c<HEAD1_num_channels;c++) {
+                    ADPC_hsamples_1[c] = new int16_t[1];
+                    ADPC_hsamples_2[c] = new int16_t[1];
+                    ADPC_hsamples_1[c][0] = 0;
+                    ADPC_hsamples_1[c][0] = 1;
+                }
+            } else {
+                if(debugLevel>=0) {std::cout << "Realtime decoding is not supported for this format and codec.\n";}
+                return 210;
+            }
         }
         
         return 0;
