@@ -91,6 +91,10 @@ Usage:
 - Use structs instead of global variables declared in main file
 
 ## brstm.h and brstm_encode.h usage
+**WARNING: This is currently under development and there may be major incompatible changes at any time, please use the latest stable release or wait for v2.0**
+
+
+
 Declare these variables in your code before including the brstm.h file:
 ```cpp
 unsigned int  BRSTM_format; //File type, 1 = BRSTM, see brstm.h for full list
