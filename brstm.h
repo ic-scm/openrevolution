@@ -33,7 +33,6 @@ unsigned long brstm_getSliceAsNumber(const unsigned char* data,unsigned long sta
         pos = 0; //Read as little endian
     }
     unsigned long pw=1; //Multiply by 1,256,65536...
-    //std::cout << length << '\n';
     for(unsigned int i=0;i<length;i++) {
         if(i>0) {pw*=256;}
         number+=bytes[pos]*pw;
