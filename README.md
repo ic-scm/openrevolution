@@ -95,49 +95,64 @@ Usage:
 
 
 
-Declare these variables in your code before including the brstm.h file:
+The BRSTM struct
 ```cpp
-unsigned int  BRSTM_format; //File type, 1 = BRSTM, see brstm.h for full list
-unsigned int  HEAD1_codec;
-unsigned int  HEAD1_loop;
-unsigned int  HEAD1_num_channels;
-unsigned int  HEAD1_sample_rate;
-unsigned long HEAD1_loop_start;
-unsigned long HEAD1_total_samples;
-unsigned long HEAD1_ADPCM_offset;
-unsigned long HEAD1_total_blocks;
-unsigned long HEAD1_blocks_size;
-unsigned long HEAD1_blocks_samples;
-unsigned long HEAD1_final_block_size;
-unsigned long HEAD1_final_block_samples;
-unsigned long HEAD1_final_block_size_p;
-unsigned long HEAD1_samples_per_ADPC;
-unsigned long HEAD1_bytes_per_ADPC;
+struct Brstm {
+    bool BOM; //byte order mark
+    //File type, 1 = BRSTM, see above for full list
+    unsigned int  file_format;
+    //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
+    unsigned int  codec;
+    bool          loop_flag;
+    unsigned int  num_channels;
+    unsigned long sample_rate;
+    unsigned long loop_start;
+    unsigned long total_samples;
+    unsigned long audio_offset;
+    unsigned long total_blocks;
+    unsigned long blocks_size;
+    unsigned long blocks_samples;
+    unsigned long final_block_size;
+    unsigned long final_block_samples;
+    unsigned long final_block_size_p;
+    
+    //probably useless?
+    unsigned long samples_per_ADPC;
+    unsigned long bytes_per_ADPC;
+    
+    //track information
+    unsigned int  num_tracks;
+    unsigned int  track_desc_type;
+    
+    unsigned int  track_num_channels[8] = {0,0,0,0,0,0,0,0};
+    unsigned int  track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
+    unsigned int  track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
+    
+    unsigned int  track_volume      [8] = {0,0,0,0,0,0,0,0};
+    unsigned int  track_panning     [8] = {0,0,0,0,0,0,0,0};
+    
+    int16_t* PCM_samples[16];
+    int16_t* PCM_buffer[16];
+    
+    unsigned char* ADPCM_data  [16];
+    unsigned char* ADPCM_buffer[16]; //Unused for now
+    int16_t  ADPCM_coefs [16][16];
+    int16_t* ADPCM_hsamples_1   [16];
+    int16_t* ADPCM_hsamples_2   [16];
+    
+    //Things you probably shouldn't touch
+    //block cache
+    int16_t* PCM_blockbuffer[16];
+    int PCM_blockbuffer_currentBlock = -1;
+    bool brstm_getbuffer_useBuffer = true;
+};
+```
 
-unsigned int  HEAD2_num_tracks;
-unsigned int  HEAD2_track_type;
-
-unsigned int  HEAD2_track_num_channels[8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
-
-unsigned int  HEAD2_track_volume      [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_panning     [8] = {0,0,0,0,0,0,0,0};
-
-unsigned int  HEAD3_num_channels;
-
-int16_t* PCM_samples[16];
-int16_t* PCM_buffer[16];
-
-unsigned char* ADPCM_data  [16];
-unsigned char* ADPCM_buffer[16]; //Not used yet
-int16_t  HEAD3_int16_adpcm [16][16]; //Coefs
-int16_t* ADPC_hsamples_1   [16];
-int16_t* ADPC_hsamples_2   [16];
-//Include the file now
+Include the files:
+```cpp
 #include "brstm.h"
 ```
-If you want to use the encoder then add this too:
+If you want to use the encoder **(CURRENTLY BROKEN)** then add this too:
 ```cpp
 unsigned char* brstm_encoded_data;
 unsigned long  brstm_encoded_data_size;
@@ -146,6 +161,8 @@ unsigned long  brstm_encoded_data_size;
 Read a file:
 ```
 brstm_read (
+
+Your BRSTM struct pointer (Brstm*),
 
 Raw file data (const unsigned char*),
 
@@ -168,11 +185,11 @@ Returns error code (>127) or warning code (<128) (see brstm.h file for full list
 
 You can then read information about the BRSTM from the variables you declared earlier.
 
-Close the file with brstm_close().
-
 Decode a small part of the audio data into a buffer:
 ```
 brstm_getbuffer (
+
+Your BRSTM struct pointer (Brstm*),
 
 Raw file data (const unsigned char*),
 
@@ -191,6 +208,8 @@ Read a file:
 ```
 brstm_fstream_read (
 
+Your BRSTM struct pointer (Brstm*),
+
 std::ifstream with an open BRSTM file (std::ifstream&),
 
 Console debug level (same as brstm_read) (signed int)
@@ -205,6 +224,8 @@ Get buffer:
 ```
 brstm_fstream_getbuffer (
 
+Your BRSTM struct pointer (Brstm*),
+
 std::ifstream with an open BRSTM file (std::ifstream&),
 
 Sample offset (unsigned long),
@@ -217,9 +238,12 @@ Amount of samples in the buffer
 ```
 You can then read the requested buffer from PCM_buffer[channel][sample offset (from the sample offset passed to brstm_fstream_getbuffer)].
 
-Close the file with brstm_close() like with the normal memory mode.
+Remember to close the file (free any buffers and allocated memory) with brstm_close(Brstm*) before deleting your struct!
 
 ### Encoder
+
+**(Encoder currently doesn't work with structs, do not use)**
+
 Write your Int16 PCM audio data to PCM_samples[c] for each channel
 
 Set audio and BRSTM details:
