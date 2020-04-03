@@ -2,6 +2,7 @@
 //Copyright (C) 2020 Extrasklep
 //https://github.com/Extrasklep/brstm
 
+#pragma once
 #include <iostream>
 #include <fstream>
 #include <cstring>
@@ -9,7 +10,7 @@
 //Bool endian: 0 = little endian, 1 = big endian
 
 //The BRSTM struct
-struct brstm {
+struct Brstm {
     bool BOM; //byte order mark
     //File type, 1 = BRSTM, see above/below(change later) for full list
     unsigned int  file_format;
