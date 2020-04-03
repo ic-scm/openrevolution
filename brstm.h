@@ -930,8 +930,6 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
  * stream: std::ifstream with an open BRSTM file
  * debugLevel: console debug level, same as brstm_read
  */
-
-//TODO go back to the old method (reading the audio offset from the file and then reading that amount of data), it seems to be faster but had to be replaced with this to support all formats
 unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
     if(!stream.is_open()) {
         if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream.\n";}
