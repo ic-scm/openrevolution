@@ -938,9 +938,45 @@ unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
         return 255;
     }
     unsigned char* brstm_header;
+    unsigned int format = 0;
     
-    //Should be enough for all files
-    unsigned int headerSize = 65535;
+    //find file format so we can read the header size from the correct offset
+    for(unsigned int t=0;t<BRSTM_formats_count;t++) {
+        //read magic word from ifstream
+        unsigned int emagiclen = strlen(BRSTM_formats_str[t]);
+        char* magicword = new char[emagiclen+1];
+        stream.seekg(0);
+        stream.read(magicword,emagiclen);
+        magicword[emagiclen] = '\0';
+        //compare
+        if(strcmp(BRSTM_formats_str[t],magicword) == 0) {
+            format = t;
+            break;
+        }
+    }
+    if(format == 0) {
+        if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
+        return 210;
+    }
+    
+    //read Byte Order Mark
+    bool BOM;
+    unsigned char bomword[2];
+    stream.seekg(0x04);
+    stream.read((char*)bomword,2);
+    if(brstm_getSliceAsInt16Sample(bomword,0,1) == -257) {
+        BOM = 1; //Big endian
+    } else {
+        BOM = 0; //Little endian
+    }
+    
+    //get offset to audio data so we know how much data to read to get the full header
+    stream.seekg(BRSTM_formats_audio_off_off[format]);
+    unsigned char audioOff[4];
+    stream.read((char*)audioOff,4);
+    unsigned int headerSize = brstm_getSliceAsNumber(audioOff,0,4,BOM) + 512;
+    
+    if(debugLevel>1) std::cout << "Reading " << headerSize << " header bytes\n";
     
     //read header into memory
     stream.seekg(0);
