@@ -180,7 +180,49 @@ int16_t* ADPC_hsamples_2[16];
  *      210 = Unsupported file format
  *      200 = Unknown error (this should never happen)
  */
-unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uint8_t decodeADPCM) {
+unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeADPCM) {
+    
+    
+    //basic and ugly struct hack for now
+    unsigned int  &BRSTM_format = brstmi->file_format;
+    unsigned int  &HEAD1_codec = brstmi->codec;
+    bool          &HEAD1_loop = brstmi->loop_flag;
+    unsigned int  &HEAD1_num_channels = brstmi->num_channels;
+    unsigned long &HEAD1_sample_rate = brstmi->sample_rate;
+    unsigned long &HEAD1_loop_start = brstmi->loop_start;
+    unsigned long &HEAD1_total_samples = brstmi->total_samples;
+    unsigned long &HEAD1_ADPCM_offset = brstmi->audio_offset;
+    unsigned long &HEAD1_total_blocks = brstmi->total_blocks;
+    unsigned long &HEAD1_blocks_size = brstmi->blocks_size;
+    unsigned long &HEAD1_blocks_samples = brstmi->blocks_samples;
+    unsigned long &HEAD1_final_block_size = brstmi->final_block_size;
+    unsigned long &HEAD1_final_block_samples = brstmi->final_block_samples;
+    unsigned long &HEAD1_final_block_size_p = brstmi->final_block_size_p;
+    unsigned long &HEAD1_samples_per_ADPC = brstmi->samples_per_ADPC;
+    unsigned long &HEAD1_bytes_per_ADPC = brstmi->bytes_per_ADPC;
+    
+    unsigned int  &HEAD2_num_tracks = brstmi->num_tracks;
+    unsigned int  &HEAD2_track_type = brstmi->track_desc_type;
+    
+    unsigned int (&HEAD2_track_num_channels)[8] = brstmi->track_num_channels;
+    unsigned int (&HEAD2_track_lchannel_id) [8] = brstmi->track_lchannel_id;
+    unsigned int (&HEAD2_track_rchannel_id) [8] = brstmi->track_rchannel_id;
+    
+    unsigned int (&HEAD2_track_volume)      [8] = brstmi->track_volume;
+    unsigned int (&HEAD2_track_panning)     [8] = brstmi->track_panning;
+    
+    unsigned int  &HEAD3_num_channels = brstmi->num_channels;
+    
+    int16_t* (&PCM_samples)[16] = brstmi->PCM_samples;
+    int16_t* (&PCM_buffer)[16] = brstmi->PCM_buffer;
+    
+    unsigned char* (&ADPCM_data)  [16] = brstmi->ADPCM_data;
+    unsigned char* (&ADPCM_buffer)[16] = brstmi->ADPCM_buffer;
+    int16_t  (&HEAD3_int16_adpcm) [16][16] = brstmi->ADPCM_coefs;
+    int16_t* (&ADPC_hsamples_1)   [16] = brstmi->ADPCM_hsamples_1;
+    int16_t* (&ADPC_hsamples_2)   [16] = brstmi->ADPCM_hsamples_2;
+    
+    
     //Read the headers
     bool BOM; //byte order mark
     //Header
@@ -719,15 +761,7 @@ unsigned char brstm_read(const unsigned char* fileData,signed int debugLevel,uin
     return 200;
 }
 
-//backwards comaptibility
-unsigned char readBrstm(const unsigned char* fileData,signed int debugLevel,bool decodeADPCM) {
-    if(debugLevel>=0) {std::cout << "Warning: readBrstm is deprecated, use brstm_read instead\n";}
-    return brstm_read(fileData,debugLevel,decodeADPCM);
-}
 
-unsigned char readBrstm(const unsigned char* fileData,unsigned char debugLevel) {
-    return readBrstm(fileData,debugLevel,true);
-}
 
 //int16_t* PCM_buffer[16]; Should be declared in main file
 
@@ -765,7 +799,49 @@ void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,un
  * dataType will be 1 for disk streaming mode (fileData will be null) so brstm_getblock
  * will know to do disk streaming stuff instead of just getting a slice of fileData
  */
-void brstm_getbuffer_main(const unsigned char* fileData,bool dataType,unsigned long sampleOffset,unsigned int bufferSamples) {
+void brstm_getbuffer_main(Brstm * brstmi,const unsigned char* fileData,bool dataType,unsigned long sampleOffset,unsigned int bufferSamples) {
+    
+    
+    //basic and ugly struct hack for now
+    unsigned int  &BRSTM_format = brstmi->file_format;
+    unsigned int  &HEAD1_codec = brstmi->codec;
+    bool          &HEAD1_loop = brstmi->loop_flag;
+    unsigned int  &HEAD1_num_channels = brstmi->num_channels;
+    unsigned long &HEAD1_sample_rate = brstmi->sample_rate;
+    unsigned long &HEAD1_loop_start = brstmi->loop_start;
+    unsigned long &HEAD1_total_samples = brstmi->total_samples;
+    unsigned long &HEAD1_ADPCM_offset = brstmi->audio_offset;
+    unsigned long &HEAD1_total_blocks = brstmi->total_blocks;
+    unsigned long &HEAD1_blocks_size = brstmi->blocks_size;
+    unsigned long &HEAD1_blocks_samples = brstmi->blocks_samples;
+    unsigned long &HEAD1_final_block_size = brstmi->final_block_size;
+    unsigned long &HEAD1_final_block_samples = brstmi->final_block_samples;
+    unsigned long &HEAD1_final_block_size_p = brstmi->final_block_size_p;
+    unsigned long &HEAD1_samples_per_ADPC = brstmi->samples_per_ADPC;
+    unsigned long &HEAD1_bytes_per_ADPC = brstmi->bytes_per_ADPC;
+    
+    unsigned int  &HEAD2_num_tracks = brstmi->num_tracks;
+    unsigned int  &HEAD2_track_type = brstmi->track_desc_type;
+    
+    unsigned int (&HEAD2_track_num_channels)[8] = brstmi->track_num_channels;
+    unsigned int (&HEAD2_track_lchannel_id) [8] = brstmi->track_lchannel_id;
+    unsigned int (&HEAD2_track_rchannel_id) [8] = brstmi->track_rchannel_id;
+    
+    unsigned int (&HEAD2_track_volume)      [8] = brstmi->track_volume;
+    unsigned int (&HEAD2_track_panning)     [8] = brstmi->track_panning;
+    
+    unsigned int  &HEAD3_num_channels = brstmi->num_channels;
+    
+    int16_t* (&PCM_samples)[16] = brstmi->PCM_samples;
+    int16_t* (&PCM_buffer)[16] = brstmi->PCM_buffer;
+    
+    unsigned char* (&ADPCM_data)  [16] = brstmi->ADPCM_data;
+    unsigned char* (&ADPCM_buffer)[16] = brstmi->ADPCM_buffer;
+    int16_t  (&HEAD3_int16_adpcm) [16][16] = brstmi->ADPCM_coefs;
+    int16_t* (&ADPC_hsamples_1)   [16] = brstmi->ADPCM_hsamples_1;
+    int16_t* (&ADPC_hsamples_2)   [16] = brstmi->ADPCM_hsamples_2;
+    
+    
     //safety
     if(sampleOffset>HEAD1_total_samples) {
         for(unsigned int c=0;c<HEAD3_num_channels;c++) {
@@ -876,7 +952,7 @@ void brstm_getbuffer_main(const unsigned char* fileData,bool dataType,unsigned l
         }
         if(blockEndReached) {
             brstm_getbuffer_useBuffer = false; //don't make a new buffer in PCM_buffer
-            brstm_getbuffer_main(fileData,dataType,sampleOffset+blockEndReachedAt,0);
+            brstm_getbuffer_main(brstmi,fileData,dataType,sampleOffset+blockEndReachedAt,0);
             brstm_getbuffer_useBuffer = true;
             for(unsigned int c=0;c<HEAD3_num_channels;c++) {
                 unsigned int dataIndex=0;
@@ -888,22 +964,17 @@ void brstm_getbuffer_main(const unsigned char* fileData,bool dataType,unsigned l
     }
 }
 
-void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples) {
-    brstm_getbuffer_main(fileData,0,sampleOffset,bufferSamples);
+void brstm_getbuffer(Brstm * brstmi,const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples) {
+    brstm_getbuffer_main(brstmi,fileData,0,sampleOffset,bufferSamples);
 }
 
 //don't do void* kids
 std::ifstream* brstm_ifstream;
 
-void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples) {
+void brstm_fstream_getbuffer(Brstm * brstmi,std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples) {
     if(!stream.is_open()) {perror("brstm_fstream_getbuffer: No file open in ifstream"); exit(255);}
     brstm_ifstream = &stream;
-    brstm_getbuffer_main(nullptr,1,sampleOffset,bufferSamples);
-}
-
-//backwards comaptibility
-void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples,bool useBuffer) {
-    brstm_getbuffer(fileData,sampleOffset,bufferSamples);
+    brstm_getbuffer_main(brstmi,nullptr,1,sampleOffset,bufferSamples);
 }
 
 //This function is used by brstm_getbuffer
@@ -930,7 +1001,7 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
  * stream: std::ifstream with an open BRSTM file
  * debugLevel: console debug level, same as brstm_read
  */
-unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
+unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
     if(!stream.is_open()) {
         if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream.\n";}
         return 255;
@@ -983,7 +1054,7 @@ unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
     stream.seekg(0);
     
     //call main brstm read function
-    unsigned char res = brstm_read(brstm_header,debugLevel,false);
+    unsigned char res = brstm_read(brstmi,brstm_header,debugLevel,false);
     delete[] brstm_header;
     return res;
 }
@@ -991,7 +1062,49 @@ unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
 /* 
  * Close the BRSTM file (reset variables and free memory)
  */
-void brstm_close() {
+void brstm_close(Brstm * brstmi) {
+    
+    
+    //basic and ugly struct hack for now
+    unsigned int  &BRSTM_format = brstmi->file_format;
+    unsigned int  &HEAD1_codec = brstmi->codec;
+    bool          &HEAD1_loop = brstmi->loop_flag;
+    unsigned int  &HEAD1_num_channels = brstmi->num_channels;
+    unsigned long &HEAD1_sample_rate = brstmi->sample_rate;
+    unsigned long &HEAD1_loop_start = brstmi->loop_start;
+    unsigned long &HEAD1_total_samples = brstmi->total_samples;
+    unsigned long &HEAD1_ADPCM_offset = brstmi->audio_offset;
+    unsigned long &HEAD1_total_blocks = brstmi->total_blocks;
+    unsigned long &HEAD1_blocks_size = brstmi->blocks_size;
+    unsigned long &HEAD1_blocks_samples = brstmi->blocks_samples;
+    unsigned long &HEAD1_final_block_size = brstmi->final_block_size;
+    unsigned long &HEAD1_final_block_samples = brstmi->final_block_samples;
+    unsigned long &HEAD1_final_block_size_p = brstmi->final_block_size_p;
+    unsigned long &HEAD1_samples_per_ADPC = brstmi->samples_per_ADPC;
+    unsigned long &HEAD1_bytes_per_ADPC = brstmi->bytes_per_ADPC;
+    
+    unsigned int  &HEAD2_num_tracks = brstmi->num_tracks;
+    unsigned int  &HEAD2_track_type = brstmi->track_desc_type;
+    
+    unsigned int (&HEAD2_track_num_channels)[8] = brstmi->track_num_channels;
+    unsigned int (&HEAD2_track_lchannel_id) [8] = brstmi->track_lchannel_id;
+    unsigned int (&HEAD2_track_rchannel_id) [8] = brstmi->track_rchannel_id;
+    
+    unsigned int (&HEAD2_track_volume)      [8] = brstmi->track_volume;
+    unsigned int (&HEAD2_track_panning)     [8] = brstmi->track_panning;
+    
+    unsigned int  &HEAD3_num_channels = brstmi->num_channels;
+    
+    int16_t* (&PCM_samples)[16] = brstmi->PCM_samples;
+    int16_t* (&PCM_buffer)[16] = brstmi->PCM_buffer;
+    
+    unsigned char* (&ADPCM_data)  [16] = brstmi->ADPCM_data;
+    unsigned char* (&ADPCM_buffer)[16] = brstmi->ADPCM_buffer;
+    int16_t  (&HEAD3_int16_adpcm) [16][16] = brstmi->ADPCM_coefs;
+    int16_t* (&ADPC_hsamples_1)   [16] = brstmi->ADPCM_hsamples_1;
+    int16_t* (&ADPC_hsamples_2)   [16] = brstmi->ADPCM_hsamples_2;
+    
+    
     for(unsigned char i=0;i<16;i++) {
         for(unsigned char j=0;j<16;j++) {
             HEAD3_int16_adpcm[i][j] = 0;
@@ -999,7 +1112,9 @@ void brstm_close() {
         delete[] ADPC_hsamples_1[i];
         delete[] ADPC_hsamples_2[i];
         delete[] PCM_samples[i];
+        delete[] PCM_buffer[i];
         delete[] ADPCM_data[i];
+        delete[] ADPCM_buffer[i];
     }
     
     BRSTM_format = 0;
