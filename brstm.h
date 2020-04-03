@@ -2,14 +2,69 @@
 //Copyright (C) 2020 Extrasklep
 //https://github.com/Extrasklep/brstm
 
+#include <iostream>
+#include <fstream>
+#include <cstring>
+
+//Bool endian: 0 = little endian, 1 = big endian
+
+//The BRSTM struct
+struct brstm {
+    bool BOM; //byte order mark
+    //File type, 1 = BRSTM, see above/below(change later) for full list
+    unsigned int  file_format;
+    //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
+    unsigned int  codec;
+    bool          loop_flag;
+    unsigned int  num_channels;
+    unsigned long sample_rate;
+    unsigned long loop_start;
+    unsigned long total_samples;
+    unsigned long audio_offset;
+    unsigned long total_blocks;
+    unsigned long blocks_size;
+    unsigned long blocks_samples;
+    unsigned long final_block_size;
+    unsigned long final_block_samples;
+    unsigned long final_block_size_p;
+    
+    //probably useless?
+    unsigned long samples_per_ADPC;
+    unsigned long bytes_per_ADPC;
+    
+    //track information
+    unsigned int  num_tracks;
+    unsigned int  track_desc_type;
+    
+    unsigned int  track_num_channels[8] = {0,0,0,0,0,0,0,0};
+    unsigned int  track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
+    unsigned int  track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
+    
+    unsigned int  track_volume      [8] = {0,0,0,0,0,0,0,0};
+    unsigned int  track_panning     [8] = {0,0,0,0,0,0,0,0};
+    
+    int16_t* PCM_samples[16];
+    int16_t* PCM_buffer[16];
+    
+    unsigned char* ADPCM_data  [16];
+    unsigned char* ADPCM_buffer[16]; //Unused for now
+    int16_t  ADPCM_coefs [16][16];
+    int16_t* ADPCM_hsamples_1   [16];
+    int16_t* ADPCM_hsamples_2   [16];
+    
+    //Things you probably shouldn't touch
+    //block cache
+    int16_t* PCM_blockbuffer[16];
+    int PCM_blockbuffer_currentBlock = -1;
+    bool brstm_getbuffer_useBuffer = true;
+};
+
 unsigned char* brstm_slice;
 char* brstm_slicestring;
 
 long brstm_clamp(long value, long min, long max) {
   return value <= min ? min : value >= max ? max : value;
 }
-
-//Bool endian: 0 = little endian, 1 = big endian
 
 //Get slice of data
 unsigned char* brstm_getSlice(const unsigned char* data,unsigned long start,unsigned long length) {
@@ -855,6 +910,8 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
  * stream: std::ifstream with an open BRSTM file
  * debugLevel: console debug level, same as brstm_read
  */
+
+//TODO go back to the old method (reading the audio offset from the file and then reading that amount of data), it seems to be faster but had to be replaced with this to support all formats
 unsigned char brstm_fstream_read(std::ifstream& stream,signed int debugLevel) {
     if(!stream.is_open()) {
         if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream.\n";}
