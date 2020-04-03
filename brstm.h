@@ -9,10 +9,28 @@
 
 //Bool endian: 0 = little endian, 1 = big endian
 
+//Format information
+const unsigned int BRSTM_formats_count = 5;
+//File header magic words for each file format
+const char* BRSTM_formats_str[BRSTM_formats_count] = {"    ","RSTM","CSTM","FSTM","BWAV"};
+//Offset to the audio offset information in each format (32 bit integer)
+const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x20,0x00,0x00,0x40};
+//Short human readable strings
+const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"None","BRSTM","BCSTM","BFSTM","BWAV"};
+//Long human readable strings
+const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
+"Unknown format",
+"Binary Revolution Stream",
+"Binary CTR Stream",
+"Binary Cafe Stream",
+"Nintendo BWAV"
+};
+
+
 //The BRSTM struct
 struct Brstm {
     bool BOM; //byte order mark
-    //File type, 1 = BRSTM, see above/below(change later) for full list
+    //File type, 1 = BRSTM, see above for full list
     unsigned int  file_format;
     //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
     unsigned int  codec;
@@ -60,6 +78,8 @@ struct Brstm {
     bool brstm_getbuffer_useBuffer = true;
 };
 
+
+//Util functions
 unsigned char* brstm_slice;
 char* brstm_slicestring;
 
@@ -131,8 +151,7 @@ int16_t* ADPC_hsamples_1[16];
 int16_t* ADPC_hsamples_2[16];
 */// declared in including file
 
-const char* BRSTM_formats_str[5] = {"    ","RSTM","CSTM","FSTM","BWAV"};
-const unsigned int BRSTM_formats_count = 5;
+
 
 /* 
  * Read the BRSTM file headers and optionally decode the audio data.
