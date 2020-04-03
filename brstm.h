@@ -48,8 +48,8 @@ struct Brstm {
     unsigned long final_block_size_p;
     
     //probably useless?
-    unsigned long samples_per_ADPC;
-    unsigned long bytes_per_ADPC;
+    //unsigned long samples_per_ADPC;
+    //unsigned long bytes_per_ADPC;
     
     //track information
     unsigned int  num_tracks;
@@ -71,11 +71,15 @@ struct Brstm {
     int16_t* ADPCM_hsamples_1   [16];
     int16_t* ADPCM_hsamples_2   [16];
     
+    //Encoder
+    unsigned char* encoded_file;
+    unsigned long  encoded_file_size;
+    
     //Things you probably shouldn't touch
     //block cache
     int16_t* PCM_blockbuffer[16];
     int PCM_blockbuffer_currentBlock = -1;
-    bool brstm_getbuffer_useBuffer = true;
+    bool getbuffer_useBuffer = true;
 };
 
 
@@ -156,6 +160,7 @@ int16_t* ADPC_hsamples_2[16];
 /* 
  * Read the BRSTM file headers and optionally decode the audio data.
  * 
+ * brstmi: Your BRSTM struct
  * fileData: BRSTM file
  * debugLevel:
  *    -1 = Never output anything
@@ -198,8 +203,10 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     unsigned long &HEAD1_final_block_size = brstmi->final_block_size;
     unsigned long &HEAD1_final_block_samples = brstmi->final_block_samples;
     unsigned long &HEAD1_final_block_size_p = brstmi->final_block_size_p;
-    unsigned long &HEAD1_samples_per_ADPC = brstmi->samples_per_ADPC;
-    unsigned long &HEAD1_bytes_per_ADPC = brstmi->bytes_per_ADPC;
+    
+    //dummy variables
+    unsigned long HEAD1_samples_per_ADPC = 0;
+    unsigned long HEAD1_bytes_per_ADPC = 0;
     
     unsigned int  &HEAD2_num_tracks = brstmi->num_tracks;
     unsigned int  &HEAD2_track_type = brstmi->track_desc_type;
@@ -761,38 +768,30 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     return 200;
 }
 
-
-
-//int16_t* PCM_buffer[16]; Should be declared in main file
-
-//block cache
-int16_t* PCM_blockbuffer[16];
-int PCM_blockbuffer_currentBlock = -1;
-
-bool brstm_getbuffer_useBuffer = true;
-
 //This function is used by brstm_getbuffer
 unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsigned long start,unsigned long length);
 
 /* 
  * Get a buffer of audio data
  * 
+ * brstmi: Your BRSTM struct
  * fileData: BRSTM file
  * sampleOffset: Offset to the first sample in the buffer
  * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
  * 
  */
-void brstm_getbuffer(const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples);
+void brstm_getbuffer(Brstm * brstmi,const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples);
 
 /*
  * Get a buffer of audio data (fstream mode)
  * 
+ * brstmi: Your BRSTM struct
  * stream: std::ifstream with an open BRSTM file
  * sampleOffset: Offset to the first sample in the buffer
  * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
  * 
  */
-void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples);
+void brstm_fstream_getbuffer(Brstm * brstmi,std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples);
 
 /*
  * Main function for both memory modes
@@ -800,100 +799,58 @@ void brstm_fstream_getbuffer(std::ifstream& stream,unsigned long sampleOffset,un
  * will know to do disk streaming stuff instead of just getting a slice of fileData
  */
 void brstm_getbuffer_main(Brstm * brstmi,const unsigned char* fileData,bool dataType,unsigned long sampleOffset,unsigned int bufferSamples) {
-    
-    
-    //basic and ugly struct hack for now
-    unsigned int  &BRSTM_format = brstmi->file_format;
-    unsigned int  &HEAD1_codec = brstmi->codec;
-    bool          &HEAD1_loop = brstmi->loop_flag;
-    unsigned int  &HEAD1_num_channels = brstmi->num_channels;
-    unsigned long &HEAD1_sample_rate = brstmi->sample_rate;
-    unsigned long &HEAD1_loop_start = brstmi->loop_start;
-    unsigned long &HEAD1_total_samples = brstmi->total_samples;
-    unsigned long &HEAD1_ADPCM_offset = brstmi->audio_offset;
-    unsigned long &HEAD1_total_blocks = brstmi->total_blocks;
-    unsigned long &HEAD1_blocks_size = brstmi->blocks_size;
-    unsigned long &HEAD1_blocks_samples = brstmi->blocks_samples;
-    unsigned long &HEAD1_final_block_size = brstmi->final_block_size;
-    unsigned long &HEAD1_final_block_samples = brstmi->final_block_samples;
-    unsigned long &HEAD1_final_block_size_p = brstmi->final_block_size_p;
-    unsigned long &HEAD1_samples_per_ADPC = brstmi->samples_per_ADPC;
-    unsigned long &HEAD1_bytes_per_ADPC = brstmi->bytes_per_ADPC;
-    
-    unsigned int  &HEAD2_num_tracks = brstmi->num_tracks;
-    unsigned int  &HEAD2_track_type = brstmi->track_desc_type;
-    
-    unsigned int (&HEAD2_track_num_channels)[8] = brstmi->track_num_channels;
-    unsigned int (&HEAD2_track_lchannel_id) [8] = brstmi->track_lchannel_id;
-    unsigned int (&HEAD2_track_rchannel_id) [8] = brstmi->track_rchannel_id;
-    
-    unsigned int (&HEAD2_track_volume)      [8] = brstmi->track_volume;
-    unsigned int (&HEAD2_track_panning)     [8] = brstmi->track_panning;
-    
-    unsigned int  &HEAD3_num_channels = brstmi->num_channels;
-    
-    int16_t* (&PCM_samples)[16] = brstmi->PCM_samples;
-    int16_t* (&PCM_buffer)[16] = brstmi->PCM_buffer;
-    
-    unsigned char* (&ADPCM_data)  [16] = brstmi->ADPCM_data;
-    unsigned char* (&ADPCM_buffer)[16] = brstmi->ADPCM_buffer;
-    int16_t  (&HEAD3_int16_adpcm) [16][16] = brstmi->ADPCM_coefs;
-    int16_t* (&ADPC_hsamples_1)   [16] = brstmi->ADPCM_hsamples_1;
-    int16_t* (&ADPC_hsamples_2)   [16] = brstmi->ADPCM_hsamples_2;
-    
-    
     //safety
-    if(sampleOffset>HEAD1_total_samples) {
-        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-            delete[] PCM_buffer[c];
-            PCM_buffer[c] = new int16_t[bufferSamples];
+    if(sampleOffset>brstmi->total_samples) {
+        for(unsigned int c=0;c<brstmi->num_channels;c++) {
+            delete[] brstmi->PCM_buffer[c];
+            brstmi->PCM_buffer[c] = new int16_t[bufferSamples];
             for(unsigned int i=0;i<bufferSamples;i++) {
-                PCM_buffer[c][i] = 0;
+                brstmi->PCM_buffer[c][i] = 0;
             }
         }
         return;
     }
     //decode a new block if we don't have the current block in the blockbuffer cache
-    if(PCM_blockbuffer_currentBlock != sampleOffset/HEAD1_blocks_samples) {
+    if(brstmi->PCM_blockbuffer_currentBlock != sampleOffset/brstmi->blocks_samples) {
         //calculate block number
-        unsigned long b=sampleOffset/HEAD1_blocks_samples;
+        unsigned long b=sampleOffset/brstmi->blocks_samples;
         //Read the ADPCM data
         unsigned long posOffset=0;
-        if(HEAD1_codec!=2) {exit(220);}
-        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+        if(brstmi->codec!=2) {exit(220);}
+        for(unsigned int c=0;c<brstmi->num_channels;c++) {
             //Create new array of samples for the current channel
-            delete[] PCM_blockbuffer[c];
-            PCM_blockbuffer[c] = new int16_t[HEAD1_blocks_samples];
+            delete[] brstmi->PCM_blockbuffer[c];
+            brstmi->PCM_blockbuffer[c] = new int16_t[brstmi->blocks_samples];
             
-            posOffset=0+(HEAD1_blocks_size*c);
+            posOffset=0+(brstmi->blocks_size*c);
             unsigned long outputPos = 0; //position in PCM block samples output array
             
             unsigned long c_writtensamples = 0;
             
-            posOffset+=b*(HEAD1_blocks_size*HEAD3_num_channels);
+            posOffset+=b*(brstmi->blocks_size*brstmi->num_channels);
             
             //Read block
-            unsigned int currentBlockSize    = HEAD1_blocks_size;
-            unsigned int currentBlockSamples = HEAD1_blocks_samples;
+            unsigned int currentBlockSize    = brstmi->blocks_size;
+            unsigned int currentBlockSamples = brstmi->blocks_samples;
             //Final block
-            if(b==HEAD1_total_blocks-1) {
-                currentBlockSize    = HEAD1_final_block_size;
-                currentBlockSamples = HEAD1_final_block_samples;
+            if(b==brstmi->total_blocks-1) {
+                currentBlockSize    = brstmi->final_block_size;
+                currentBlockSamples = brstmi->final_block_samples;
             }
-            if(b>=HEAD1_total_blocks-1 && c>0) {
+            if(b>=brstmi->total_blocks-1 && c>0) {
                 //Go back to the previous position
-                posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
+                posOffset-=brstmi->blocks_size*brstmi->num_channels;
                 //Go to the next block in position of first channel
-                posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
+                posOffset+=brstmi->blocks_size*(brstmi->num_channels-c);
                 //Jump to the correct channel in the final block
-                posOffset+=HEAD1_final_block_size_p*c;
+                posOffset+=brstmi->final_block_size_p*c;
             }
             //Get data from just the current block
-            unsigned char* blockData = brstm_getblock(fileData,dataType,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+            unsigned char* blockData = brstm_getblock(fileData,dataType,brstmi->audio_offset+posOffset,currentBlockSize);
             
             //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
             const unsigned char ps = blockData[0];
-            const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
+            const   signed int  yn1 = brstmi->ADPCM_hsamples_1[c][b], yn2 = brstmi->ADPCM_hsamples_2[c][b];
             
             //Magic adapted from brawllib's ADPCMState.cs
             signed int 
@@ -901,6 +858,8 @@ void brstm_getbuffer_main(Brstm * brstmi,const unsigned char* fileData,bool data
             cyn1 = yn1,
             cyn2 = yn2;
             unsigned long dataIndex = 0;
+            
+            int16_t* coefs = brstmi->ADPCM_coefs[c];
             
             for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
                 long outSample = 0;
@@ -918,46 +877,46 @@ void brstm_getbuffer_main(Brstm * brstmi,const unsigned char* fileData,bool data
                 const long scale = 1 << (cps & 0x0f);
                 const long cIndex = (cps >> 4) << 1;
                 
-                outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                outSample = (0x400 + ((scale * outSample) << 11) + coefs[brstm_clamp(cIndex, 0, 15)] * cyn1 + coefs[brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
                 
                 cyn2 = cyn1;
                 cyn1 = brstm_clamp(outSample, -32768, 32767);
                 
-                PCM_blockbuffer[c][outputPos++] = cyn1;
+                brstmi->PCM_blockbuffer[c][outputPos++] = cyn1;
                 c_writtensamples++;
             }
-            PCM_blockbuffer_currentBlock = b;
-            //std::cout << ">>" << c << b << yn1 << yn2 << ps << blockData << sampleResult << '\n';
-            posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
+            brstmi->PCM_blockbuffer_currentBlock = b;
+            
+            posOffset+=brstmi->blocks_size*brstmi->num_channels;
         }
     }
     //create the requested buffer
-    if(brstm_getbuffer_useBuffer) {
+    if(brstmi->getbuffer_useBuffer) {
         bool blockEndReached = false;
         unsigned int blockEndReachedAt = 0;
-        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+        for(unsigned int c=0;c<brstmi->num_channels;c++) {
             //Create new array of samples for the current channel
-            delete[] PCM_buffer[c];
-            PCM_buffer[c] = new int16_t[bufferSamples];
+            delete[] brstmi->PCM_buffer[c];
+            brstmi->PCM_buffer[c] = new int16_t[bufferSamples];
             //offset in current block
-            unsigned long dataIndex = sampleOffset-HEAD1_blocks_samples*(unsigned int)(sampleOffset/HEAD1_blocks_samples);
+            unsigned long dataIndex = sampleOffset-brstmi->blocks_samples*(unsigned int)(sampleOffset/brstmi->blocks_samples);
             for(unsigned int p=0;p<bufferSamples;p++) {
-                if(dataIndex+p >= HEAD1_blocks_samples) {
+                if(dataIndex+p >= brstmi->blocks_samples) {
                     blockEndReached=true;
                     blockEndReachedAt=p;
                     break;
                 }
-                PCM_buffer[c][p] = PCM_blockbuffer[c][dataIndex+p];
+                brstmi->PCM_buffer[c][p] = brstmi->PCM_blockbuffer[c][dataIndex+p];
             }
         }
         if(blockEndReached) {
-            brstm_getbuffer_useBuffer = false; //don't make a new buffer in PCM_buffer
+            brstmi->getbuffer_useBuffer = false; //don't make a new buffer in PCM_buffer
             brstm_getbuffer_main(brstmi,fileData,dataType,sampleOffset+blockEndReachedAt,0);
-            brstm_getbuffer_useBuffer = true;
-            for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            brstmi->getbuffer_useBuffer = true;
+            for(unsigned int c=0;c<brstmi->num_channels;c++) {
                 unsigned int dataIndex=0;
                 for(unsigned int p=blockEndReachedAt;p<bufferSamples;p++) {
-                    PCM_buffer[c][p] = PCM_blockbuffer[c][dataIndex++];
+                    brstmi->PCM_buffer[c][p] = brstmi->PCM_blockbuffer[c][dataIndex++];
                 }
             }
         }
@@ -1063,87 +1022,44 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
  * Close the BRSTM file (reset variables and free memory)
  */
 void brstm_close(Brstm * brstmi) {
-    
-    
-    //basic and ugly struct hack for now
-    unsigned int  &BRSTM_format = brstmi->file_format;
-    unsigned int  &HEAD1_codec = brstmi->codec;
-    bool          &HEAD1_loop = brstmi->loop_flag;
-    unsigned int  &HEAD1_num_channels = brstmi->num_channels;
-    unsigned long &HEAD1_sample_rate = brstmi->sample_rate;
-    unsigned long &HEAD1_loop_start = brstmi->loop_start;
-    unsigned long &HEAD1_total_samples = brstmi->total_samples;
-    unsigned long &HEAD1_ADPCM_offset = brstmi->audio_offset;
-    unsigned long &HEAD1_total_blocks = brstmi->total_blocks;
-    unsigned long &HEAD1_blocks_size = brstmi->blocks_size;
-    unsigned long &HEAD1_blocks_samples = brstmi->blocks_samples;
-    unsigned long &HEAD1_final_block_size = brstmi->final_block_size;
-    unsigned long &HEAD1_final_block_samples = brstmi->final_block_samples;
-    unsigned long &HEAD1_final_block_size_p = brstmi->final_block_size_p;
-    unsigned long &HEAD1_samples_per_ADPC = brstmi->samples_per_ADPC;
-    unsigned long &HEAD1_bytes_per_ADPC = brstmi->bytes_per_ADPC;
-    
-    unsigned int  &HEAD2_num_tracks = brstmi->num_tracks;
-    unsigned int  &HEAD2_track_type = brstmi->track_desc_type;
-    
-    unsigned int (&HEAD2_track_num_channels)[8] = brstmi->track_num_channels;
-    unsigned int (&HEAD2_track_lchannel_id) [8] = brstmi->track_lchannel_id;
-    unsigned int (&HEAD2_track_rchannel_id) [8] = brstmi->track_rchannel_id;
-    
-    unsigned int (&HEAD2_track_volume)      [8] = brstmi->track_volume;
-    unsigned int (&HEAD2_track_panning)     [8] = brstmi->track_panning;
-    
-    unsigned int  &HEAD3_num_channels = brstmi->num_channels;
-    
-    int16_t* (&PCM_samples)[16] = brstmi->PCM_samples;
-    int16_t* (&PCM_buffer)[16] = brstmi->PCM_buffer;
-    
-    unsigned char* (&ADPCM_data)  [16] = brstmi->ADPCM_data;
-    unsigned char* (&ADPCM_buffer)[16] = brstmi->ADPCM_buffer;
-    int16_t  (&HEAD3_int16_adpcm) [16][16] = brstmi->ADPCM_coefs;
-    int16_t* (&ADPC_hsamples_1)   [16] = brstmi->ADPCM_hsamples_1;
-    int16_t* (&ADPC_hsamples_2)   [16] = brstmi->ADPCM_hsamples_2;
-    
-    
     for(unsigned char i=0;i<16;i++) {
         for(unsigned char j=0;j<16;j++) {
-            HEAD3_int16_adpcm[i][j] = 0;
+            brstmi->ADPCM_coefs[i][j] = 0;
         }
-        delete[] ADPC_hsamples_1[i];
-        delete[] ADPC_hsamples_2[i];
-        delete[] PCM_samples[i];
-        delete[] PCM_buffer[i];
-        delete[] ADPCM_data[i];
-        delete[] ADPCM_buffer[i];
+        delete[] brstmi->ADPCM_hsamples_1[i];
+        delete[] brstmi->ADPCM_hsamples_2[i];
+        delete[] brstmi->PCM_samples[i];
+        delete[] brstmi->PCM_buffer[i];
+        delete[] brstmi->PCM_blockbuffer[i];
+        delete[] brstmi->ADPCM_data[i];
+        delete[] brstmi->ADPCM_buffer[i];
     }
+    delete[] brstmi->encoded_file;
     
-    BRSTM_format = 0;
-    HEAD1_codec = 0;
-    HEAD1_loop = 0;
-    HEAD1_num_channels = 0;
-    HEAD1_sample_rate = 0;
-    HEAD1_loop_start = 0;
-    HEAD1_total_samples = 0;
-    HEAD1_ADPCM_offset = 0;
-    HEAD1_total_blocks = 0;
-    HEAD1_blocks_size = 0;
-    HEAD1_blocks_samples = 0;
-    HEAD1_final_block_size = 0;
-    HEAD1_final_block_samples = 0;
-    HEAD1_final_block_size_p = 0;
-    HEAD1_samples_per_ADPC = 0;
-    HEAD1_bytes_per_ADPC = 0;
+    brstmi->file_format = 0;
+    brstmi->codec = 0;
+    brstmi->loop_flag = 0;
+    brstmi->num_channels = 0;
+    brstmi->sample_rate = 0;
+    brstmi->loop_start = 0;
+    brstmi->total_samples = 0;
+    brstmi->audio_offset = 0;
+    brstmi->total_blocks = 0;
+    brstmi->blocks_size = 0;
+    brstmi->blocks_samples = 0;
+    brstmi->final_block_size = 0;
+    brstmi->final_block_samples = 0;
+    brstmi->final_block_size_p = 0;
     
-    HEAD2_num_tracks = 0;
-    HEAD2_track_type = 0;
+    brstmi->num_tracks = 0;
+    brstmi->track_desc_type = 0;
     
     for(unsigned char i=0; i<8; i++) {
-        HEAD2_track_num_channels[i] = 0;
-        HEAD2_track_lchannel_id [i] = 0;
-        HEAD2_track_rchannel_id [i] = 0;
-        HEAD2_track_volume      [i] = 0;
-        HEAD2_track_panning     [i] = 0;
+        brstmi->track_num_channels[i] = 0;
+        brstmi->track_lchannel_id [i] = 0;
+        brstmi->track_rchannel_id [i] = 0;
+        brstmi->track_volume      [i] = 0;
+        brstmi->track_panning     [i] = 0;
     }
-    HEAD3_num_channels = 0;
-    PCM_blockbuffer_currentBlock = -1;
+    brstmi->PCM_blockbuffer_currentBlock = -1;
 }
