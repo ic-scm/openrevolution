@@ -110,6 +110,7 @@ char getch(void) {
     return buf;
 }
 
+bool quietOutput = 0;
 long playback_current_sample=0;
 int current_track=0;
 unsigned long playback_seconds=0;
@@ -160,8 +161,10 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     
     //Update the display
     playback_seconds=playback_current_sample/HEAD1_sample_rate;
-    std::cout << '\r' << (paused ? "Paused " : "") << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds)
-    << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m        " << (!paused ? "       " : "") << "\r";
+    if(!quietOutput) {
+        std::cout << '\r' << (paused ? "Paused " : "") << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds)
+        << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m        " << (!paused ? "       " : "") << "\r";
+    }
     
     //Get buffer and write data
     unsigned char ch1id = HEAD2_track_lchannel_id [current_track];
@@ -204,12 +207,12 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM player\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n--force-sample-rate [sample rate] - Force playback sample rate\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
+const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
-const char* opts[] = {"-v","-m","-s","-d","--force-sample-rate"};
-const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate"};
-const unsigned int optcount = 5;
-const bool optrequiredarg[optcount] = {0,0,0,0,1};
+const char* opts[] = {"-v","-m","-s","-d","--force-sample-rate","-q"};
+const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet"};
+const unsigned int optcount = 6;
+const bool optrequiredarg[optcount] = {0,0,0,0,1,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -252,6 +255,7 @@ int main( int argc, char* args[] ) {
     if(optused[2]) memoryMode=1;
     if(optused[3]) memoryMode=2;
     if(optused[4]) forcedSampleRate = atoi(optargstr[4]);
+    if(optused[5]) quietOutput=1;
     
     //BRSTM file memblock
     unsigned char* memblock;
