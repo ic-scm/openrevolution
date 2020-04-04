@@ -8,47 +8,7 @@
 #include <cstring>
 #include <math.h>
 
-//brstm stuff
-
-/*unsigned int  BRSTM_format; //File type, 1 = BRSTM, see brstm.h for full list
-unsigned int  HEAD1_codec; //char
-unsigned int  HEAD1_loop;  //char
-unsigned int  HEAD1_num_channels; //char
-unsigned int  HEAD1_sample_rate;
-unsigned long HEAD1_loop_start;
-unsigned long HEAD1_total_samples;
-unsigned long HEAD1_ADPCM_offset;
-unsigned long HEAD1_total_blocks;
-unsigned long HEAD1_blocks_size;
-unsigned long HEAD1_blocks_samples;
-unsigned long HEAD1_final_block_size;
-unsigned long HEAD1_final_block_samples;
-unsigned long HEAD1_final_block_size_p;
-unsigned long HEAD1_samples_per_ADPC;
-unsigned long HEAD1_bytes_per_ADPC;
-
-unsigned int  HEAD2_num_tracks;
-unsigned int  HEAD2_track_type;
-
-unsigned int  HEAD2_track_num_channels[8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
-//type 1 only
-unsigned int  HEAD2_track_volume      [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_panning     [8] = {0,0,0,0,0,0,0,0};
-//HEAD3
-unsigned int  HEAD3_num_channels;
-
-int16_t* PCM_samples[16];
-int16_t* PCM_buffer[16]; //Unused in this program
-
-unsigned char* ADPCM_data  [16];
-unsigned char* ADPCM_buffer[16];
-int16_t  HEAD3_int16_adpcm [16][16]; //Coefs
-int16_t* ADPC_hsamples_1   [16];
-int16_t* ADPC_hsamples_2   [16];*/
-
-#include "brstm.h" //must be included after this stuff
+#include "brstm.h"
 
 //-------------------######### STRINGS
 
@@ -94,7 +54,7 @@ unsigned char* getLEuint(uint64_t num,uint8_t bytes) {
     return BEint;
 }
 
-int main( int argc, char* args[] ) {
+int main(int argc, char** args) {
     if(argc<2) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
@@ -155,7 +115,8 @@ int main( int argc, char* args[] ) {
         return result;
     }
     
-    //save the raw output
+    //Save output
+    //TODO Use less memory and maybe add memory modes like in the player
     if(saveFile) {
         std::cout << "Saving file to " << outputName << "...\n";
         
@@ -232,7 +193,7 @@ int main( int argc, char* args[] ) {
     }
     
     brstm_close(brstm);
-    delete[] brstm;
+    delete brstm;
     
     return 0;
 }
