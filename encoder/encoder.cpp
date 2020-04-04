@@ -90,7 +90,7 @@ int main( int argc, char* args[] ) {
         file.read ((char*)memblock, fsize);
         file.close();
         if(verb) {std::cout << " size " << fsize << '\n';}
-    } else {std::cout << "\nUnable to open file\n"; return 255;}
+    } else {if(verb) {std::cout << '\n';} perror("Unable to open input file"); exit(255);}
     
     
     //Read the WAV file data
@@ -168,7 +168,7 @@ int main( int argc, char* args[] ) {
         if(ofile.is_open()) {
             unsigned char res = brstm_encode(brstm,1,1);
             if(res>127) {
-                std::cout << "BRSTM encode error " << res << ".\n";
+                std::cout << "BRSTM encode error " << (int)res << ".\n";
                 exit(res);
             }
             
@@ -178,7 +178,7 @@ int main( int argc, char* args[] ) {
             
             ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
             ofile.close();
-        } else {std::cout << "\nUnable to open file\n"; return 255;}
+        } else {perror("Unable to open output file"); exit(255);}
     }
     
     return 0;
