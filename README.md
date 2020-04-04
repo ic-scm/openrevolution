@@ -86,9 +86,7 @@ Usage:
 
 - Editing BRSTM headers
 - Qt GUI
-- Support for other file formats (BCSTM, BFSTM etc.)
-- Lossless conversion between the other formats
-- Use structs instead of global variables declared in main file
+- Support for more file formats (BCSTM, BFSTM etc.)
 
 ## brstm.h and brstm_encode.h usage
 **WARNING: This is currently under development and there may be major incompatible changes at any time, please use the latest stable release or wait for v2.0**
@@ -98,8 +96,9 @@ Usage:
 The BRSTM struct
 ```cpp
 struct Brstm {
-    bool BOM; //byte order mark
-    //File type, 1 = BRSTM, see above for full list
+    //Byte order mark
+    bool BOM;
+    //File type, 1 = BRSTM, see brstm.h file for full list
     unsigned int  file_format;
     //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
     unsigned int  codec;
@@ -116,35 +115,33 @@ struct Brstm {
     unsigned long final_block_samples;
     unsigned long final_block_size_p;
     
-    //probably useless?
-    unsigned long samples_per_ADPC;
-    unsigned long bytes_per_ADPC;
-    
     //track information
     unsigned int  num_tracks;
     unsigned int  track_desc_type;
-    
-    unsigned int  track_num_channels[8] = {0,0,0,0,0,0,0,0};
-    unsigned int  track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
-    unsigned int  track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
-    
-    unsigned int  track_volume      [8] = {0,0,0,0,0,0,0,0};
-    unsigned int  track_panning     [8] = {0,0,0,0,0,0,0,0};
+    unsigned int  track_num_channels[8];
+    unsigned int  track_lchannel_id [8];
+    unsigned int  track_rchannel_id [8];
+    unsigned int  track_volume      [8];
+    unsigned int  track_panning     [8];
     
     int16_t* PCM_samples[16];
     int16_t* PCM_buffer[16];
     
     unsigned char* ADPCM_data  [16];
-    unsigned char* ADPCM_buffer[16]; //Unused for now
+    unsigned char* ADPCM_buffer[16]; //Not used yet
     int16_t  ADPCM_coefs [16][16];
     int16_t* ADPCM_hsamples_1   [16];
     int16_t* ADPCM_hsamples_2   [16];
+    
+    //Encoder
+    unsigned char* encoded_file;
+    unsigned long  encoded_file_size;
     
     //Things you probably shouldn't touch
     //block cache
     int16_t* PCM_blockbuffer[16];
     int PCM_blockbuffer_currentBlock = -1;
-    bool brstm_getbuffer_useBuffer = true;
+    bool getbuffer_useBuffer = true;
 };
 ```
 
@@ -152,11 +149,13 @@ Include the files:
 ```cpp
 #include "brstm.h"
 ```
-If you want to use the encoder **(CURRENTLY BROKEN)** then add this too:
+If you want to use the encoder **(CURRENTLY BROKEN)** then include this too:
 ```cpp
-unsigned char* brstm_encoded_data;
-unsigned long  brstm_encoded_data_size;
 #include "brstm_encode.h"
+```
+Create your BRSTM struct:
+```cpp
+Brstm* brstm = new Brstm;
 ```
 Read a file:
 ```
@@ -183,7 +182,7 @@ Decode audio data flag:
 ```
 Returns error code (>127) or warning code (<128) (see brstm.h file for full list of error/warning codes). (unsigned char)
 
-You can then read information about the BRSTM from the variables you declared earlier.
+You can then read information about the BRSTM from your struct.
 
 Decode a small part of the audio data into a buffer:
 ```
@@ -239,6 +238,10 @@ Amount of samples in the buffer
 You can then read the requested buffer from PCM_buffer[channel][sample offset (from the sample offset passed to brstm_fstream_getbuffer)].
 
 Remember to close the file (free any buffers and allocated memory) with brstm_close(Brstm*) before deleting your struct!
+```cpp
+brstm_close(brstm);
+delete brstm;
+```
 
 ### Encoder
 
