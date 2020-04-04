@@ -7,51 +7,8 @@
 #include <cstdlib>
 #include <cstring>
 
-//brstm stuff
-
-unsigned int  BRSTM_format; //File type, 1 = BRSTM, see brstm.h for full list
-unsigned int  HEAD1_codec; //char
-unsigned int  HEAD1_loop;  //char
-unsigned int  HEAD1_num_channels; //char
-unsigned int  HEAD1_sample_rate;
-unsigned long HEAD1_loop_start;
-unsigned long HEAD1_total_samples;
-unsigned long HEAD1_ADPCM_offset;
-unsigned long HEAD1_total_blocks;
-unsigned long HEAD1_blocks_size;
-unsigned long HEAD1_blocks_samples;
-unsigned long HEAD1_final_block_size;
-unsigned long HEAD1_final_block_samples;
-unsigned long HEAD1_final_block_size_p;
-unsigned long HEAD1_samples_per_ADPC;
-unsigned long HEAD1_bytes_per_ADPC;
-
-unsigned int  HEAD2_num_tracks;
-unsigned int  HEAD2_track_type;
-
-unsigned int  HEAD2_track_num_channels[8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
-//type 1 only
-unsigned int  HEAD2_track_volume      [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_panning     [8] = {0,0,0,0,0,0,0,0};
-//HEAD3
-unsigned int  HEAD3_num_channels;
-
-int16_t* PCM_samples[16];
-int16_t* PCM_buffer[16]; //Unused in this program
-
-unsigned char* ADPCM_data  [16];
-unsigned char* ADPCM_buffer[16];
-int16_t  HEAD3_int16_adpcm [16][16]; //Coefs
-int16_t* ADPC_hsamples_1   [16];
-int16_t* ADPC_hsamples_2   [16];
-
-#include "../brstm.h" //must be included after this stuff
-
-unsigned char* brstm_encoded_data;
-unsigned long  brstm_encoded_data_size;
-#include "../brstm_encode.h" //must be included after this stuff
+#include "../brstm.h"
+#include "../brstm_encode.h"
 
 //-------------------######### STRINGS
 
@@ -118,13 +75,14 @@ int main( int argc, char* args[] ) {
         if(verb) {std::cout << " size " << fsize << '\n';}
         //file.close();
         //delete[] memblock;
-    } else {std::cout << "\nUnable to open file\n"; return 255;}
+    } else {if(verb) {std::cout << '\n';} perror("Unable to open input file"); exit(255);}
     
+    Brstm* brstm = new Brstm;
     
     //read the brstm
-    unsigned char result=brstm_read(memblock,verb+1,2);
+    unsigned char result=brstm_read(brstm,memblock,verb+1,2);
     if(result>127) {
-        std::cout << "Error.\n";
+        std::cout << "BRSTM read error " << (int)result << ".\n";
         return result;
     }
     
@@ -134,17 +92,18 @@ int main( int argc, char* args[] ) {
         
         std::ofstream ofile (outputName,std::ios::out|std::ios::binary|std::ios::trunc);
         if(ofile.is_open()) {
-            unsigned char res = brstm_encode(1,0);
+            unsigned char res = brstm_encode(brstm,1,0);
             if(res>127) {
-                std::cout << "BRSTM encode error.\n";
+                std::cout << "BRSTM encode error " << (int)res << ".\n";
                 exit(res);
             }
-            ofile.write((char*)brstm_encoded_data,brstm_encoded_data_size);
+            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
             ofile.close();
-        } else {std::cout << "\nUnable to open file\n"; return 255;}
+        } else {perror("Unable to open output file"); exit(255);}
     }
     
-    brstm_close();
+    brstm_close(brstm);
+    delete brstm;
     
     return 0;
 }
