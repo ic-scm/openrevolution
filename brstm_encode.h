@@ -227,8 +227,8 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
     if(encodeADPCM) {
         //Get history samples
         for(unsigned char c=0;c<brstmi->num_channels;c++) {
-            LoopHS1[c] = brstmi->loop_start > 0 ? brstmi->PCM_samples[c][HEAD1_loop_start-1] : 0;
-            LoopHS2[c] = brstmi->loop_start > 1 ? brstmi->PCM_samples[c][HEAD1_loop_start-2] : 0;
+            LoopHS1[c] = brstmi->loop_start > 0 ? brstmi->PCM_samples[c][brstmi->loop_start-1] : 0;
+            LoopHS2[c] = brstmi->loop_start > 1 ? brstmi->PCM_samples[c][brstmi->loop_start-2] : 0;
             for(unsigned long b=0;b<brstmi->total_blocks;b++) {
                 if(b==0) {
                     //First block history samples are always zero
@@ -236,8 +236,8 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
                     HS2[c][b] = 0;
                     continue;
                 }
-                HS1[c][b] = brstmi->PCM_samples[c][(b*HEAD1_blocks_samples)-1];
-                HS2[c][b] = brstmi->PCM_samples[c][(b*HEAD1_blocks_samples)-2];
+                HS1[c][b] = brstmi->PCM_samples[c][(b*brstmi->blocks_samples)-1];
+                HS2[c][b] = brstmi->PCM_samples[c][(b*brstmi->blocks_samples)-2];
             }
         }
     } else {
@@ -245,7 +245,7 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
         
         for(unsigned char c=0;c<brstmi->num_channels;c++) {
             //Decode 4 bit ADPCM
-            unsigned char* blockData = ADPCM_data[c];
+            unsigned char* blockData = brstmi->ADPCM_data[c];
             unsigned long currentBlockSamples = brstmi->total_samples;
             unsigned long b = 0;
             unsigned long currentSample = 0;
@@ -324,7 +324,7 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
         brstm_encoder_writebytes  (buffer,brstm_encoder_getBEuint(bufpos - HEADchunkoffset - 4,4),4,bufpos); //Offset to ADPCM coefs?
         //Calculate coefs
-        if(encodeADPCM == 1) DSPCorrelateCoefs(brstmi->PCM_samples[i],HEAD1_total_samples,brstmi->ADPCM_coefs[i]);
+        if(encodeADPCM == 1) DSPCorrelateCoefs(brstmi->PCM_samples[i],brstmi->total_samples,brstmi->ADPCM_coefs[i]);
         //Write coefs
         for(unsigned int a=0;a<16;a++) {
             brstm_encoder_writebytes(buffer,brstm_encoder_getBEint16(brstmi->ADPCM_coefs[i][a]),2,bufpos);

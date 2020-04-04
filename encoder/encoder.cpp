@@ -7,51 +7,8 @@
 #include <cstdlib>
 #include <cstring>
 
-//brstm stuff
-
-unsigned int  BRSTM_format; //File type, 1 = BRSTM, see brstm.h for full list
-unsigned int  HEAD1_codec; //char
-unsigned int  HEAD1_loop;  //char
-unsigned int  HEAD1_num_channels; //char
-unsigned int  HEAD1_sample_rate;
-unsigned long HEAD1_loop_start;
-unsigned long HEAD1_total_samples;
-unsigned long HEAD1_ADPCM_offset;
-unsigned long HEAD1_total_blocks;
-unsigned long HEAD1_blocks_size;
-unsigned long HEAD1_blocks_samples;
-unsigned long HEAD1_final_block_size;
-unsigned long HEAD1_final_block_samples;
-unsigned long HEAD1_final_block_size_p;
-unsigned long HEAD1_samples_per_ADPC;
-unsigned long HEAD1_bytes_per_ADPC;
-
-unsigned int  HEAD2_num_tracks;
-unsigned int  HEAD2_track_type;
-
-unsigned int  HEAD2_track_num_channels[8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
-//type 1 only
-unsigned int  HEAD2_track_volume      [8] = {0,0,0,0,0,0,0,0};
-unsigned int  HEAD2_track_panning     [8] = {0,0,0,0,0,0,0,0};
-//HEAD3
-unsigned int  HEAD3_num_channels;
-
-int16_t* PCM_samples[16];
-int16_t* PCM_buffer[16]; //Unused in this program
-
-unsigned char* ADPCM_data  [16];
-unsigned char* ADPCM_buffer[16];
-int16_t  HEAD3_int16_adpcm [16][16]; //Coefs
-int16_t* ADPC_hsamples_1   [16];
-int16_t* ADPC_hsamples_2   [16];
-
-#include "../brstm.h" //must be included after this stuff
-
-unsigned char* brstm_encoded_data;
-unsigned long  brstm_encoded_data_size;
-#include "../brstm_encode.h" //must be included after this stuff
+#include "../brstm.h"
+#include "../brstm_encode.h"
 
 //-------------------######### STRINGS
 
@@ -75,6 +32,9 @@ int main( int argc, char* args[] ) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
     }
+    
+    Brstm* brstm = new Brstm;
+    
     //Parse command line args
     for(unsigned int a=2;a<argc;a++) {
         int vOpt = -1;
@@ -105,11 +65,11 @@ int main( int argc, char* args[] ) {
     if(optused[0]) verb=1;
     if(optused[1]) {outputName=optargstr[1]; saveFile=1;}
     if(optused[2]) {
-        HEAD1_loop = 1;
-        HEAD1_loop_start = atoi(optargstr[2]);
+        brstm->loop_flag = 1;
+        brstm->loop_start = atoi(optargstr[2]);
     } else {
-        HEAD1_loop = 0;
-        HEAD1_loop_start = 0;
+        brstm->loop_flag = 0;
+        brstm->loop_start = 0;
     }
     bool brstmStereoTracks = 1;
     if(optused[3]) {
@@ -145,60 +105,60 @@ int main( int argc, char* args[] ) {
     if(wavFmtSize != 16 || brstm_getSliceAsNumber(memblock,20,2,0) != 1) {
         std::cout << "Only PCM WAVs are supported.\n"; exit(255);
     }
-    HEAD1_num_channels = brstm_getSliceAsNumber(memblock,22,2,0);
-    if(HEAD1_num_channels > 16) {
+    brstm->num_channels = brstm_getSliceAsNumber(memblock,22,2,0);
+    if(brstm->num_channels > 16) {
         std::cout << "Too many channels. Max supported is 16.\n"; exit(255);
-    } else if(!brstmStereoTracks && HEAD1_num_channels > 8) {
+    } else if(!brstmStereoTracks && brstm->num_channels > 8) {
         std::cout << "Too many channels. Max supported tracks is 8 and you're trying to create single channel tracks.\n"; exit(255);
     }
-    HEAD1_sample_rate = brstm_getSliceAsNumber(memblock,24,4,0);
+    brstm->sample_rate = brstm_getSliceAsNumber(memblock,24,4,0);
     if(brstm_getSliceAsNumber(memblock,34,2,0) != 16) {
         std::cout << "Only 16-bit PCM WAVs are supported.\n"; exit(255);
     }
     unsigned long wavAudioOffset = 36;
     for(;strcmp("data",brstm_getSliceAsString(memblock,wavAudioOffset,4)) != 0 ;wavAudioOffset++) {}
-    HEAD1_total_samples = brstm_getSliceAsNumber(memblock,wavAudioOffset+4,4,0) / HEAD1_num_channels / 2;
+    brstm->total_samples = brstm_getSliceAsNumber(memblock,wavAudioOffset+4,4,0) / brstm->num_channels / 2;
     wavAudioOffset += 8;
     
     if(verb) {
-        std::cout << "WAV size: " << wavFileSize << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate
-        << "\nOffset: " << wavAudioOffset << "\nTotal samples: " << HEAD1_total_samples << '\n';
+        std::cout << "WAV size: " << wavFileSize << "\nChannels: " << brstm->num_channels << "\nSample rate: " << brstm->sample_rate
+        << "\nOffset: " << wavAudioOffset << "\nTotal samples: " << brstm->total_samples << '\n';
     }
     
     { //Read audio from wav file
         std::cout << "Reading audio data...\n";
         unsigned int c;
-        for(c=0;c<HEAD1_num_channels;c++) {
-            PCM_samples[c] = new int16_t[HEAD1_total_samples];
+        for(c=0;c<brstm->num_channels;c++) {
+            brstm->PCM_samples[c] = new int16_t[brstm->total_samples];
         }
-        for(unsigned int i=0;i<HEAD1_total_samples;i++) {
-            for(c=0;c<HEAD1_num_channels;c++) {
-                PCM_samples[c][i] = brstm_getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*HEAD1_num_channels)+c*2,0);
+        for(unsigned int i=0;i<brstm->total_samples;i++) {
+            for(c=0;c<brstm->num_channels;c++) {
+                brstm->PCM_samples[c][i] = brstm_getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*brstm->num_channels)+c*2,0);
             }
         }
         delete[] memblock;
     }
     
     //Set other BRSTM data
-    HEAD1_codec = 2;
+    brstm->codec = 2;
     //Make sure the amount of channels is valid
-    if((brstmStereoTracks && HEAD1_num_channels < 2) || (brstmStereoTracks && HEAD1_num_channels%2 != 0)) {
-        std::cout << "You cannot create a stereo BRSTM with " << HEAD1_num_channels << " channel" << (HEAD1_num_channels == 1 ? "" : "s") << ".\n";
+    if((brstmStereoTracks && brstm->num_channels < 2) || (brstmStereoTracks && brstm->num_channels%2 != 0)) {
+        std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << (brstm->num_channels == 1 ? "" : "s") << ".\n";
         exit(255);
     }
-    HEAD2_num_tracks    = brstmStereoTracks ? HEAD1_num_channels / 2 : HEAD1_num_channels;
-    HEAD2_track_type    = 1;
+    brstm->num_tracks    = brstmStereoTracks ? brstm->num_channels / 2 : brstm->num_channels;
+    brstm->track_desc_type    = 1;
     
-    for(unsigned int t=0;t<HEAD2_num_tracks;t++) {
-        HEAD2_track_num_channels[t] = brstmStereoTracks ? 2 : 1;
+    for(unsigned int t=0;t<brstm->num_tracks;t++) {
+        brstm->track_num_channels[t] = brstmStereoTracks ? 2 : 1;
         
-        HEAD2_track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
-        HEAD2_track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
+        brstm->track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
+        brstm->track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
         
-        HEAD2_track_volume      [t] = 0x7F;
-        HEAD2_track_panning     [t] = 0x40;
+        brstm->track_volume      [t] = 0x7F;
+        brstm->track_panning     [t] = 0x40;
     }
-    if(verb) std::cout << "Looping BRSTM: " << HEAD1_loop << "\nLoop point: " << HEAD1_loop_start << "\nStereo BRSTM: " << (int)brstmStereoTracks << "\nTracks: " << HEAD2_num_tracks << "\n";
+    if(verb) std::cout << "Looping BRSTM: " << brstm->loop_flag << "\nLoop point: " << brstm->loop_start << "\nStereo BRSTM: " << (int)brstmStereoTracks << "\nTracks: " << brstm->num_tracks << "\n";
     
     //Encode and save the BRSTM
     if(saveFile) {
@@ -206,17 +166,17 @@ int main( int argc, char* args[] ) {
         
         std::ofstream ofile (outputName,std::ios::out|std::ios::binary|std::ios::trunc);
         if(ofile.is_open()) {
-            unsigned char res = brstm_encode(1,1);
+            unsigned char res = brstm_encode(brstm,1,1);
             if(res>127) {
-                std::cout << "BRSTM encode error.\n";
+                std::cout << "BRSTM encode error " << res << ".\n";
                 exit(res);
             }
             
-            for(unsigned int c=0;c<HEAD1_num_channels;c++) {
-                delete[] PCM_samples[c];
+            for(unsigned int c=0;c<brstm->num_channels;c++) {
+                delete[] brstm->PCM_samples[c];
             }
             
-            ofile.write((char*)brstm_encoded_data,brstm_encoded_data_size);
+            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
             ofile.close();
         } else {std::cout << "\nUnable to open file\n"; return 255;}
     }
