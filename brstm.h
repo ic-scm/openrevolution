@@ -29,7 +29,8 @@ const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
 
 //The BRSTM struct
 struct Brstm {
-    bool BOM; //byte order mark
+    //Byte order mark
+    bool BOM;
     //File type, 1 = BRSTM, see above for full list
     unsigned int  file_format;
     //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
@@ -47,18 +48,12 @@ struct Brstm {
     unsigned long final_block_samples;
     unsigned long final_block_size_p;
     
-    //probably useless?
-    //unsigned long samples_per_ADPC;
-    //unsigned long bytes_per_ADPC;
-    
     //track information
     unsigned int  num_tracks;
     unsigned int  track_desc_type;
-    
     unsigned int  track_num_channels[8] = {0,0,0,0,0,0,0,0};
     unsigned int  track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
     unsigned int  track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
-    
     unsigned int  track_volume      [8] = {0,0,0,0,0,0,0,0};
     unsigned int  track_panning     [8] = {0,0,0,0,0,0,0,0};
     
@@ -66,7 +61,7 @@ struct Brstm {
     int16_t* PCM_buffer[16];
     
     unsigned char* ADPCM_data  [16];
-    unsigned char* ADPCM_buffer[16]; //Unused for now
+    unsigned char* ADPCM_buffer[16]; //Not used yet
     int16_t  ADPCM_coefs [16][16];
     int16_t* ADPCM_hsamples_1   [16];
     int16_t* ADPCM_hsamples_2   [16];
@@ -149,14 +144,6 @@ char* brstm_getSliceAsString(const unsigned char* data,unsigned long start,unsig
     return brstm_slicestring;
 }
 
-/*
-int16_t  HEAD3_int16_adpcm  [16][16];
-int16_t* ADPC_hsamples_1[16];
-int16_t* ADPC_hsamples_2[16];
-*/// declared in including file
-
-
-
 /* 
  * Read the BRSTM file headers and optionally decode the audio data.
  * 
@@ -187,9 +174,66 @@ int16_t* ADPC_hsamples_2[16];
  */
 unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeADPCM) {
     
+    bool &BOM = brstmi->BOM;
     
-    //basic and ugly struct hack for now
-    unsigned int  &BRSTM_format = brstmi->file_format;
+    //Find filetype
+    brstmi->file_format = 0;
+    for(unsigned int t=0;t<BRSTM_formats_count;t++) {
+        if(strcmp(BRSTM_formats_str[t],brstm_getSliceAsString(fileData,0,strlen(BRSTM_formats_str[t]))) == 0) {
+            brstmi->file_format = t;
+            break;
+        }
+    }
+    if(brstmi->file_format == 0) {
+        if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
+        return 210;
+    }
+    
+    if(debugLevel>0) std::cout << "File format: " << BRSTM_formats_short_usr_str[brstmi->file_format] << '\n';
+    
+    //BRSTM
+    if(brstmi->file_format == 1) {
+    //I know this isn't aligned properly but I won't change it for now
+        
+    //Useless BRSTM specific variables
+    //Header
+    unsigned long file_size;
+    unsigned int header_size;
+    unsigned int num_chunks;
+    unsigned long HEAD_offset;
+    unsigned long HEAD_size;
+    unsigned long ADPC_offset;
+    unsigned long ADPC_size;
+    unsigned long DATA_offset;
+    unsigned long DATA_size;
+    //HEAD
+    unsigned long HEAD_length;
+    unsigned long HEAD1_offset;
+    unsigned long HEAD2_offset;
+    unsigned long HEAD3_offset;
+    //HEAD1
+    unsigned long HEAD1_samples_per_ADPC;
+    unsigned long HEAD1_bytes_per_ADPC;
+    //HEAD2
+    unsigned long HEAD2_track_info_offsets[8] = {0,0,0,0,0,0,0,0};
+    //HEAD3
+    unsigned long HEAD3_ch_info_offsets  [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    unsigned int  HEAD3_ch_gain          [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    unsigned int  HEAD3_ch_initial_scale [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+      signed int  HEAD3_ch_hsample_1     [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+      signed int  HEAD3_ch_hsample_2     [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    unsigned int  HEAD3_ch_loop_ini_scale[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+      signed int  HEAD3_ch_loop_hsample_1[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+      signed int  HEAD3_ch_loop_hsample_2[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    //ADPC
+    unsigned long ADPC_total_length;
+    unsigned long ADPC_total_entries;
+    //DATA
+    unsigned long DATA_total_length;
+    
+    
+    //Create references to our struct for the variables we'll care about later
+    //This is kinda ugly but it makes the variable names in this reader nice and it works perfectly fine
     unsigned int  &HEAD1_codec = brstmi->codec;
     bool          &HEAD1_loop = brstmi->loop_flag;
     unsigned int  &HEAD1_num_channels = brstmi->num_channels;
@@ -203,10 +247,6 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     unsigned long &HEAD1_final_block_size = brstmi->final_block_size;
     unsigned long &HEAD1_final_block_samples = brstmi->final_block_samples;
     unsigned long &HEAD1_final_block_size_p = brstmi->final_block_size_p;
-    
-    //dummy variables
-    unsigned long HEAD1_samples_per_ADPC = 0;
-    unsigned long HEAD1_bytes_per_ADPC = 0;
     
     unsigned int  &HEAD2_num_tracks = brstmi->num_tracks;
     unsigned int  &HEAD2_track_type = brstmi->track_desc_type;
@@ -228,92 +268,6 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     int16_t  (&HEAD3_int16_adpcm) [16][16] = brstmi->ADPCM_coefs;
     int16_t* (&ADPC_hsamples_1)   [16] = brstmi->ADPCM_hsamples_1;
     int16_t* (&ADPC_hsamples_2)   [16] = brstmi->ADPCM_hsamples_2;
-    
-    
-    //Read the headers
-    bool BOM; //byte order mark
-    //Header
-    unsigned long file_size;
-    unsigned int header_size;
-    unsigned int num_chunks;
-    unsigned long HEAD_offset;
-    unsigned long HEAD_size;
-    unsigned long ADPC_offset;
-    unsigned long ADPC_size;
-    unsigned long DATA_offset;
-    unsigned long DATA_size;
-    //HEAD
-    unsigned long HEAD_length;
-    unsigned long HEAD1_offset;
-    unsigned long HEAD2_offset;
-    unsigned long HEAD3_offset;
-    //HEAD1
-    /*unsigned int  HEAD1_codec; //char
-    unsigned int  HEAD1_loop;  //char
-    unsigned int  HEAD1_num_channels; //char
-    unsigned int  HEAD1_sample_rate;
-    unsigned long HEAD1_loop_start;
-    unsigned long HEAD1_total_samples;
-    unsigned long HEAD1_ADPCM_offset;
-    unsigned long HEAD1_total_blocks;
-    unsigned long HEAD1_blocks_size;
-    unsigned long HEAD1_blocks_samples;
-    unsigned long HEAD1_final_block_size;
-    unsigned long HEAD1_final_block_samples;
-    unsigned long HEAD1_final_block_size_p;
-    unsigned long HEAD1_samples_per_ADPC;
-    unsigned long HEAD1_bytes_per_ADPC;*/ //Should be declared in main file
-    //HEAD2
-    /*unsigned int  HEAD2_num_tracks;
-    unsigned int  HEAD2_track_type;*/ //Should be declared in main file
-    
-    unsigned long HEAD2_track_info_offsets[8] = {0,0,0,0,0,0,0,0};
-    
-    /*unsigned int  HEAD2_track_num_channels[8] = {0,0,0,0,0,0,0,0};
-    unsigned int  HEAD2_track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
-    unsigned int  HEAD2_track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
-    //type 1 only
-    unsigned int  HEAD2_track_volume      [8] = {0,0,0,0,0,0,0,0};
-    unsigned int  HEAD2_track_panning     [8] = {0,0,0,0,0,0,0,0};
-    //HEAD3
-    unsigned int  HEAD3_num_channels;*/ //Should be declared in main file
-    unsigned long HEAD3_ch_info_offsets  [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    
-      /*signed int  HEAD3_int16_adpcm  [16][16];*/ //declared as global
-    unsigned int  HEAD3_ch_gain          [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    unsigned int  HEAD3_ch_initial_scale [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-      signed int  HEAD3_ch_hsample_1     [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-      signed int  HEAD3_ch_hsample_2     [16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    unsigned int  HEAD3_ch_loop_ini_scale[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-      signed int  HEAD3_ch_loop_hsample_1[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-      signed int  HEAD3_ch_loop_hsample_2[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    //ADPC
-    unsigned long ADPC_total_length;
-    unsigned long ADPC_total_entries;
-    /*signed   int* ADPC_hsamples_1[16];
-    signed   int* ADPC_hsamples_2[16];*/ //declared as global
-    //DATA
-    unsigned long DATA_total_length;
-    //int16_t* PCM_samples[16]; //Should be declared in main file
-    //unsigned char* ADPCM_data[16];
-    //unsigned char* ADPCM_buffer[16]; //not used yet
-    
-    //Find filetype
-    BRSTM_format = 0;
-    for(unsigned int t=0;t<BRSTM_formats_count;t++) {
-        if(strcmp(BRSTM_formats_str[t],brstm_getSliceAsString(fileData,0,strlen(BRSTM_formats_str[t]))) == 0) {
-            BRSTM_format = t;
-            break;
-        }
-    }
-    if(BRSTM_format == 0) {
-        if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
-        return 210;
-    }
-    
-    //BRSTM
-    if(BRSTM_format == 1) {
-    //I know this isn't aligned properly but I won't change it for now
     
     //Check if the header matches RSTM
     char* magicstr=brstm_getSliceAsString(fileData,0,4);
@@ -565,7 +519,6 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
                         if(debugLevel>0) {std::cout << "Decoded PCM samples: " << decoded_samples << '\n';}
                     }
                     //end
-                    return 0;
                     
                 } else { if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";} return 230;}
                 
@@ -579,17 +532,17 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     
     }
     //BCSTM
-    else if(BRSTM_format == 2) {
+    else if(brstmi->file_format == 2) {
         if(debugLevel>=0) {std::cout << "Unsupported file format.\n";}
         return 210;
     }
     //BFSTM
-    else if(BRSTM_format == 3) {
+    else if(brstmi->file_format == 3) {
         if(debugLevel>=0) {std::cout << "Unsupported file format.\n";}
         return 210;
     }
     //BWAV
-    else if(BRSTM_format == 4) {
+    else if(brstmi->file_format == 4) {
         //Byte Order Mark
         if(brstm_getSliceAsInt16Sample(fileData,0x04,1) == -257) {
             BOM = 1; //Big endian
@@ -597,55 +550,37 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
             BOM = 0; //Little endian
         }
         //BWAV is weird and stupid
-        //Nintendo please go back to using Binary Revolution Streams they are literally perfection
-        HEAD1_num_channels = brstm_getSliceAsNumber(fileData,0x0E,2,BOM);
-        HEAD3_num_channels = HEAD1_num_channels; //the HEAD3_num_channels variable is completely useless and stupid
-        //will be fixed in struct rewrite I guess
-        HEAD1_codec = brstm_getSliceAsNumber(fileData,0x10,2,BOM) + 1; //add 1 so the codec number is like BRSTM's codec number
-        HEAD1_sample_rate = brstm_getSliceAsNumber(fileData,0x14,4,BOM);
-        HEAD1_total_samples = brstm_getSliceAsNumber(fileData,0x18,4,BOM);
-        HEAD1_loop = ( (int32_t)brstm_getSliceAsNumber(fileData,0x4C,4,BOM) != -1 );
-        HEAD1_loop_start = brstm_getSliceAsNumber(fileData,0x50,4,BOM);
-        HEAD1_ADPCM_offset = brstm_getSliceAsNumber(fileData,0x40,4,BOM);
-        HEAD1_total_blocks = 1;
-        HEAD1_blocks_size = HEAD1_num_channels > 1 ? (brstm_getSliceAsNumber(fileData,0x8C,4,BOM) - HEAD1_ADPCM_offset) : (HEAD1_codec == 1 ? HEAD1_total_samples*2 : HEAD1_total_samples/1.75);
-        HEAD1_blocks_samples = HEAD1_total_samples;
-        HEAD1_final_block_size = HEAD1_blocks_size;
-        HEAD1_final_block_samples = HEAD1_blocks_samples;
-        HEAD1_final_block_size_p = HEAD1_final_block_size;
+        brstmi->num_channels = brstm_getSliceAsNumber(fileData,0x0E,2,BOM);
+        brstmi->codec = brstm_getSliceAsNumber(fileData,0x10,2,BOM) + 1; //add 1 so the codec number is like BRSTM's codec number
+        brstmi->sample_rate = brstm_getSliceAsNumber(fileData,0x14,4,BOM);
+        brstmi->total_samples = brstm_getSliceAsNumber(fileData,0x18,4,BOM);
+        brstmi->loop_flag = ( (int32_t)brstm_getSliceAsNumber(fileData,0x4C,4,BOM) != -1 );
+        brstmi->loop_start = brstm_getSliceAsNumber(fileData,0x50,4,BOM);
+        brstmi->audio_offset = brstm_getSliceAsNumber(fileData,0x40,4,BOM);
+        brstmi->total_blocks = 1;
+        brstmi->blocks_size = brstmi->num_channels > 1 ? (brstm_getSliceAsNumber(fileData,0x8C,4,BOM) - brstmi->audio_offset) : (brstmi->codec == 1 ? brstmi->total_samples*2 : brstmi->total_samples/1.75);
+        brstmi->blocks_samples = brstmi->total_samples;
+        brstmi->final_block_size = brstmi->blocks_size;
+        brstmi->final_block_samples = brstmi->blocks_samples;
+        brstmi->final_block_size_p = brstmi->final_block_size;
         
         //Write BRSTM standard track data
-        HEAD2_num_tracks = (HEAD1_num_channels > 1 && HEAD1_num_channels%2 == 0) ? HEAD1_num_channels/2 : HEAD1_num_channels;
-        unsigned char track_num_channels = HEAD2_num_tracks*2 == HEAD1_num_channels ? 2 : 1;
-        HEAD2_track_type = 0;
-        for(unsigned char c=0; c<HEAD1_num_channels; c++) {
-            HEAD2_track_num_channels[c/track_num_channels] = track_num_channels;
-            if(track_num_channels == 1 || c%2 == 0) HEAD2_track_lchannel_id[c/track_num_channels] = c;
-            if(track_num_channels == 2 && c%2 == 1) HEAD2_track_rchannel_id[c/track_num_channels] = c;
+        brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
+        unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
+        brstmi->track_desc_type = 0;
+        for(unsigned char c=0; c<brstmi->num_channels; c++) {
+            brstmi->track_num_channels[c/track_num_channels] = track_num_channels;
+            if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
+            if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
             
             //Read coefs
-            if(HEAD1_codec == 2) {
+            if(brstmi->codec == 2) {
                 for(unsigned int i=0;i<16;i++) {
-                    HEAD3_int16_adpcm[c][i] = brstm_getSliceAsInt16Sample(fileData,0x20+i*2+c*0x4C,BOM);
+                    brstmi->ADPCM_coefs[c][i] = brstm_getSliceAsInt16Sample(fileData,0x20+i*2+c*0x4C,BOM);
                 }
             }
         }
-        if(HEAD2_num_tracks>1 && debugLevel>=0) {std::cout << "Warning: Tracks are assumed\n";}
-        
-        //Log details
-        if(debugLevel>0) {std::cout << "Codec: " << HEAD1_codec << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
-        if(debugLevel>0) {std::cout << "Tracks: " << HEAD2_num_tracks << "\nTrack type: " << HEAD2_track_type << "\n";}
-        if(debugLevel>1) {for(unsigned char i=0;i<HEAD2_num_tracks;i++) {
-            std::cout << "\nTrack " << i+1 << "\nOffset: " << HEAD2_track_info_offsets[i] << "\nVolume: " << HEAD2_track_volume[i] << "\nPanning: " << HEAD2_track_panning[i] << "\nChannels: " << HEAD2_track_num_channels[i] << "\nLeft channel ID:  " << HEAD2_track_lchannel_id[i] << "\nRight channel ID: " << HEAD2_track_rchannel_id[i] << "\n\n";
-        }}
-        if(debugLevel>0) {std::cout << "Channels: " << HEAD3_num_channels << "\n";}
-        if(debugLevel>1) {for(unsigned char i=0;i<HEAD3_num_channels;i++) {
-            std::cout << "\nChannel " << i+1 << "\nOffset: " << HEAD3_ch_info_offsets[i] << "\nGain: " << HEAD3_ch_gain[i] << "\nInitial scale: " << HEAD3_ch_initial_scale[i] << "\nHistory sample 1: " << HEAD3_ch_hsample_1[i] << "\nHistory sample 2: " << HEAD3_ch_hsample_2[i] << "\nLoop initial scale: " << HEAD3_ch_loop_ini_scale[i] << "\nLoop history sample 1: " << HEAD3_ch_loop_hsample_1[i] << "\nLoop history sample 2: " << HEAD3_ch_loop_hsample_2[i] << "\nADPCM coefficients: ";
-            for(unsigned char x=0;x<16;x++) {
-                std::cout << HEAD3_int16_adpcm[i][x] << ' ';
-            }
-            std::cout << "\n\n";
-        }}
+        if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: Tracks are assumed\n";}
         
         //Audio
         //This is stupid copied code but works for now and eventually I plan to move the decoder into a function
@@ -655,37 +590,37 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
             
             unsigned long posOffset=0;
             
-            for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+            for(unsigned int c=0;c<brstmi->num_channels;c++) {
                 //Create new array of samples for the current channel
                 switch(decodeADPCM) {
-                    case 1: PCM_samples[c] = new int16_t[HEAD1_total_samples]; break;
-                    case 2: ADPCM_data [c] = new unsigned char[HEAD1_blocks_size]; break;
+                    case 1: brstmi->PCM_samples[c] = new int16_t[brstmi->total_samples]; break;
+                    case 2: brstmi->ADPCM_data [c] = new unsigned char[brstmi->blocks_size]; break;
                 }
                 
-                posOffset=0+(HEAD1_blocks_size*c);
+                posOffset=0+(brstmi->blocks_size*c);
                 unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
-                for(unsigned long b=0;b<HEAD1_total_blocks;b++) {
+                for(unsigned long b=0;b<brstmi->total_blocks;b++) {
                     //Read every block
-                    unsigned int currentBlockSize    = HEAD1_blocks_size;
-                    unsigned int currentBlockSamples = HEAD1_blocks_samples;
+                    unsigned int currentBlockSize    = brstmi->blocks_size;
+                    unsigned int currentBlockSamples = brstmi->blocks_samples;
                     //Final block
-                    if(b==HEAD1_total_blocks-1) {
-                        currentBlockSize    = HEAD1_final_block_size;
-                        currentBlockSamples = HEAD1_final_block_samples;
+                    if(b==brstmi->total_blocks-1) {
+                        currentBlockSize    = brstmi->final_block_size;
+                        currentBlockSamples = brstmi->final_block_samples;
                     }
-                    if(b>=HEAD1_total_blocks-1 && c>0) {
+                    if(b>=brstmi->total_blocks-1 && c>0) {
                         //Go back to the previous position
-                        posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
+                        posOffset-=brstmi->blocks_size*brstmi->num_channels;
                         //Go to the next block in position of first channel
-                        posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
+                        posOffset+=brstmi->blocks_size*(brstmi->num_channels-c);
                         //Jump to the correct channel in the final block
-                        posOffset+=HEAD1_final_block_size_p*c;
+                        posOffset+=brstmi->final_block_size_p*c;
                     }
                     //Get data from just the current block
-                    unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+                    unsigned char* blockData = brstm_getSlice(fileData,brstmi->audio_offset+posOffset,currentBlockSize);
                     
                     if(decodeADPCM == 1) {
-                        if(HEAD1_codec == 2) {
+                        if(brstmi->codec == 2) {
                             //Decode 4 bit ADPCM
                             const unsigned char ps = blockData[0];
                             const   signed int  yn1 = 0, yn2 = 0;
@@ -696,6 +631,8 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
                             cyn1 = yn1,
                             cyn2 = yn2;
                             unsigned long dataIndex = 0;
+                            
+                            int16_t* coefs = brstmi->ADPCM_coefs[c];
                             
                             for (unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;) {
                                 long outSample = 0;
@@ -713,17 +650,17 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
                                 const long scale = 1 << (cps & 0x0f);
                                 const long cIndex = (cps >> 4) << 1;
                                 
-                                outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+                                outSample = (0x400 + ((scale * outSample) << 11) + coefs[brstm_clamp(cIndex, 0, 15)] * cyn1 + coefs[brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
                                 
                                 cyn2 = cyn1;
                                 cyn1 = brstm_clamp(outSample, -32768, 32767);
                                 
-                                PCM_samples[c][outputPos++] = cyn1;
+                                brstmi->PCM_samples[c][outputPos++] = cyn1;
                                 decoded_samples++;
                             }
-                        } else if(HEAD1_codec == 1) {
+                        } else if(brstmi->codec == 1) {
                             for(unsigned long s=0;s<currentBlockSamples;s++) {
-                                PCM_samples[c][outputPos++] = brstm_getSliceAsInt16Sample(fileData,HEAD1_ADPCM_offset+posOffset+s*2,BOM);
+                                brstmi->PCM_samples[c][outputPos++] = brstm_getSliceAsInt16Sample(fileData,brstmi->audio_offset+posOffset+s*2,BOM);
                                 decoded_samples++;
                             }
                         } else {
@@ -731,10 +668,10 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
                             return 220;
                         }
                     } else {
-                        if(HEAD1_codec == 2) {
+                        if(brstmi->codec == 2) {
                             //Write raw data to ADPCM_data
                             for(unsigned int i=0; i<currentBlockSize; i++) {
-                                ADPCM_data[c][outputPos++] = blockData[i];
+                                brstmi->ADPCM_data[c][outputPos++] = blockData[i];
                             }
                         } else {
                             if(debugLevel>=0) {std::cout << "Codec is not ADPCM.\n";}
@@ -742,18 +679,18 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
                         }
                     }
                     
-                    posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
+                    posOffset+=brstmi->blocks_size*brstmi->num_channels;
                 }
             }
             if(debugLevel>0) {std::cout << "Decoded PCM samples: " << decoded_samples << '\n';}
         } else {
-            if(HEAD1_codec == 2) {
+            if(brstmi->codec == 2) {
                 if(debugLevel>=0) {std::cout << "Warning: Realtime decoding works like full decoding for this format\n";}
-                for(unsigned char c=0;c<HEAD1_num_channels;c++) {
-                    ADPC_hsamples_1[c] = new int16_t[1];
-                    ADPC_hsamples_2[c] = new int16_t[1];
-                    ADPC_hsamples_1[c][0] = 0;
-                    ADPC_hsamples_1[c][0] = 1;
+                for(unsigned char c=0;c<brstmi->num_channels;c++) {
+                    brstmi->ADPCM_hsamples_1[c] = new int16_t[1];
+                    brstmi->ADPCM_hsamples_2[c] = new int16_t[1];
+                    brstmi->ADPCM_hsamples_1[c][0] = 0;
+                    brstmi->ADPCM_hsamples_1[c][0] = 1;
                 }
             } else {
                 if(debugLevel>=0) {std::cout << "Realtime decoding is not supported for this format and codec.\n";}
@@ -761,11 +698,62 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
             }
         }
         
-        return 0;
         //END OF BWAV
     }
     
-    return 200;
+    //Log details
+    //BRSTM reader has it's own logger
+    if(brstmi->file_format != 1) {
+        if(debugLevel>0) {std::cout
+            << "Codec: " << brstmi->codec
+            << "\nLoop: " << brstmi->loop_flag
+            << "\nChannels: " << brstmi->num_channels
+            << "\nSample rate: " << brstmi->sample_rate
+            << "\nLoop start: " << brstmi->loop_start
+            << "\nTotal samples: " << brstmi->total_samples
+            << "\nOffset to audio data: " << brstmi->audio_offset
+            << "\nTotal blocks: " << brstmi->total_blocks
+            << "\nBlock size: " << brstmi->blocks_size
+            << "\nSamples per block: " << brstmi->blocks_samples
+            << "\nFinal block size: " << brstmi->final_block_size
+            << "\nFinal block samples: " << brstmi->final_block_samples
+            << "\nFinal block size with padding: " << brstmi->final_block_size_p
+            << "\n\n";
+        }
+        if(debugLevel>0) {std::cout
+            << "Tracks: " << brstmi->num_tracks
+            << "\nTrack type: " << brstmi->track_desc_type
+            << "\n";
+        }
+        if(debugLevel>1) {
+            for(unsigned char i=0;i<brstmi->num_tracks;i++) {
+                std::cout
+                << "\nTrack " << i+1
+                << "\nVolume: " << brstmi->track_volume[i]
+                << "\nPanning: " << brstmi->track_panning[i]
+                << "\nChannels: " << brstmi->track_num_channels[i]
+                << "\nLeft channel ID:  " << brstmi->track_lchannel_id[i]
+                << "\nRight channel ID: " << brstmi->track_rchannel_id[i] << "\n\n";
+            }
+        }
+        if(debugLevel>0) {std::cout 
+            << "Channels: " << brstmi->num_channels
+            << "\n";
+        }
+        if(debugLevel>1) {
+            for(unsigned char i=0;i<brstmi->num_channels;i++) {
+                std::cout
+                << "\nChannel " << i+1
+                << "\nADPCM coefficients: ";
+                for(unsigned char x=0;x<16;x++) {
+                    std::cout << brstmi->ADPCM_coefs[i][x] << ' ';
+                }
+                std::cout << "\n\n";
+            }
+        }
+    }
+    
+    return 0;
 }
 
 //This function is used by brstm_getbuffer
