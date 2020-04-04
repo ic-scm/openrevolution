@@ -103,7 +103,7 @@ int main(int argc, char** args) {
         if(verb) {std::cout << " size " << fsize << '\n';}
         //file.close();
         //delete[] memblock;
-    } else {std::cout << "\nUnable to open file\n"; return 255;}
+    } else {if(verb) {std::cout << '\n';} perror("Unable to open input file"); exit(255);}
     
     //create BRSTM struct
     Brstm * brstm = new Brstm;
@@ -111,7 +111,7 @@ int main(int argc, char** args) {
     //read the brstm
     unsigned char result=brstm_read(brstm,memblock,verb+1,true);
     if(result>127) {
-        std::cout << "Error.\n";
+        std::cout << "BRSTM error " << result << ".\n";
         return result;
     }
     
@@ -189,7 +189,7 @@ int main(int argc, char** args) {
             }
             
             ofile.close();
-        } else {std::cout << "\nUnable to open file\n"; return 255;}
+        } else {perror("Unable to open output file"); exit(255);}
     }
     
     brstm_close(brstm);
