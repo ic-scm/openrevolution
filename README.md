@@ -149,7 +149,7 @@ Include the files:
 ```cpp
 #include "brstm.h"
 ```
-If you want to use the encoder **(CURRENTLY BROKEN)** then include this too:
+If you want to use the encoder then include this too:
 ```cpp
 #include "brstm_encode.h"
 ```
@@ -245,58 +245,63 @@ delete brstm;
 
 ### Encoder
 
-**(Encoder currently doesn't work with structs, do not use)**
+Create a BRSTM struct like with reading (or even read into that struct to reencode/rebuild a file)
 
 Write your Int16 PCM audio data to PCM_samples[c] for each channel
 
+You can also write raw DSPADPCM data to ADPCM_data[c] and the coefs to ADPCM_coefs[c]
+
 Set audio and BRSTM details:
 ```cpp
-HEAD1_codec         = BRSTM codec (only 2 is supported)
-HEAD1_loop          = 0 or 1, loop flag
-HEAD1_num_channels  = Number of audio channels
-HEAD1_sample_rate   = Audio sample rate
-HEAD1_loop_start    = Loop start point (sample number in a single channel)
-HEAD1_total_samples = Total samples (in a single channel)
+codec         = BRSTM codec (only 2 is supported)
+loop_flag     = 0 or 1, loop flag
+num_channels  = Number of audio channels
+sample_rate   = Audio sample rate
+loop_start    = Loop start point (sample number in a single channel)
+total_samples = Total samples (in a single channel)
 
 /*/--- TRACKS ---/*/
 
-HEAD2_num_tracks  = Number of tracks
-HEAD2_track_type  = Track description type
-//You can set this to 0 or 1, but 1 is recommended.
+num_tracks      = Number of tracks
+track_desc_type = Track description type
+//You can set this to 0 or 1 (1 can store volume and panning information, 0 doesn't)
 //See the WiiBrew page about BRSTM files for more information.
 
-HEAD2_track_num_channels[track] = Number of channels in the track. (1 or 2)
-HEAD2_track_lchannel_id [track] = BRSTM Channel ID for the left channel of this track.
-HEAD2_track_rchannel_id [track] = BRSTM Channel ID for the right channel of this track.
+track_num_channels[track] = Number of channels in the track. (1 or 2)
+track_lchannel_id [track] = BRSTM Channel ID for the left channel of this track.
+track_rchannel_id [track] = BRSTM Channel ID for the right channel of this track.
 //Set to 0 if this is a mono track. It's recommended to always set the channel IDs in order
-//(from 0) because some decoders probably don't care about this information.
+//(from 0) because some decoders probably don't care about this information and all
+//BRSTM files are like that.
 
-HEAD2_track_volume [track] = Volume of the track. (0x00 to 0x7F)
-HEAD2_track_panning[track] = Left to right panning of the track. (0x00 to 0x7F)
+track_volume [track] = Volume of the track. (0x00 to 0x7F)
+track_panning[track] = Left to right panning of the track. (0x00 to 0x7F)
 //Description type 1 only.
-//Most decoders (including this one) probably don't care about this information.
+//Most decoders/players (including this one) probably don't care about this information.
 
 // Example - standard stereo BRSTM
 
-HEAD1_codec         = 2;
-HEAD1_loop          = 1;
-HEAD1_num_channels  = 2;
-HEAD1_sample_rate   = 44100;
-HEAD1_loop_start    = 41234;
-HEAD1_total_samples = 500000;
+Brstm* brstm = new Brstm;
 
-PCM_samples[0] = new int16_t[500000];
-PCM_samples[1] = new int16_t[500000];
+brstm->codec         = 2;
+brstm->loop_flag     = 1;
+brstm->num_channels  = 2;
+brstm->sample_rate   = 44100;
+brstm->loop_start    = 41234;
+brstm->total_samples = 500000;
 
-HEAD2_num_tracks    = 1;
-HEAD2_track_type    = 1;
+brstm->PCM_samples[0] = new int16_t[500000];
+brstm->PCM_samples[1] = new int16_t[500000];
 
-HEAD2_track_num_channels[0] = 2;
-HEAD2_track_lchannel_id [0] = 0;
-HEAD2_track_rchannel_id [0] = 1;
+brstm->num_tracks      = 1;
+brstm->track_desc_type = 1;
 
-HEAD2_track_volume      [0] = 0x7F;
-HEAD2_track_panning     [0] = 0x40;
+brstm->track_num_channels[0] = 2;
+brstm->track_lchannel_id [0] = 0;
+brstm->track_rchannel_id [0] = 1;
+
+brstm->track_volume      [0] = 0x7F;
+brstm->track_panning     [0] = 0x40;
 
 brstm_encode(/*
 
@@ -307,7 +312,7 @@ Console debug level:
 (signed int),
 
 Encode ADPCM flag:
- 0 = Use the ADPCM data from ADPCM_data (requires coefs in HEAD3_int16_adpcm[ch][coef])
+ 0 = Use the ADPCM data from ADPCM_data (requires coefs in ADPCM_coefs[ch][coef])
  1 = Encode PCM_samples into ADPCM
 
 Returns error code (>127) or warning code (<128)
@@ -317,7 +322,9 @@ Returns error code (>127) or warning code (<128)
 
 // Remember to free PCM_samples!
 
-file.write(brstm_encoded_data,brstm_encoded_data_size);
+file.write(brstm->encoded_file,brstm->encoded_file_size);
+
+delete brstm;
 
 ```
 
