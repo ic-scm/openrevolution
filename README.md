@@ -6,7 +6,7 @@ Only ADPCM codec is supported (for now).
 
 ## Converter/decoder program
 Usage:
-./brstm input.brstm -o output.wav
+./brstm_decoder input.brstm -o output.wav
 
 -o [output file name] - If this is not used the output will not be saved.
 
@@ -21,6 +21,8 @@ Usage:
 ./brstm_rt file.brstm
 
 -v - Verbose output
+
+-q - Quiet output (Don't display the player UI)
 
 **Memory modes**
 
