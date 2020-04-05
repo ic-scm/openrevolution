@@ -13,7 +13,7 @@
 
 #include "RtAudio.h"
 
-#include "../brstm.h"
+#include "../lib/brstm.h"
 
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);

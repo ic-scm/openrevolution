@@ -7,8 +7,8 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../brstm.h"
-#include "../brstm_encode.h"
+#include "lib/brstm.h"
+#include "lib/brstm_encode.h"
 
 //-------------------######### STRINGS
 

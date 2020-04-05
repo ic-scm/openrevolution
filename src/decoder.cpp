@@ -8,7 +8,7 @@
 #include <cstring>
 #include <math.h>
 
-#include "brstm.h"
+#include "lib/brstm.h"
 
 //-------------------######### STRINGS
 
