@@ -6,6 +6,8 @@ C++ RtAudio BRSTM player
 
 -v - Verbose output
 
+-q - Quiet output (Don't display the player UI)
+
 **Memory modes**
 
 -m - Load the entire file into memory (default for <15MB files)
