@@ -1,0 +1,83 @@
+//Revolution audio decoder
+//Copyright (C) 2020 Extrasklep
+
+#pragma once
+
+//dataType will be 1 for disk streaming mode (fileData will be null) so brstm_getblock
+//will know to do disk streaming stuff instead of just getting a slice of fileData
+void brstm_decode_block(Brstm* brstmi,unsigned long b,const unsigned char* fileData,bool dataType) {
+    if(brstmi->codec!=2) {exit(220);}
+    for(unsigned int c=0;c<brstmi->num_channels;c++) {
+        //Create new array of samples for the current channel
+        delete[] brstmi->PCM_blockbuffer[c];
+        brstmi->PCM_blockbuffer[c] = new int16_t[brstmi->blocks_samples];
+        
+        unsigned long posOffset=0+(brstmi->blocks_size*c);
+        unsigned long outputPos = 0; //position in PCM block samples output array
+        
+        unsigned long c_writtensamples = 0;
+        
+        posOffset+=b*(brstmi->blocks_size*brstmi->num_channels);
+        
+        //Read block
+        unsigned int currentBlockSize    = brstmi->blocks_size;
+        unsigned int currentBlockSamples = brstmi->blocks_samples;
+        //Final block
+        if(b==brstmi->total_blocks-1) {
+            currentBlockSize    = brstmi->final_block_size;
+            currentBlockSamples = brstmi->final_block_samples;
+        }
+        if(b>=brstmi->total_blocks-1 && c>0) {
+            //Go back to the previous position
+            posOffset-=brstmi->blocks_size*brstmi->num_channels;
+            //Go to the next block in position of first channel
+            posOffset+=brstmi->blocks_size*(brstmi->num_channels-c);
+            //Jump to the correct channel in the final block
+            posOffset+=brstmi->final_block_size_p*c;
+        }
+        //Get data from just the current block
+        //This function exists in the including file (brstm.h)
+        unsigned char* blockData = brstm_getblock(fileData,dataType,brstmi->audio_offset+posOffset,currentBlockSize);
+        
+        //4 bit ADPCM - No comments, no one knows what this code does :^) Stolen from that node module
+        const unsigned char ps = blockData[0];
+        const   signed int  yn1 = brstmi->ADPCM_hsamples_1[c][b], yn2 = brstmi->ADPCM_hsamples_2[c][b];
+        
+        //Magic adapted from brawllib's ADPCMState.cs
+        signed int 
+        cps = ps,
+        cyn1 = yn1,
+        cyn2 = yn2;
+        unsigned long dataIndex = 0;
+        
+        int16_t* coefs = brstmi->ADPCM_coefs[c];
+        
+        for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
+            long outSample = 0;
+            if (sampleIndex % 14 == 0) {
+                cps = blockData[dataIndex++];
+            }
+            if ((sampleIndex++ & 1) == 0) {
+                outSample = blockData[dataIndex] >> 4;
+            } else {
+                outSample = blockData[dataIndex++] & 0x0f;
+            }
+            if (outSample >= 8) {
+                outSample -= 16;
+            }
+            const long scale = 1 << (cps & 0x0f);
+            const long cIndex = (cps >> 4) << 1;
+            
+            outSample = (0x400 + ((scale * outSample) << 11) + coefs[brstm_clamp(cIndex, 0, 15)] * cyn1 + coefs[brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
+            
+            cyn2 = cyn1;
+            cyn1 = brstm_clamp(outSample, -32768, 32767);
+            
+            brstmi->PCM_blockbuffer[c][outputPos++] = cyn1;
+            c_writtensamples++;
+        }
+        brstmi->PCM_blockbuffer_currentBlock = b;
+        
+        posOffset+=brstmi->blocks_size*brstmi->num_channels;
+    }
+}
