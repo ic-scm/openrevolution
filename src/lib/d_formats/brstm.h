@@ -241,10 +241,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                     
                     if(debugLevel>1) {std::cout << "DATA length: " << DATA_total_length << '\n';}
                     
-                    if(HEAD1_codec!=2) { if(debugLevel>=0) {std::cout << "Unsupported codec.\n";} return 220;}
-                    
                     if(decodeAudio) {
-                        //Read the ADPCM data
                         unsigned long decoded_samples=0;
                         
                         unsigned long posOffset=0;
@@ -275,47 +272,21 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                                     //Jump to the correct channel in the final block
                                     posOffset+=HEAD1_final_block_size_p*c;
                                 }
-                                //Get data from just the current block
-                                unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+                                
                                 
                                 if(decodeAudio == 1) {
-                                    //Decode 4 bit ADPCM
-                                    const unsigned char ps = blockData[0];
-                                    const   signed int  yn1 = ADPC_hsamples_1[c][b], yn2 = ADPC_hsamples_2[c][b];
-                                    
-                                    //Magic adapted from brawllib's ADPCMState.cs
-                                    signed int 
-                                    cps = ps,
-                                    cyn1 = yn1,
-                                    cyn2 = yn2;
-                                    unsigned long dataIndex = 0;
-                                    
-                                    for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
-                                        long outSample = 0;
-                                        if (sampleIndex % 14 == 0) {
-                                            cps = blockData[dataIndex++];
-                                        }
-                                        if ((sampleIndex++ & 1) == 0) {
-                                            outSample = blockData[dataIndex] >> 4;
-                                        } else {
-                                            outSample = blockData[dataIndex++] & 0x0f;
-                                        }
-                                        if (outSample >= 8) {
-                                            outSample -= 16;
-                                        }
-                                        const long scale = 1 << (cps & 0x0f);
-                                        const long cIndex = (cps >> 4) << 1;
-                                        
-                                        outSample = (0x400 + ((scale * outSample) << 11) + HEAD3_int16_adpcm[c][brstm_clamp(cIndex, 0, 15)] * cyn1 + HEAD3_int16_adpcm[c][brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
-                                        
-                                        cyn2 = cyn1;
-                                        cyn1 = brstm_clamp(outSample, -32768, 32767);
-                                        
-                                        PCM_samples[c][outputPos++] = cyn1;
-                                        decoded_samples++;
-                                    }
+                                    //Decode audio normally
+                                    brstm_decode_block(brstmi,b,c,fileData,0,brstmi->PCM_samples,b*brstmi->blocks_samples);
                                 } else {
                                     //Write raw data to ADPCM_data
+                                    if(HEAD1_codec!=2) {
+                                        if(debugLevel>=0) {
+                                            std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
+                                        }
+                                        return 220;
+                                    }
+                                    //Get data from just the current block
+                                    unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
                                     for(unsigned int i=0; i<currentBlockSize; i++) {
                                         ADPCM_data[c][outputPos++] = blockData[i];
                                     }
@@ -324,7 +295,6 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                                 posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
                             }
                         }
-                        if(debugLevel>0) {std::cout << "Decoded PCM samples: " << decoded_samples << '\n';}
                     }
                     //end
                     
