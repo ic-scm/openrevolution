@@ -135,7 +135,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
         //userData is the file data (unsigned char*)
         getBufferHelper(userData,playback_current_sample,
                         //Avoid reading garbage outside the file
-                        brstm->total_samples-playback_current_sample < nBufferFrames ? brstm->total_samples-playback_current_sample : nBufferFrames
+                        brstm->total_samples-playback_current_sample-1 < nBufferFrames ? brstm->total_samples-playback_current_sample-1 : nBufferFrames
                         );
         int ioffset=0;
         for (i=0;i<nBufferFrames;i+=1) {
@@ -143,7 +143,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             *buffer++ = brstm->PCM_buffer[ch2id][i+ioffset];
             
             playback_current_sample++;
-            if(playback_current_sample > brstm->total_samples) {
+            if(playback_current_sample >= brstm->total_samples) {
                 //if(brstm->loop_flag) {
                     playback_current_sample=brstm->loop_start;
                     //refill buffer

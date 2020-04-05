@@ -278,7 +278,10 @@ void brstm_getbuffer_main(Brstm * brstmi,const unsigned char* fileData,bool data
             }
         }
         if(blockEndReached) {
-            brstmi->getbuffer_useBuffer = false; //don't make a new buffer in PCM_buffer
+            //safety, return if we are outside the last block
+            if((sampleOffset+blockEndReachedAt)/brstmi->blocks_samples >= brstmi->total_blocks) return;
+            //don't make a new buffer in PCM_buffer
+            brstmi->getbuffer_useBuffer = false;
             brstm_getbuffer_main(brstmi,fileData,dataType,sampleOffset+blockEndReachedAt,0);
             brstmi->getbuffer_useBuffer = true;
             for(unsigned int c=0;c<brstmi->num_channels;c++) {
