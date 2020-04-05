@@ -26,6 +26,15 @@ const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
 "Nintendo BWAV"
 };
 
+//Codec information
+const unsigned int BRSTM_codecs_count = 3;
+//Human readable strings
+const char* BRSTM_codecs_usr_str[BRSTM_codecs_count] = {
+"8-bit PCM",
+"16-bit PCM",
+"4-bit DSPADPCM"
+};
+
 
 //The BRSTM struct
 struct Brstm {
