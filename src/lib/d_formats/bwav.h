@@ -144,17 +144,12 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
         }
         if(debugLevel>0) {std::cout << "Decoded PCM samples: " << decoded_samples << '\n';}
     } else {
-        if(brstmi->codec == 2) {
-            if(debugLevel>=0) {std::cout << "Warning: Realtime decoding works like full decoding for this format\n";}
-            for(unsigned char c=0;c<brstmi->num_channels;c++) {
-                brstmi->ADPCM_hsamples_1[c] = new int16_t[1];
-                brstmi->ADPCM_hsamples_2[c] = new int16_t[1];
-                brstmi->ADPCM_hsamples_1[c][0] = 0;
-                brstmi->ADPCM_hsamples_1[c][0] = 1;
-            }
-        } else {
-            if(debugLevel>=0) {std::cout << "Realtime decoding is not supported for this format and codec.\n";}
-            return 210;
+        if(debugLevel>=0) {std::cout << "Warning: Realtime decoding works like full decoding for this format\n";}
+        for(unsigned char c=0;c<brstmi->num_channels;c++) {
+            brstmi->ADPCM_hsamples_1[c] = new int16_t[1];
+            brstmi->ADPCM_hsamples_2[c] = new int16_t[1];
+            brstmi->ADPCM_hsamples_1[c][0] = 0;
+            brstmi->ADPCM_hsamples_2[c][0] = 0;
         }
     }
     

@@ -41,13 +41,13 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,const unsigned char* fileD
         //Decode the audio
         if(brstmi->codec == 0) {
             //8 bit PCM
-            for(unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
-                brstmi->PCM_blockbuffer[c][outputPos++] = blockData[sampleIndex];
+            for(unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
+                brstmi->PCM_blockbuffer[c][outputPos++] = ((int16_t)blockData[sampleIndex]-128)*256;
                 c_writtensamples++;
             }
         } else if(brstmi->codec == 1) {
             //16 bit PCM
-            for(unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
+            for(unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
                 brstmi->PCM_blockbuffer[c][outputPos++] = brstm_getSliceAsInt16Sample(blockData,sampleIndex*2,brstmi->BOM);
                 c_writtensamples++;
             }
@@ -65,7 +65,7 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,const unsigned char* fileD
             
             int16_t* coefs = brstmi->ADPCM_coefs[c];
             
-            for (unsigned int sampleIndex=0;sampleIndex<currentBlockSamples;) {
+            for (unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;) {
                 long outSample = 0;
                 if (sampleIndex % 14 == 0) {
                     cps = blockData[dataIndex++];
