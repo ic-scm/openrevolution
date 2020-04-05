@@ -82,7 +82,7 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
                             brstmi->ADPCM_data[c][outputPos++] = blockData[i];
                         }
                     } else {
-                        if(debugLevel>=0) {std::cout << "Codec is not ADPCM.\n";}
+                        if(debugLevel>=0) {std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";}
                         return 220;
                     }
                 }
