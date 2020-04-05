@@ -256,6 +256,7 @@ You can also write raw DSPADPCM data to ADPCM_data[c] and the coefs to ADPCM_coe
 
 Set audio and BRSTM details:
 ```cpp
+file_format   = Encoded file format (Only BRSTM is supported)
 codec         = BRSTM codec (only 2 is supported)
 loop_flag     = 0 or 1, loop flag
 num_channels  = Number of audio channels
@@ -286,6 +287,7 @@ track_panning[track] = Left to right panning of the track. (0x00 to 0x7F)
 
 Brstm* brstm = new Brstm;
 
+brstm->file_format   = 1;
 brstm->codec         = 2;
 brstm->loop_flag     = 1;
 brstm->num_channels  = 2;
