@@ -4,6 +4,7 @@
 //Bool endian: 0 = little endian, 1 = big endian
 
 #pragma once
+#include <math.h>
 
 unsigned char* brstm_slice;
 char* brstm_slicestring;
@@ -68,5 +69,57 @@ char* brstm_getSliceAsString(const unsigned char* data,unsigned long start,unsig
         brstm_slicestring[i]=slicestr[i];
     }
     return brstm_slicestring;
+}
+
+//Encoder utils
+
+void brstm_encoder_writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
+    for(unsigned int i=0;i<bytes;i++) {
+        buf[i+off] = data[i];
+    }
+    off += bytes;
+}
+
+void brstm_encoder_writebytes_i(unsigned char* buf,unsigned char* data,unsigned int bytes,unsigned long& off) {
+    brstm_encoder_writebytes(buf,data,bytes,off);
+    delete[] data;
+}
+
+void brstm_encoder_writebyte(unsigned char* buf,const unsigned char data,unsigned long& off) {
+    unsigned char arr[1] = {data};
+    brstm_encoder_writebytes(buf,arr,1,off);
+}
+
+//Returns integer as big endian bytes
+unsigned char* brstm_encoder_BEint;
+unsigned char* brstm_encoder_getBEuint(uint64_t num,uint8_t bytes) {
+    delete[] brstm_encoder_BEint;
+    brstm_encoder_BEint = new unsigned char[bytes];
+    unsigned long pwr;
+    unsigned char pwn = bytes-1;
+    for(unsigned char i = 0; i < bytes; i++) {
+        pwr = pow(256,pwn--);
+        brstm_encoder_BEint[i]=0;
+        while(num >= pwr) {
+            brstm_encoder_BEint[i]++;
+            num -= pwr;
+        }
+    }
+    return brstm_encoder_BEint;
+}
+
+unsigned char* brstm_encoder_getBEint16(int16_t num) {
+    uint16_t unum = num;
+    return brstm_encoder_getBEuint(unum,2);
+}
+
+char brstm_encoder_nextspinner(char& spinner) {
+    switch(spinner) {
+        case '/':  spinner = '-';  break;
+        case '-':  spinner = '\\'; break;
+        case '\\': spinner = '|';  break;
+        case '|':  spinner = '/';  break;
+    }
+    return spinner;
 }
 
