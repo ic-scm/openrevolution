@@ -14,7 +14,10 @@ const unsigned int BRSTM_formats_count = 5;
 //File header magic words for each file format
 const char* BRSTM_formats_str[BRSTM_formats_count] = {"    ","RSTM","CSTM","FSTM","BWAV"};
 //Offset to the audio offset information in each format (32 bit integer)
-const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x20,0x00,0x00,0x40};
+const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70,0x00,0x00,0x40};
+//Offset to the codec information and their sizes in each format
+const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x00,0x60,0x00,0x00,0x10};
+const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1,1,1,1,2};
 //Short human readable strings
 const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"None","BRSTM","BCSTM","BFSTM","BWAV"};
 //Long human readable strings
@@ -106,6 +109,20 @@ const char* brstm_getLongFormatString(Brstm* brstmi) {
 const char* brstm_getCodecString(Brstm* brstmi) {
     if(brstmi->codec >= BRSTM_codecs_count) return "";
     else return BRSTM_codecs_usr_str[brstmi->codec];
+}
+
+//Used by brstm_fstream_read, return standard codec number from the number in the file
+unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
+    switch(brstmi->file_format) {
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        return num;
+        case 4:
+        return num+1;
+    }
+    return 0;
 }
 
 /* 
@@ -339,19 +356,15 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
     }
 }
 
-/*
- * Read BRSTM directly from an ifstream
- * 
- * stream: std::ifstream with an open BRSTM file
- * debugLevel: console debug level, same as brstm_read
- */
-unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
+//readAllData is 0 when called from brstm_fstream_getBaseInformation, 1 when called from brstm_fstream_read
+unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel, bool readAllData) {
     if(!stream.is_open()) {
         if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream.\n";}
         return 255;
     }
+    bool &BOM = brstmi->BOM;
+    unsigned char res = 0;
     unsigned char* brstm_header;
-    unsigned int format = 0;
     
     //find file format so we can read the header size from the correct offset
     for(unsigned int t=0;t<BRSTM_formats_count;t++) {
@@ -363,17 +376,16 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
         magicword[emagiclen] = '\0';
         //compare
         if(strcmp(BRSTM_formats_str[t],magicword) == 0) {
-            format = t;
+            brstmi->file_format = t;
             break;
         }
     }
-    if(format == 0) {
+    if(brstmi->file_format == 0) {
         if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
         return 210;
     }
     
     //read Byte Order Mark
-    bool BOM;
     unsigned char bomword[2];
     stream.seekg(0x04);
     stream.read((char*)bomword,2);
@@ -384,23 +396,53 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
     }
     
     //get offset to audio data so we know how much data to read to get the full header
-    stream.seekg(BRSTM_formats_audio_off_off[format]);
+    stream.seekg(BRSTM_formats_audio_off_off[brstmi->file_format]);
     unsigned char audioOff[4];
     stream.read((char*)audioOff,4);
-    unsigned int headerSize = brstm_getSliceAsNumber(audioOff,0,4,BOM) + 512;
+    brstmi->audio_offset = brstm_getSliceAsNumber(audioOff,0,4,BOM) + 64;
     
-    if(debugLevel>1) std::cout << "Reading " << headerSize << " header bytes\n";
+    //Get codec
+    stream.seekg(BRSTM_formats_codec_off[brstmi->file_format]);
+    unsigned char codecBytes[4];
+    stream.read((char*)codecBytes,4);
+    brstmi->codec = brstm_getStandardCodecNum(brstmi,
+        brstm_getSliceAsNumber(codecBytes,0,BRSTM_formats_codec_bytes[brstmi->file_format],BOM)
+    );
     
-    //read header into memory
-    stream.seekg(0);
-    brstm_header = new unsigned char[headerSize];
-    stream.read((char*)brstm_header,headerSize);
-    stream.seekg(0);
+    if(readAllData) {
+        if(debugLevel>1) std::cout << "Reading " << brstmi->audio_offset << " header bytes\n";
+        
+        //read header into memory
+        stream.seekg(0);
+        brstm_header = new unsigned char[brstmi->audio_offset];
+        stream.read((char*)brstm_header,brstmi->audio_offset);
+        stream.seekg(0);
+        
+        //call main brstm read function
+        res = brstm_read(brstmi,brstm_header,debugLevel,false);
+        delete[] brstm_header;
+    }
     
-    //call main brstm read function
-    unsigned char res = brstm_read(brstmi,brstm_header,debugLevel,false);
-    delete[] brstm_header;
     return res;
+}
+
+/*
+ * Read BRSTM directly from an ifstream
+ * 
+ * brstmi: Your BRSTM struct pointer
+ * stream: std::ifstream with an open BRSTM file
+ * debugLevel: console debug level, same as brstm_read
+ */
+unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
+    return brstm_fstream_read(brstmi,stream,debugLevel,true);
+}
+
+/*
+ * Get base file information (file format, codec, offset to audio) so you can decide how to read the file
+ * This function is like brstm_fstream_read but it doesn't call the full brstm_read function
+ */
+unsigned char brstm_fstream_getBaseInformation(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
+    return brstm_fstream_read(brstmi,stream,debugLevel,false);
 }
 
 /* 

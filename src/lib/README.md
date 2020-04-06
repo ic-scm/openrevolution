@@ -155,6 +155,14 @@ delete brstm;
 
 ### Other functions
 ```cpp
+unsigned char brstm_fstream_getBaseInformation(Brstm*,std::ifstream&,signed int debugLevel)
+```
+Get base file information (file format, codec, offset to audio) so you can decide how to read the file
+
+Similar to brstm_fstream_read but it doesn't call the full brstm_read function
+
+
+```cpp
 const char* brstm_getShortFormatString(Brstm*)
 ```
 Returns short file format string
