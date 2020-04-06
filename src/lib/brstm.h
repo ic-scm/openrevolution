@@ -1,6 +1,6 @@
 //C++ BRSTM reader
 //Copyright (C) 2020 Extrasklep
-//https://github.com/Extrasklep/brstm
+//https://github.com/Extrasklep/revolution
 
 #pragma once
 #include <iostream>

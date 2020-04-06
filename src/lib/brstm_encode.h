@@ -1,6 +1,6 @@
 //C++ BRSTM encoder
 //Copyright (C) 2020 Extrasklep
-//https://github.com/Extrasklep/brstm
+//https://github.com/Extrasklep/revolution
 
 //This file requires brstm.h to be included too
 
