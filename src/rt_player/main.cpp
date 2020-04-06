@@ -220,6 +220,7 @@ int main( int argc, char* args[] ) {
     
     //BRSTM file memblock
     unsigned char* memblock;
+    brstm = new Brstm;
     
     //Read the file
     std::streampos fsize;
@@ -229,14 +230,23 @@ int main( int argc, char* args[] ) {
         file.seekg (0, std::ios::beg);
         //pick default memory mode
         if(memoryMode == -1) {
-            //Streaming for >15MB files
-            if(fsize > 15 * 1000000) {memoryMode = 1;}
-            //Default realtime decoding mode
-            else {memoryMode = 0;}
+            //get base BRSTM information
+            unsigned char res = brstm_fstream_getBaseInformation(brstm,file,0);
+            if(res>127) exit(res);
+            if(brstm->file_format == 4) {
+                //Always use full decoding for BWAV
+                memoryMode = 2;
+            } else {
+                //Streaming for >15MB files
+                if(fsize > 15 * 1000000) {memoryMode = 1;}
+                //Default realtime decoding mode
+                else {memoryMode = 0;}
+            }
         }
         //don't read the file in mode 1
         if(memoryMode != 1) {
             memblock = new unsigned char [fsize];
+            file.seekg(0);
             file.read ((char*)memblock, fsize);
             if(verb) {std::cout << "Read file " << args[1] << " size " << fsize << '\n';}
             file.close();
@@ -250,7 +260,6 @@ int main( int argc, char* args[] ) {
     }
     
     //Read the BRSTM headers
-    brstm = new Brstm;
     if(memoryMode != 1) {
         //use normal brstm functions
         unsigned char result=brstm_read(brstm,memblock,verb,
