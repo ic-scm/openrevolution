@@ -163,6 +163,12 @@ Similar to brstm_fstream_read but it doesn't call the full brstm_read function
 
 
 ```cpp
+const char* brstm_getErrorString(unsigned char code)
+```
+Returns error string from error code
+
+
+```cpp
 const char* brstm_getShortFormatString(Brstm*)
 ```
 Returns short file format string

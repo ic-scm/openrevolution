@@ -110,6 +110,23 @@ const char* brstm_getCodecString(Brstm* brstmi) {
     if(brstmi->codec >= BRSTM_codecs_count) return "";
     else return BRSTM_codecs_usr_str[brstmi->codec];
 }
+//Get error string from code
+const char* brstm_getErrorString(unsigned char code) {
+    const char* invalidfile = "Invalid file";
+    switch(code) {
+        case 0: return "No error";
+        case 255: return invalidfile;
+        case 250: return invalidfile;
+        case 249: return "Too many channels";
+        case 248: return "Too many tracks";
+        case 244: return "Unknown track description type";
+        case 240: return invalidfile;
+        case 230: return invalidfile;
+        case 220: return "Unsupported audio codec";
+        case 210: return "Unsupported file format or invalid file";
+    }
+    return "Unknown error";
+}
 
 //Used by brstm_fstream_read, return standard codec number from the number in the file
 unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
