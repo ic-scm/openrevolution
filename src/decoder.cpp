@@ -93,8 +93,7 @@ int main(int argc, char** args) {
         file.seekg (0, std::ios::beg);
         file.read ((char*)memblock, fsize);
         if(verb) {std::cout << " size " << fsize << '\n';}
-        //file.close();
-        //delete[] memblock;
+        file.close();
     } else {if(verb) {std::cout << '\n';} perror("Unable to open input file"); exit(255);}
     
     //create BRSTM struct
@@ -106,6 +105,7 @@ int main(int argc, char** args) {
         std::cout << "BRSTM error " << (int)result << ".\n";
         return result;
     }
+    delete[] memblock;
     
     //Save output
     if(saveFile) {
