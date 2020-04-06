@@ -86,6 +86,9 @@ int main( int argc, char* args[] ) {
         return result;
     }
     
+    //set output format to BRSTM
+    brstm->file_format = 1;
+    
     //encode new brstm
     if(saveFile) {
         std::cout << "Saving file to " << outputName << "...\n";

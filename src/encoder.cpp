@@ -140,6 +140,7 @@ int main( int argc, char* args[] ) {
     }
     
     //Set other BRSTM data
+    brstm->file_format = 1;
     brstm->codec = 2;
     //Make sure the amount of channels is valid
     if((brstmStereoTracks && brstm->num_channels < 2) || (brstmStereoTracks && brstm->num_channels%2 != 0)) {

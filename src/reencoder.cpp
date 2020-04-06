@@ -234,7 +234,8 @@ int main( int argc, char* args[] ) {
     }
     
     
-    //Set codec to ADPCM
+    //Set format to BRSTM and codec to ADPCM
+    brstm->file_format = 1;
     brstm->codec = 2;
     
     //encode new brstm
