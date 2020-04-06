@@ -28,12 +28,6 @@ bool verb=0;
 bool saveFile=0;
 
 //From brstm_encode.h
-void writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
-    for(unsigned int i=0;i<bytes;i++) {
-        buf[i+off] = data[i];
-    }
-    off += bytes;
-}
 //Returns integer as little endian bytes
 unsigned char* BEint;
 unsigned char* getLEuint(uint64_t num,uint8_t bytes) {
@@ -114,37 +108,33 @@ int main(int argc, char** args) {
     }
     
     //Save output
-    //TODO Use less memory and maybe add memory modes like in the player
     if(saveFile) {
         std::cout << "Saving file to " << outputName << "...\n";
         
         std::ofstream ofile (outputName,std::ios::out|std::ios::binary|std::ios::trunc);
         if(ofile.is_open()) {
-            
             //Create WAV file
-            unsigned char* wavfiledata = new unsigned char[(brstm->total_samples*2)*brstm->num_channels+44];
-            unsigned long bufpos=0;
-            writebytes(wavfiledata,(unsigned char*)"RIFF",4,bufpos);
+            ofile.write("RIFF",4);
             //Size
-            writebytes(wavfiledata,getLEuint((brstm->total_samples*2)*brstm->num_channels+36,4),4,bufpos);
-            writebytes(wavfiledata,(unsigned char*)"WAVEfmt ",8,bufpos);
+            ofile.write((char*)getLEuint((brstm->total_samples*2)*brstm->num_channels+36,4),4);
+            ofile.write("WAVEfmt ",8);
             //Subchunk size
-            writebytes(wavfiledata,getLEuint(16,4),4,bufpos);
+            ofile.write((char*)getLEuint(16,4),4);
             //Format = PCM
-            writebytes(wavfiledata,getLEuint(1,2),2,bufpos);
+            ofile.write((char*)getLEuint(1,2),2);
             //Number of channels
-            writebytes(wavfiledata,getLEuint(brstm->num_channels,2),2,bufpos);
+            ofile.write((char*)getLEuint(brstm->num_channels,2),2);
             //Sample rate
-            writebytes(wavfiledata,getLEuint(brstm->sample_rate,4),4,bufpos);
+            ofile.write((char*)getLEuint(brstm->sample_rate,4),4);
             //Byterate
-            writebytes(wavfiledata,getLEuint(brstm->sample_rate*brstm->num_channels*2,4),4,bufpos);
+            ofile.write((char*)getLEuint(brstm->sample_rate*brstm->num_channels*2,4),4);
             //Blockalign
-            writebytes(wavfiledata,getLEuint(brstm->num_channels*2,2),2,bufpos);
+            ofile.write((char*)getLEuint(brstm->num_channels*2,2),2);
             //Bits per sample
-            writebytes(wavfiledata,getLEuint(16,2),2,bufpos);
+            ofile.write((char*)getLEuint(16,2),2);
             //Data
-            writebytes(wavfiledata,(unsigned char*)"data",4,bufpos);
-            writebytes(wavfiledata,getLEuint(brstm->total_samples*brstm->num_channels*2,4),4,bufpos);
+            ofile.write("data",4);
+            ofile.write((char*)getLEuint(brstm->total_samples*brstm->num_channels*2,4),4);
             //Audio data
             unsigned char samplebytes[2];
             int16_t cSample;
@@ -156,12 +146,9 @@ int main(int argc, char** args) {
                     #endif
                     samplebytes[0]   = cSample&0xFF;
                     samplebytes[1] = (cSample>>8)&0xFF;
-                    writebytes(wavfiledata,samplebytes,2,bufpos);
+                    ofile.write((char*)samplebytes,2);
                 }
             }
-            
-            ofile.write((char*)wavfiledata,(brstm->total_samples*2)*brstm->num_channels+44);
-            delete[] wavfiledata;
             
             ofile.close();
         } else {perror("Unable to open output file"); exit(255);}
