@@ -153,6 +153,24 @@ brstm_close(brstm);
 delete brstm;
 ```
 
+### Other functions
+```cpp
+const char* brstm_getShortFormatString(Brstm*)
+```
+Returns short file format string
+
+
+```cpp
+const char* brstm_getLongFormatString(Brstm*)
+```
+Returns long file format string
+
+
+```cpp
+const char* brstm_getCodecString(Brstm*)
+```
+Returns codec string
+
 ### Encoder
 
 Create a BRSTM struct like with reading (or even read into that struct to reencode/rebuild a file)

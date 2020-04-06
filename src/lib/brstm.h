@@ -92,6 +92,22 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
 #include "audio_decoder.h"
 #include "d_formats/all.h"
 
+//Get short file format string
+const char* brstm_getShortFormatString(Brstm* brstmi) {
+    if(brstmi->file_format >= BRSTM_formats_count) return "";
+    else return BRSTM_formats_short_usr_str[brstmi->file_format];
+}
+//Get long file format string
+const char* brstm_getLongFormatString(Brstm* brstmi) {
+    if(brstmi->file_format >= BRSTM_formats_count) return "";
+    else return BRSTM_formats_long_usr_str[brstmi->file_format];
+}
+//Get codec string
+const char* brstm_getCodecString(Brstm* brstmi) {
+    if(brstmi->codec >= BRSTM_codecs_count) return "";
+    else return BRSTM_codecs_usr_str[brstmi->codec];
+}
+
 /* 
  * Read the BRSTM file headers and optionally decode the audio data.
  * 
@@ -138,7 +154,7 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
         return 210;
     }
     
-    if(debugLevel>0) std::cout << "File format: " << BRSTM_formats_short_usr_str[brstmi->file_format] << '\n';
+    if(debugLevel>0) std::cout << "File format: " << brstm_getShortFormatString(brstmi) << '\n';
     
     if(brstmi->file_format == 1) {
         //BRSTM
@@ -161,7 +177,7 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     //BRSTM reader has it's own logger
     if(brstmi->file_format != 1) {
         if(debugLevel>0) {std::cout
-            << "Codec: " << brstmi->codec
+            << "Codec: " << brstm_getCodecString(brstmi)
             << "\nLoop: " << brstmi->loop_flag
             << "\nChannels: " << brstmi->num_channels
             << "\nSample rate: " << brstmi->sample_rate
