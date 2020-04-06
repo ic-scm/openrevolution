@@ -416,13 +416,13 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
         stream.seekg(0);
         brstm_header = new unsigned char[brstmi->audio_offset];
         stream.read((char*)brstm_header,brstmi->audio_offset);
-        stream.seekg(0);
         
         //call main brstm read function
         res = brstm_read(brstmi,brstm_header,debugLevel,false);
         delete[] brstm_header;
     }
     
+    stream.seekg(0);
     return res;
 }
 
