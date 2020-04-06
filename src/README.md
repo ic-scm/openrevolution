@@ -6,10 +6,6 @@ Usage:
 
 -v - Verbose output
 
--r - Output a raw audio file instead of WAV
-
-The raw output file can be imported into a program like Audacity as signed 16-bit PCM.
-
 ## RtAudio player
 [See README in rt_player](https://github.com/Extrasklep/revolution/tree/master/src/rt_player)
 
