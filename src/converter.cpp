@@ -239,6 +239,13 @@ void writeWAV(Brstm* brstm,std::ofstream& stream) {
     }
 }
 
+//Used in reencoder
+void delete_ffmpeg_files() {
+    int tmp;
+    tmp = system("rm .brstm-ffmpeg-i.wav");
+    tmp = system("rm .brstm-ffmpeg-o.wav");
+}
+
 int main(int argc, char** args) {
     if(argc<2) {
         std::cout << helpString0 << args[0] << helpString1;
@@ -433,6 +440,42 @@ int main(int argc, char** args) {
         delete[] memblock;
         //Set output format
         brstm->file_format = outputFileExt;
+        
+        //Apply new loop setting
+        if(userLoop) {
+            brstm->loop_flag = userLoopFlag;
+            brstm->loop_start = userLoopPoint;
+        }
+        //Apply new track settings
+        if(userTrackChannels != 0) {
+            brstmStereoTracks = userTrackChannels - 1;
+            //Make sure the amount of channels is valid
+            if((brstmStereoTracks && brstm->num_channels < 2) || (brstmStereoTracks && brstm->num_channels%2 != 0)) {
+                std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << 
+                (brstm->num_channels == 1 ? "" : "s") << ".\n";
+                exit(255);
+            }
+            brstm->num_tracks    = brstmStereoTracks ? brstm->num_channels / 2 : brstm->num_channels;
+            brstm->track_desc_type    = 1;
+            
+            for(unsigned int t=0;t<brstm->num_tracks;t++) {
+                brstm->track_num_channels[t] = brstmStereoTracks ? 2 : 1;
+                
+                brstm->track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
+                brstm->track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
+                
+                brstm->track_volume      [t] = 0x7F;
+                brstm->track_panning     [t] = 0x40;
+            }
+        }
+        if(verb) std::cout
+            << "Output:"
+            << "\n  Looping BRSTM: " << brstm->loop_flag
+            << "\n  Loop point: " << brstm->loop_start
+            << "\n  Stereo BRSTM: " << (int)brstmStereoTracks
+            << "\n  Tracks: " << brstm->num_tracks
+            << "\n";
+        
         if(saveFile) {
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
