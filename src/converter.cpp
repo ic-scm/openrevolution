@@ -441,42 +441,42 @@ int main(int argc, char** args) {
         //Set output format
         brstm->file_format = outputFileExt;
         
-        //Apply new loop setting
-        if(userLoop) {
-            brstm->loop_flag = userLoopFlag;
-            brstm->loop_start = userLoopPoint;
-        }
-        //Apply new track settings
-        if(userTrackChannels != 0) {
-            brstmStereoTracks = userTrackChannels - 1;
-            //Make sure the amount of channels is valid
-            if((brstmStereoTracks && brstm->num_channels < 2) || (brstmStereoTracks && brstm->num_channels%2 != 0)) {
-                std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << 
-                (brstm->num_channels == 1 ? "" : "s") << ".\n";
-                exit(255);
-            }
-            brstm->num_tracks    = brstmStereoTracks ? brstm->num_channels / 2 : brstm->num_channels;
-            brstm->track_desc_type    = 1;
-            
-            for(unsigned int t=0;t<brstm->num_tracks;t++) {
-                brstm->track_num_channels[t] = brstmStereoTracks ? 2 : 1;
-                
-                brstm->track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
-                brstm->track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
-                
-                brstm->track_volume      [t] = 0x7F;
-                brstm->track_panning     [t] = 0x40;
-            }
-        }
-        if(verb) std::cout
-            << "Output:"
-            << "\n  Looping BRSTM: " << brstm->loop_flag
-            << "\n  Loop point: " << brstm->loop_start
-            << "\n  Stereo BRSTM: " << (int)brstmStereoTracks
-            << "\n  Tracks: " << brstm->num_tracks
-            << "\n";
-        
         if(saveFile) {
+            //Apply new loop setting
+            if(userLoop) {
+                brstm->loop_flag = userLoopFlag;
+                brstm->loop_start = userLoopPoint;
+            }
+            //Apply new track settings
+            if(userTrackChannels != 0) {
+                brstmStereoTracks = userTrackChannels - 1;
+                //Make sure the amount of channels is valid
+                if((brstmStereoTracks && brstm->num_channels < 2) || (brstmStereoTracks && brstm->num_channels%2 != 0)) {
+                    std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << 
+                    (brstm->num_channels == 1 ? "" : "s") << ".\n";
+                    exit(255);
+                }
+                brstm->num_tracks    = brstmStereoTracks ? brstm->num_channels / 2 : brstm->num_channels;
+                brstm->track_desc_type    = 1;
+                
+                for(unsigned int t=0;t<brstm->num_tracks;t++) {
+                    brstm->track_num_channels[t] = brstmStereoTracks ? 2 : 1;
+                    
+                    brstm->track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
+                    brstm->track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
+                    
+                    brstm->track_volume      [t] = 0x7F;
+                    brstm->track_panning     [t] = 0x40;
+                }
+            }
+            if(verb) std::cout
+                << "Output:"
+                << "\n  Looping BRSTM: " << brstm->loop_flag
+                << "\n  Loop point: " << brstm->loop_start
+                << "\n  Stereo BRSTM: " << (int)brstmStereoTracks
+                << "\n  Tracks: " << brstm->num_tracks
+                << "\n";
+            
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
@@ -494,6 +494,146 @@ int main(int argc, char** args) {
     else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 1) {
         //print conversion details
         if(saveFile) printConversionDetails();
+        
+        //Read file data
+        unsigned char * memblock = new unsigned char[ifsize];
+        ifile.read((char*)memblock,ifsize);
+        if(verb) {std::cout << "Read file " << inputFileName << ", size " << ifsize << '\n';}
+        //Read the BRSTM
+        unsigned char result=brstm_read(brstm,memblock,verb,true);
+        if(result>127) {
+            std::cout << "BRSTM read error " << (int)result << ".\n";
+            return result;
+        }
+        delete[] memblock;
+        
+        //FFMPEG: save audio to WAV file, run ffmpeg on it, and read the output
+        if(useFFMPEG) {
+            //Create WAV file
+            std::ofstream ffmpeg_ofile (".brstm-ffmpeg-i.wav",std::ios::out|std::ios::binary|std::ios::trunc);
+            if(!ffmpeg_ofile.is_open()) {
+                perror("Unable to open FFMPEG input file");
+                delete_ffmpeg_files();
+                exit(255);
+            }
+            writeWAV(brstm,ffmpeg_ofile);
+            ffmpeg_ofile.close();
+            
+            //Run FFMPEG
+            std::string systemCommand = "ffmpeg -i .brstm-ffmpeg-i.wav ";
+            systemCommand += ffmpegArgs;
+            systemCommand += " .brstm-ffmpeg-o.wav";
+            std::cout << systemCommand << '\n';
+            if(system(systemCommand.c_str())) {goto ffmpegOutputError;}
+            
+            {
+                //Read FFMPEG output WAV
+                std::ifstream ffmpeg_ifile (".brstm-ffmpeg-o.wav", std::ios::in|std::ios::binary|std::ios::ate);
+                if (ffmpeg_ifile.is_open()) {
+                    std::streampos ffmpeg_fsize = ffmpeg_ifile.tellg();
+                    memblock = new unsigned char [ffmpeg_fsize];
+                    ffmpeg_ifile.seekg (0, std::ios::beg);
+                    ffmpeg_ifile.read ((char*)memblock, ffmpeg_fsize);
+                    ffmpeg_ifile.close();
+                } else {perror("Unable to open FFMPEG output file"); delete_ffmpeg_files(); exit(255);}
+                
+                
+                //Read the WAV file data
+                if(strcmp("RIFF",brstm_getSliceAsString(memblock,0,4)) != 0) {
+                    goto ffmpegOutputError;
+                }
+                unsigned long wavFileSize = brstm_getSliceAsNumber(memblock,4,4,0) + 8;
+                if(strcmp("WAVEfmt ",brstm_getSliceAsString(memblock,8,8)) != 0) {
+                    goto ffmpegOutputError;
+                }
+                if(brstm_getSliceAsNumber(memblock,16,4,0) != 16 || brstm_getSliceAsNumber(memblock,20,2,0) != 1) {
+                    goto ffmpegOutputError;
+                }
+                if(brstm->num_channels != brstm_getSliceAsNumber(memblock,22,2,0)) {
+                    goto ffmpegOutputError;
+                }
+                //read new sample rate in case the file was resampled
+                brstm->sample_rate = brstm_getSliceAsNumber(memblock,24,4,0);
+                if(brstm_getSliceAsNumber(memblock,34,2,0) != 16) {
+                    goto ffmpegOutputError;
+                }
+                unsigned long wavAudioOffset = 36;
+                for(;strcmp("data",brstm_getSliceAsString(memblock,wavAudioOffset,4)) != 0 ;wavAudioOffset++) {}
+                //read new total sample count
+                brstm->total_samples = brstm_getSliceAsNumber(memblock,wavAudioOffset+4,4,0) / brstm->num_channels / 2;
+                wavAudioOffset += 8;
+                
+                { //Read audio from wav file
+                    std::cout << "Reading output FFMPEG audio...\n";
+                    unsigned int c;
+                    for(unsigned int i=0;i<brstm->total_samples;i++) {
+                        for(c=0;c<brstm->num_channels;c++) {
+                            brstm->PCM_samples[c][i] = brstm_getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*brstm->num_channels)+c*2,0);
+                        }
+                    }
+                    delete[] memblock;
+                }
+            }
+            delete_ffmpeg_files();
+            goto ffmpegSuccess;
+            
+            ffmpegOutputError:
+            delete_ffmpeg_files();
+            std::cout << "Invalid FFMPEG output file.\n"; exit(255);
+            ffmpegSuccess:;
+        }
+        
+        //Set format and codec to ADPCM
+        brstm->file_format = outputFileExt;
+        brstm->codec = 2;
+        
+        if(saveFile) {
+            //Apply new loop setting
+            if(userLoop) {
+                brstm->loop_flag = userLoopFlag;
+                brstm->loop_start = userLoopPoint;
+            }
+            //Apply new track settings
+            if(userTrackChannels != 0) {
+                brstmStereoTracks = userTrackChannels - 1;
+                //Make sure the amount of channels is valid
+                if((brstmStereoTracks && brstm->num_channels < 2) || (brstmStereoTracks && brstm->num_channels%2 != 0)) {
+                    std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << 
+                    (brstm->num_channels == 1 ? "" : "s") << ".\n";
+                    exit(255);
+                }
+                brstm->num_tracks    = brstmStereoTracks ? brstm->num_channels / 2 : brstm->num_channels;
+                brstm->track_desc_type    = 1;
+                
+                for(unsigned int t=0;t<brstm->num_tracks;t++) {
+                    brstm->track_num_channels[t] = brstmStereoTracks ? 2 : 1;
+                    
+                    brstm->track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
+                    brstm->track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
+                    
+                    brstm->track_volume      [t] = 0x7F;
+                    brstm->track_panning     [t] = 0x40;
+                }
+            }
+            if(verb) std::cout
+                << "Output:"
+                << "\n  Looping BRSTM: " << brstm->loop_flag
+                << "\n  Loop point: " << brstm->loop_start
+                << "\n  Stereo BRSTM: " << (int)brstmStereoTracks
+                << "\n  Tracks: " << brstm->num_tracks
+                << "\n";
+            
+            //Open output file
+            ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
+            //Encode new file
+            unsigned char res = brstm_encode(brstm,1,1);
+            if(res>127) {
+                std::cout << "BRSTM encode error " << (int)res << ".\n";
+                exit(res);
+            }
+            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
+        }
     }
     
     //Unsupported
