@@ -319,13 +319,6 @@ int main(int argc, char** args) {
     }
     ifsize = ifile.tellg();
     ifile.seekg(0);
-    if(saveFile) {
-        ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
-        if(!ofile.is_open()) {
-            perror("Unable to open output file");
-            exit(255);
-        }
-    }
     
     //Read input file base information
     if(inputFileExt > 0) {
@@ -360,6 +353,9 @@ int main(int argc, char** args) {
         }
         delete[] memblock;
         if(saveFile) {
+            //Open output file
+            ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Write output WAV file
             writeWAV(brstm,ofile);
             std::cout << "Saved file to " << outputFileName << '\n';
@@ -404,6 +400,9 @@ int main(int argc, char** args) {
                 brstm->track_panning     [t] = 0x40;
             }
             if(verb) std::cout << "Looping BRSTM: " << brstm->loop_flag << "\nLoop point: " << brstm->loop_start << "\nStereo BRSTM: " << (int)brstmStereoTracks << "\nTracks: " << brstm->num_tracks << "\n";
+            //Open output file
+            ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Encode
             unsigned char res = brstm_encode(brstm,1,1);
             if(res>127) {
@@ -420,6 +419,32 @@ int main(int argc, char** args) {
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in rebuilder mode.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
+        
+        //Read file data
+        unsigned char * memblock = new unsigned char[ifsize];
+        ifile.read((char*)memblock,ifsize);
+        if(verb) {std::cout << "Read file " << inputFileName << ", size " << ifsize << '\n';}
+        //Read the BRSTM
+        unsigned char result=brstm_read(brstm,memblock,verb,2);
+        if(result>127) {
+            std::cout << "BRSTM read error " << (int)result << ".\n";
+            return result;
+        }
+        delete[] memblock;
+        //Set output format
+        brstm->file_format = outputFileExt;
+        if(saveFile) {
+            //Open output file
+            ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
+            //Build new file
+            unsigned char res = brstm_encode(brstm,1,0);
+            if(res>127) {
+                std::cout << "BRSTM encode error " << (int)res << ".\n";
+                exit(res);
+            }
+            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
+        }
     }
     
     //Reencoder
