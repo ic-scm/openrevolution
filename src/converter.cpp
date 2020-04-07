@@ -1,4 +1,5 @@
 //C++ BRSTM converter
+//Decoder, encoder, reencoder and rebuilder merger into one program
 //Copyright (C) 2020 Extrasklep
 #include <iostream>
 #include <fstream>
@@ -140,6 +141,45 @@ void printConversionDetails() {
     std::cout << '\n';
 }
 
+void writeWAV(Brstm* brstm,std::ofstream& stream) {
+    //Create WAV file
+    stream.write("RIFF",4);
+    //Size
+    stream.write((char*)getLEuint((brstm->total_samples*2)*brstm->num_channels+36,4),4);
+    stream.write("WAVEfmt ",8);
+    //Subchunk size
+    stream.write((char*)getLEuint(16,4),4);
+    //Format = PCM
+    stream.write((char*)getLEuint(1,2),2);
+    //Number of channels
+    stream.write((char*)getLEuint(brstm->num_channels,2),2);
+    //Sample rate
+    stream.write((char*)getLEuint(brstm->sample_rate,4),4);
+    //Byterate
+    stream.write((char*)getLEuint(brstm->sample_rate*brstm->num_channels*2,4),4);
+    //Blockalign
+    stream.write((char*)getLEuint(brstm->num_channels*2,2),2);
+    //Bits per sample
+    stream.write((char*)getLEuint(16,2),2);
+    //Data
+    stream.write("data",4);
+    stream.write((char*)getLEuint(brstm->total_samples*brstm->num_channels*2,4),4);
+    //Audio data
+    unsigned char samplebytes[2];
+    int16_t cSample;
+    for(unsigned long s=0;s<brstm->total_samples;s++) {
+        for(unsigned char c=0;c<brstm->num_channels;c++) {
+            cSample = brstm->PCM_samples[c][s];
+            #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+            cSample = __builtin_bswap16(cSample);
+            #endif
+            samplebytes[0]   = cSample&0xFF;
+            samplebytes[1] = (cSample>>8)&0xFF;
+            stream.write((char*)samplebytes,2);
+        }
+    }
+}
+
 int main(int argc, char** args) {
     if(argc<2) {
         std::cout << helpString0 << args[0] << helpString1;
@@ -199,12 +239,45 @@ int main(int argc, char** args) {
     if(optused[4]) {ffmpegArgs=optargstr[4]; useFFMPEG=1; reencode = 1;}
     if(optused[5]) reencode = 1;
     
+    
+    
     //Check file extensions
     inputFileExt = getFileExt(inputFileName);
     if(inputFileExt == -1) {std::cout << "Unsupported input file extension.\n"; exit(255);}
     if(saveFile) {
         outputFileExt = getFileExt(outputFileName);
         if(outputFileExt == -1) {std::cout << "Unsupported output file extension.\n"; exit(255);}
+    }
+    
+    //Create BRSTM struct and open files
+    Brstm* brstm = new Brstm;
+    std::ifstream ifile;
+    std::ofstream ofile;
+    std::streampos ifsize;
+    ifile.open(inputFileName,std::ios::in|std::ios::binary|std::ios::ate);
+    if(!ifile.is_open()) {
+        perror("Unable to open input file");
+        exit(255);
+    }
+    ifsize = ifile.tellg();
+    ifile.seekg(0);
+    if(saveFile) {
+        ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+        if(!ofile.is_open()) {
+            perror("Unable to open output file");
+            exit(255);
+        }
+    }
+    
+    //Read input file base information
+    if(inputFileExt > 0) {
+        unsigned char res = brstm_fstream_getBaseInformation(brstm,ifile,0);
+        if(res>127) {
+            std::cout << "Input file error.\n";
+            exit(res);
+        }
+        //Change from rebuilding to reencoding if the codec is not ADPCM
+        if(outputFileExt > 0 && brstm->codec != 2) reencode=1;
     }
     
     //Run conversions
@@ -216,7 +289,25 @@ int main(int argc, char** args) {
         if(userTrackChannels) {std::cout << "You cannot use the track channel count option in decoding mode.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
+        
+        //Read file data
+        unsigned char * memblock = new unsigned char[ifsize];
+        ifile.read((char*)memblock,ifsize);
+        if(verb) {std::cout << "Read file " << inputFileName << ", size " << ifsize << '\n';}
+        //Read the BRSTM
+        unsigned char result = brstm_read(brstm,memblock,verb,true);
+        if(result>127) {
+            std::cout << "BRSTM read error " << (int)result << ".\n";
+            return result;
+        }
+        delete[] memblock;
+        if(saveFile) {
+            //Write output WAV file
+            writeWAV(brstm,ofile);
+            std::cout << "Saved file to " << outputFileName << '\n';
+        }
     }
+    
     //Encoder WAV -> BRSTM/other
     else if(inputFileExt == 0 && outputFileExt > 0) {
         //check for unsupported opts
@@ -224,6 +315,7 @@ int main(int argc, char** args) {
         //print conversion details
         if(saveFile) printConversionDetails();
     }
+    
     //Lossless rebuilder
     else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 0) {
         //check for unsupported opts
@@ -231,15 +323,24 @@ int main(int argc, char** args) {
         //print conversion details
         if(saveFile) printConversionDetails();
     }
+    
     //Reencoder
     else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 1) {
         //print conversion details
         if(saveFile) printConversionDetails();
     }
+    
     //Unsupported
     else {
         std::cout << "Unsupported conversion.\n";
         return 255;
     }
+    
+    //cleanup
+    ifile.close();
+    if(saveFile) ofile.close();
+    brstm_close(brstm);
+    delete brstm;
+    
     return 0;
 }
