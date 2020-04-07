@@ -38,6 +38,7 @@ bool userLoop = 0; //1 if the loop option was used
 signed char userLoopFlag = 0;
 unsigned long userLoopPoint = 0;
 
+bool brstmStereoTracks; //used internally later
 //0 = option not used, 1 = 1ch, 2 = 2ch
 unsigned char userTrackChannels = 0;
 
@@ -141,6 +142,64 @@ void printConversionDetails() {
     std::cout << '\n';
 }
 
+void readWAV(Brstm* brstm,std::ifstream& stream,std::streampos fsize) {
+    //Read file
+    stream.seekg(0);
+    unsigned char* memblock = new unsigned char[fsize];
+    stream.read((char*)memblock,fsize);
+    
+    //Read the WAV file data
+    if(strcmp("RIFF",brstm_getSliceAsString(memblock,0,4)) != 0) {
+        std::cout << "Invalid RIFF header.\n"; exit(255);
+    }
+    unsigned long wavFileSize = brstm_getSliceAsNumber(memblock,4,4,0) + 8;
+    if(strcmp("WAVEfmt ",brstm_getSliceAsString(memblock,8,8)) != 0) {
+        std::cout << "Invalid WAVE header.\n"; exit(255);
+    }
+    unsigned long wavFmtSize = brstm_getSliceAsNumber(memblock,16,4,0);
+    if(wavFmtSize != 16 || brstm_getSliceAsNumber(memblock,20,2,0) != 1) {
+        std::cout << "Only PCM WAVs are supported.\n"; exit(255);
+    }
+    brstm->num_channels = brstm_getSliceAsNumber(memblock,22,2,0);
+    if(brstm->num_channels > 16) {
+        std::cout << "Too many channels. Max supported is 16.\n"; exit(255);
+    } else if(!brstmStereoTracks && brstm->num_channels > 8) {
+        std::cout << "Too many channels. Max supported tracks is 8 and you're trying to create single channel tracks.\n"; exit(255);
+    }
+    brstm->sample_rate = brstm_getSliceAsNumber(memblock,24,4,0);
+    if(brstm_getSliceAsNumber(memblock,34,2,0) != 16) {
+        std::cout << "Only 16-bit PCM WAVs are supported.\n"; exit(255);
+    }
+    unsigned long wavAudioOffset = 36;
+    for(;strcmp("data",brstm_getSliceAsString(memblock,wavAudioOffset,4)) != 0 ;wavAudioOffset++) {}
+    brstm->total_samples = brstm_getSliceAsNumber(memblock,wavAudioOffset+4,4,0) / brstm->num_channels / 2;
+    wavAudioOffset += 8;
+    
+    if(verb) {
+        std::cout
+        << "WAV size: " << wavFileSize
+        << "\nChannels: " << brstm->num_channels
+        << "\nSample rate: " << brstm->sample_rate
+        << "\nOffset: " << wavAudioOffset
+        << "\nTotal samples: " << brstm->total_samples
+        << '\n';
+    }
+    
+    { //Read audio from wav file
+        std::cout << "Reading audio data...\n";
+        unsigned int c;
+        for(c=0;c<brstm->num_channels;c++) {
+            brstm->PCM_samples[c] = new int16_t[brstm->total_samples];
+        }
+        for(unsigned int i=0;i<brstm->total_samples;i++) {
+            for(c=0;c<brstm->num_channels;c++) {
+                brstm->PCM_samples[c][i] = brstm_getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*brstm->num_channels)+c*2,0);
+            }
+        }
+        delete[] memblock;
+    }
+}
+
 void writeWAV(Brstm* brstm,std::ofstream& stream) {
     //Create WAV file
     stream.write("RIFF",4);
@@ -221,7 +280,6 @@ int main(int argc, char** args) {
     if(optused[2]) {
         unsigned long lp = atoi(optargstr[2]);
         if(lp == (unsigned long)(-1)) {
-            std::cout << "user no loop\n";//debug remove later
             userLoop = 0;
         } else {
             userLoop = 1;
@@ -314,6 +372,46 @@ int main(int argc, char** args) {
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in encoding mode.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
+        
+        //Read input WAV file
+        brstmStereoTracks = userTrackChannels > 0 ? userTrackChannels-1 : 1;
+        readWAV(brstm,ifile,ifsize);
+        
+        if(saveFile) {
+            //Set other BRSTM data
+            brstm->file_format = outputFileExt;
+            brstm->codec = 2;
+            if(userLoop) {
+                brstm->loop_flag  = userLoopFlag;
+                brstm->loop_start = userLoopPoint;
+            }
+            //Make sure the amount of channels is valid
+            if((brstmStereoTracks && brstm->num_channels < 2) || (brstmStereoTracks && brstm->num_channels%2 != 0)) {
+                std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << 
+                (brstm->num_channels == 1 ? "" : "s") << ".\n";
+                exit(255);
+            }
+            brstm->num_tracks    = brstmStereoTracks ? brstm->num_channels / 2 : brstm->num_channels;
+            brstm->track_desc_type    = 1;
+            
+            for(unsigned int t=0;t<brstm->num_tracks;t++) {
+                brstm->track_num_channels[t] = brstmStereoTracks ? 2 : 1;
+                
+                brstm->track_lchannel_id [t] = brstmStereoTracks ? t*2 : t;
+                brstm->track_rchannel_id [t] = brstmStereoTracks ? t*2+1 : 0;
+                
+                brstm->track_volume      [t] = 0x7F;
+                brstm->track_panning     [t] = 0x40;
+            }
+            if(verb) std::cout << "Looping BRSTM: " << brstm->loop_flag << "\nLoop point: " << brstm->loop_start << "\nStereo BRSTM: " << (int)brstmStereoTracks << "\nTracks: " << brstm->num_tracks << "\n";
+            //Encode
+            unsigned char res = brstm_encode(brstm,1,1);
+            if(res>127) {
+                std::cout << "BRSTM encode error " << (int)res << ".\n";
+                exit(res);
+            }
+            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
+        }
     }
     
     //Lossless rebuilder

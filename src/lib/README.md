@@ -264,10 +264,9 @@ Returns error code (>127) or warning code (<128)
 
 */);
 
-// Remember to free PCM_samples!
-
 file.write(brstm->encoded_file,brstm->encoded_file_size);
 
+brstm_close(brstm); //This will delete the encoded data and PCM_samples
 delete brstm;
 
 ```
