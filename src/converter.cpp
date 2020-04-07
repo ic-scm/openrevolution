@@ -14,21 +14,21 @@
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM/WAV/other converter\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\nSupported input formats:  WAV, BRSTM, BWAV\nSupported output formats: WAV, BRSTM\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\nWAV -> BRSTM/other options:\n  -l --loop [loop point] - Creating looping file or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n";
+const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\nSupported input formats:  WAV, BRSTM, BWAV\nSupported output formats: WAV, BRSTM\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\nWAV -> BRSTM/other options:\n  -l --loop [loop point] - Creating looping file or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","--ffmpeg"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg"};
-const unsigned int optcount = 5;
-const bool optrequiredarg[optcount] = {0,1,1,1,1};
+const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode"};
+const unsigned int optcount = 6;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
 const char* inputFileName;
 const char* outputFileName;
 int inputFileExt;
-int outputFileExt;
+int outputFileExt = 1;
 
 int  verb = 1;
 bool saveFile = 0;
@@ -40,6 +40,7 @@ unsigned long userLoopPoint = 0;
 //0 = option not used, 1 = 1ch, 2 = 2ch
 unsigned char userTrackChannels = 0;
 
+bool reencode = 0;
 bool useFFMPEG = 0;
 const char* ffmpegArgs;
 
@@ -114,6 +115,31 @@ int getFileExt(const char* filename) {
     return -1;
 }
 
+void printConversionDetails() {
+    std::cout << "Conversion: ";
+    if(inputFileExt > 0 && outputFileExt == 0) {
+        std::cout << "BRSTM/other -> WAV";
+    } else if(inputFileExt == 0 && outputFileExt > 0) {
+        std::cout << "WAV -> BRSTM/other";
+    } else if(inputFileExt == 0 && outputFileExt == 0) {
+        //This should never happen
+        std::cout << "WAV -> WAV";
+    } else if(inputFileExt > 0 && outputFileExt > 0) {
+        std::cout << "BRSTM/other -> ";
+        if(reencode) {
+            std::cout << "PCM -> ";
+            if(useFFMPEG) {
+                std::cout << "FFMPEG -> PCM -> ";
+            }
+        }
+        std::cout << "BRSTM/other";
+        if(!reencode) {
+            std::cout << " (Lossless)";
+        }
+    }
+    std::cout << '\n';
+}
+
 int main(int argc, char** args) {
     if(argc<2) {
         std::cout << helpString0 << args[0] << helpString1;
@@ -170,7 +196,8 @@ int main(int argc, char** args) {
         userTrackChannels = tc;
     }
     //FFMPEG
-    if(optused[4]) {ffmpegArgs=optargstr[4]; useFFMPEG=1;}
+    if(optused[4]) {ffmpegArgs=optargstr[4]; useFFMPEG=1; reencode = 1;}
+    if(optused[5]) reencode = 1;
     
     //Check file extensions
     inputFileExt = getFileExt(inputFileName);
@@ -179,4 +206,40 @@ int main(int argc, char** args) {
         outputFileExt = getFileExt(outputFileName);
         if(outputFileExt == -1) {std::cout << "Unsupported output file extension.\n"; exit(255);}
     }
+    
+    //Run conversions
+    //Decoder BRSTM/other -> WAV
+    if(inputFileExt > 0 && outputFileExt == 0) {
+        //check for unsupported opts
+        if(userLoop)  {std::cout << "You cannot use the loop option in decoding mode.\n"; exit(255);}
+        if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in decoding mode.\n"; exit(255);}
+        if(userTrackChannels) {std::cout << "You cannot use the track channel count option in decoding mode.\n"; exit(255);}
+        //print conversion details
+        if(saveFile) printConversionDetails();
+    }
+    //Encoder WAV -> BRSTM/other
+    else if(inputFileExt == 0 && outputFileExt > 0) {
+        //check for unsupported opts
+        if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in encoding mode.\n"; exit(255);}
+        //print conversion details
+        if(saveFile) printConversionDetails();
+    }
+    //Lossless rebuilder
+    else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 0) {
+        //check for unsupported opts
+        if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in rebuilder mode.\n"; exit(255);}
+        //print conversion details
+        if(saveFile) printConversionDetails();
+    }
+    //Reencoder
+    else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 1) {
+        //print conversion details
+        if(saveFile) printConversionDetails();
+    }
+    //Unsupported
+    else {
+        std::cout << "Unsupported conversion.\n";
+        return 255;
+    }
+    return 0;
 }
