@@ -8,6 +8,16 @@ The operation mode is automatically picked depending on your file types
 
 Run the program without any arguments to see all options.
 
+Examples:
+
+brstm_converter input.brstm -o output.wav
+
+brstm_converter input.wav -o output.brstm -l 40000 -c 2 # set loop point to sample 40000, 2 channel tracks
+
+brstm_converter input.brstm -o output.brstm -l 12345 # change loop point in an existing BRSTM
+
+brstm_converter input.bwav -o output.brstm --ffmpeg "-af volume=10dB" # convert bwav to brstm and amplify the audio by 10dB
+
 ## RtAudio player
 [See README in rt_player](https://github.com/Extrasklep/revolution/tree/master/src/rt_player)
 

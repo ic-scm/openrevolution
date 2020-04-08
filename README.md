@@ -7,9 +7,12 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 
 ## Audio formats
 
-Reading: BRSTM, BWAV
-Writing: BRSTM
-(put a proper table here later)
+| Format       | Read                | Write               |
+|:------------ |:-------------------:|:-------------------:|
+| BRSTM        | Yes (only ADPCM)    | Yes (only ADPCM)    |
+| BCSTM        | No                  | No                  |
+| BFSTM        | No                  | No                  |
+| BWAV         | Yes                 | No                  |
 
 ## Usage
 Compile everything by running build.sh or another compiler with the correct options
@@ -30,4 +33,5 @@ Usage guides:
 
 - Qt GUI
 - Support for more file formats (BCSTM, BFSTM etc.)
+- Multithreaded encoding
 
