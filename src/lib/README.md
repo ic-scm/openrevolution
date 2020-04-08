@@ -272,4 +272,4 @@ delete brstm;
 ```
 
 ### Editing headers
-Coming soon.
+I might add proper header editing some day (but I proably won't) so just do lossless conversions and change the data in your BRSTM struct.
