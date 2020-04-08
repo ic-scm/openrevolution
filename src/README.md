@@ -1,4 +1,23 @@
-## Converter/decoder program
+## Converter
+Decoder, encoder, rebuilder and reencoder merged into one program
+
+Usage:
+./brstm_converter input.type -o output.type
+
+The operation mode is automatically picked depending on your file types
+
+Run the program without any arguments to see all options.
+
+## RtAudio player
+[See README in rt_player](https://github.com/Extrasklep/revolution/tree/master/src/rt_player)
+
+
+## Old programs
+Old separated tools, outdated and not recommended
+
+If you still want to build them for some reason you can uncomment the lines for them in the build script but they will eventually be removed
+
+### Decoder program
 Usage:
 ./brstm_decoder input.brstm -o output.wav
 
@@ -6,10 +25,8 @@ Usage:
 
 -v - Verbose output
 
-## RtAudio player
-[See README in rt_player](https://github.com/Extrasklep/revolution/tree/master/src/rt_player)
 
-## Encoder program
+### Encoder program
 Usage:
 ./brstm_encoder input.wav -o output.brstm
 
@@ -21,7 +38,7 @@ Usage:
 
 -c [1 or 2] - Number of channels for each track
 
-## Reencoder
+### Reencoder
 Re-encode a BRSTM (or other supported input format) into a new BRSTM.
 
 Usage:
@@ -34,7 +51,7 @@ Usage:
 --ffmpeg [ffmpeg arguments] - Use ffmpeg in the middle of re-encoding to edit the audio data with the passed ffmpeg arguments (as a single argument!)
 Requires FFMPEG to be installed and it may not work on non-unix systems.
 
-## Rebuilder
+### Rebuilder
 Losslessly rebuild a BRSTM (or other supported input format) into a new BRSTM.
 
 Usage:
