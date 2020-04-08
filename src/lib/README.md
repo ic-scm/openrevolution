@@ -1,8 +1,4 @@
 ## brstm.h and brstm_encode.h usage
-**WARNING: This is currently under development and there may be major incompatible changes at any time, please use the latest stable release or wait for v2.0**
-
-
-
 The BRSTM struct
 ```cpp
 struct Brstm {
