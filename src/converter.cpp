@@ -509,6 +509,7 @@ int main(int argc, char** args) {
         
         //FFMPEG: save audio to WAV file, run ffmpeg on it, and read the output
         if(useFFMPEG) {
+            delete_ffmpeg_files();
             //Create WAV file
             std::ofstream ffmpeg_ofile (".brstm-ffmpeg-i.wav",std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ffmpeg_ofile.is_open()) {
@@ -566,6 +567,11 @@ int main(int argc, char** args) {
                 { //Read audio from wav file
                     std::cout << "Reading output FFMPEG audio...\n";
                     unsigned int c;
+                    //Reallocate memory
+                    for(c=0;c<brstm->num_channels;c++) {
+                        delete[] brstm->PCM_samples[c];
+                        brstm->PCM_samples[c] = new int16_t[brstm->total_samples];
+                    }
                     for(unsigned int i=0;i<brstm->total_samples;i++) {
                         for(c=0;c<brstm->num_channels;c++) {
                             brstm->PCM_samples[c][i] = brstm_getSliceAsInt16Sample(memblock,wavAudioOffset+i*(2*brstm->num_channels)+c*2,0);
