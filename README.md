@@ -28,8 +28,6 @@ Usage guides:
 
 ## Planned features
 
-- Merge decoder, encoder, reencoder and rebuilder programs into one program
-- Editing BRSTM headers
 - Qt GUI
 - Support for more file formats (BCSTM, BFSTM etc.)
 
