@@ -69,7 +69,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->total_blocks,4,BOM),4,bufpos);
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->blocks_size = 8192,4,BOM),4,bufpos);
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->blocks_samples = 14336,4,BOM),4,bufpos);
-    brstmi->final_block_samples = brstmi->total_samples % 14336;
+    brstmi->final_block_samples = brstmi->total_samples % 14336; //TODO does this cause a problem if total samples is a multiple of 14336?
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_size = brstmi->final_block_samples / 1.75 + 2,4,BOM),4,bufpos); //Final block size
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_samples,4,BOM),4,bufpos); 
     brstmi->final_block_size_p = brstmi->final_block_size;
