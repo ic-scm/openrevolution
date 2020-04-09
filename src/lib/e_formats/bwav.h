@@ -4,6 +4,10 @@
 //Thanks to https://gota7.github.io/Citric-Composer/specs/binaryWav.html
 //And again BWAV is weird and stupid
 
+#include <math.h>
+//BWAV header requires a CRC checksum
+#include "../crc/crc_32.c"
+
 unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM) {
     if(debugLevel>=0) {std::cout << "BWAV encoder is not implemented yet.\n";}
     //return 210;
@@ -34,6 +38,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     bool &BOM = brstmi->BOM;
     BOM = 0; //Little Endian
     char spinner = '/';
+    uint32_t CRCsum = 0xFFFFFFFF;
     
     if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building BWAV headers...                ";
     
@@ -58,7 +63,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     
     //Channel info for each channel
     //Total samples adjusted for bytes
-    unsigned long TotalBytesPerChannel = brstmi->codec == 2 ? brstmi->total_samples/1.75 + 2 : brstmi->total_samples*2;
+    unsigned long TotalBytesPerChannel = brstmi->codec == 2 ? ceil((double)brstmi->total_samples/(double)1.75) : brstmi->total_samples*2;
     unsigned long chAudioOffsets[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     for(unsigned int c=0;c<brstmi->num_channels;c++) {
         //Codec
@@ -126,6 +131,9 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
         //Write audio data
         if(brstmi->codec == 2) {
             brstm_encoder_writebytes(buffer,ADPCMdata[c],TotalBytesPerChannel,bufpos);
+            //Calculate checksum
+            CRCsum = crc32buf((char*)ADPCMdata[c],TotalBytesPerChannel,CRCsum);
+            std::cout << "\nCurrent CRC: " << std::hex << CRCsum << " First byte: " << (int)ADPCMdata[c][0] << " Last: " << (int)ADPCMdata[c][TotalBytesPerChannel-1] << '\n';
             if(encodeADPCM == 1) delete[] ADPCMdata[c]; //delete the ADPCM data only if we made it locally
         } else {
             
@@ -133,6 +141,11 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     }
     
     if(encodeADPCM == 1) delete[] ADPCMdata; //delete the ADPCM data only if we made it locally
+    
+    //Finalize file (write some things we couldn't write earlier)
+    //CRC32 hash
+    //CRCsum = crc32buf((char*)buffer+chAudioOffsets[0],bufpos-chAudioOffsets[0],CRCsum);
+    brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(CRCsum,4,BOM),4,off=0x08);
     
     //copy finished file to brstm_encoded_data
     brstmi->encoded_file = new unsigned char[bufpos];
