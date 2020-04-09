@@ -374,7 +374,7 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
 }
 
 //readAllData is 0 when called from brstm_fstream_getBaseInformation, 1 when called from brstm_fstream_read
-unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel, bool readAllData) {
+unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,signed int debugLevel, bool readAllData) {
     if(!stream.is_open()) {
         if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream.\n";}
         return 255;
@@ -451,7 +451,7 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
  * debugLevel: console debug level, same as brstm_read
  */
 unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
-    return brstm_fstream_read(brstmi,stream,debugLevel,true);
+    return brstm_fstream_read_header(brstmi,stream,debugLevel,true);
 }
 
 /*
@@ -459,7 +459,7 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
  * This function is like brstm_fstream_read but it doesn't call the full brstm_read function
  */
 unsigned char brstm_fstream_getBaseInformation(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
-    return brstm_fstream_read(brstmi,stream,debugLevel,false);
+    return brstm_fstream_read_header(brstmi,stream,debugLevel,false);
 }
 
 /* 
