@@ -91,26 +91,26 @@ void brstm_encoder_writebyte(unsigned char* buf,const unsigned char data,unsigne
 }
 
 //Returns integer as big endian bytes
-unsigned char* brstm_encoder_BEint;
-unsigned char* brstm_encoder_getBEuint(uint64_t num,uint8_t bytes) {
-    delete[] brstm_encoder_BEint;
-    brstm_encoder_BEint = new unsigned char[bytes];
+unsigned char* brstm_encoder_ByteInt;
+unsigned char* brstm_encoder_getByteUint(uint64_t num,uint8_t bytes,bool BOM) {
+    delete[] brstm_encoder_ByteInt;
+    brstm_encoder_ByteInt = new unsigned char[bytes];
     unsigned long pwr;
     unsigned char pwn = bytes-1;
     for(unsigned char i = 0; i < bytes; i++) {
         pwr = pow(256,pwn--);
-        brstm_encoder_BEint[i]=0;
+        unsigned int pos = (BOM ? i : abs(i-bytes+1));
+        brstm_encoder_ByteInt[pos]=0;
         while(num >= pwr) {
-            brstm_encoder_BEint[i]++;
+            brstm_encoder_ByteInt[pos]++;
             num -= pwr;
         }
     }
-    return brstm_encoder_BEint;
+    return brstm_encoder_ByteInt;
 }
 
-unsigned char* brstm_encoder_getBEint16(int16_t num) {
-    uint16_t unum = num;
-    return brstm_encoder_getBEuint(unum,2);
+unsigned char* brstm_encoder_getByteInt16(int16_t num, bool BOM) {
+    return brstm_encoder_getByteUint((uint16_t)num,2,BOM);
 }
 
 char brstm_encoder_nextspinner(char& spinner) {
