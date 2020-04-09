@@ -1,6 +1,8 @@
 //Revolution BWAV reader
 //Copyright (C) 2020 Extrasklep
 
+#include <math.h>
+
 unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
     bool &BOM = brstmi->BOM;
     //Byte Order Mark
@@ -18,7 +20,7 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
     brstmi->loop_start = brstm_getSliceAsNumber(fileData,0x50,4,BOM);
     brstmi->audio_offset = brstm_getSliceAsNumber(fileData,0x40,4,BOM);
     brstmi->total_blocks = 1;
-    brstmi->blocks_size = brstmi->num_channels > 1 ? (brstm_getSliceAsNumber(fileData,0x8C,4,BOM) - brstmi->audio_offset) : (brstmi->codec == 1 ? brstmi->total_samples*2 : brstmi->total_samples/1.75);
+    brstmi->blocks_size = brstmi->num_channels > 1 ? (brstm_getSliceAsNumber(fileData,0x8C,4,BOM) - brstmi->audio_offset) : (brstmi->codec == 1 ? brstmi->total_samples*2 : ceil(brstmi->total_samples/1.75));
     brstmi->blocks_samples = brstmi->total_samples;
     brstmi->final_block_size = brstmi->blocks_size;
     brstmi->final_block_samples = brstmi->blocks_samples;
