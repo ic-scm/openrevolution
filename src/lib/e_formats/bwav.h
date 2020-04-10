@@ -120,7 +120,10 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
         //nothing here yet
     } else {
         ADPCMdata = brstmi->ADPCM_data;
-        //TODO TODO write ps to channel info
+        for(unsigned int c=0;c<brstmi->num_channels;c++) {
+            //Write ADPCM information to channel infos
+            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCMdata[c][0],2,BOM),2,off=0x54 + c*0x4C); //Initial predictor scale
+        }
     }
     
     //Write audio data to file
