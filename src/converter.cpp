@@ -15,14 +15,14 @@
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM/WAV/other converter\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\nSupported input formats:  WAV, BRSTM, BWAV\nSupported output formats: WAV, BRSTM\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\nBRSTM/other output options:\n  -l --loop [loop point] - Creating looping file or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n";
+const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\nSupported input formats:  WAV, BRSTM, BWAV\nSupported output formats: WAV, BRSTM\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Creating looping file or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode"};
-const unsigned int optcount = 6;
-const bool optrequiredarg[optcount] = {0,1,1,1,1,0};
+const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode","--extend"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend"};
+const unsigned int optcount = 7;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -45,6 +45,8 @@ unsigned char userTrackChannels = 0;
 bool reencode = 0;
 bool useFFMPEG = 0;
 const char* ffmpegArgs;
+
+unsigned long extendSampleCount = 0;
 
 //Modified functions from brstm_encode.h, used to write WAV files
 void writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
@@ -140,6 +142,32 @@ void printConversionDetails() {
         }
     }
     std::cout << '\n';
+}
+
+//Extender
+unsigned long getOverflowSampleNum(Brstm* brstm,unsigned long num) {
+    if(num >= brstm->total_samples) {
+        num -= brstm->total_samples;
+        if(brstm->loop_flag) num += brstm->loop_start;
+        return getOverflowSampleNum(brstm,num);
+    } else return num;
+}
+
+void extendPCMSamples(Brstm* brstm,unsigned long newSampleCount) {
+    if(newSampleCount <= brstm->total_samples) {
+        std::cout << "Extended sample count is not bigger than the original sample count.\n";
+        exit(255);
+    }
+    for(unsigned int c=0;c<brstm->num_channels;c++) {
+        int16_t* newPCMsamples = new int16_t[newSampleCount];
+        for(unsigned long s=0;s<newSampleCount;s++) {
+            newPCMsamples[s] = brstm->PCM_samples[c][getOverflowSampleNum(brstm,s)];
+        }
+        delete[] brstm->PCM_samples[c];
+        brstm->PCM_samples[c] = newPCMsamples;
+    }
+    brstm->loop_start = newSampleCount - brstm->total_samples + brstm->loop_start;
+    brstm->total_samples = newSampleCount;
 }
 
 void readWAV(Brstm* brstm,std::ifstream& stream,std::streampos fsize) {
@@ -303,7 +331,16 @@ int main(int argc, char** args) {
     //FFMPEG
     if(optused[4]) {ffmpegArgs=optargstr[4]; useFFMPEG=1; reencode = 1;}
     if(optused[5]) reencode = 1;
+    if(optused[6]) {extendSampleCount = atoi(optargstr[6]);}
     
+    
+    //Safety
+    if(extendSampleCount > 80000000) {
+        std::cout << "Extensions longer than 80000000 samples are not supported for safety reasons.\n";
+        exit(255);
+    }
+    //Enable reencoding if we want to extend samples
+    if(extendSampleCount) reencode = 1;
     
     
     //Check file extensions
@@ -360,6 +397,11 @@ int main(int argc, char** args) {
         }
         delete[] memblock;
         if(saveFile) {
+            //Extender
+            if(extendSampleCount) {
+                if(verb) std::cout << "Extending from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
+                extendPCMSamples(brstm,extendSampleCount);
+            }
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
@@ -406,6 +448,12 @@ int main(int argc, char** args) {
                 brstm->track_volume      [t] = 0x7F;
                 brstm->track_panning     [t] = 0x40;
             }
+            //Extender
+            if(extendSampleCount) {
+                if(verb) std::cout << "Extending from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
+                extendPCMSamples(brstm,extendSampleCount);
+            }
+            
             if(verb) std::cout << "Looping BRSTM: " << brstm->loop_flag << "\nLoop point: " << brstm->loop_start << "\nStereo BRSTM: " << (int)brstmStereoTracks << "\nTracks: " << brstm->num_tracks << "\n";
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
@@ -620,6 +668,11 @@ int main(int argc, char** args) {
                     brstm->track_volume      [t] = 0x7F;
                     brstm->track_panning     [t] = 0x40;
                 }
+            }
+            //Extender
+            if(extendSampleCount) {
+                if(verb) std::cout << "Extending from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
+                extendPCMSamples(brstm,extendSampleCount);
             }
             if(verb) std::cout
                 << "Output:"
