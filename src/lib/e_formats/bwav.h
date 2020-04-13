@@ -9,17 +9,9 @@
 #include "../crc/crc_32.c"
 
 unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM) {
-    if(debugLevel>=0) {std::cout << "Warning: BWAV encoder is still experimental and not fully tested\n";}
-    
     //Check for invalid requests
     //Unsupported codec
     if(brstmi->codec != 2 && brstmi->codec != 1) {
-        if(debugLevel>=0) std::cout << "Unsupported codec.\n";
-        return 220;
-    }
-    
-    //PCM16 not supported yet
-    if(brstmi->codec == 1) {
         if(debugLevel>=0) std::cout << "Unsupported codec.\n";
         return 220;
     }
@@ -109,46 +101,48 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     //audio encoding magic here
     unsigned char** ADPCMdata;
     unsigned long   ADPCMdataPos[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    if(encodeADPCM == 1) {
-        //yes copied code whatever will be split later
-        ADPCMdata = new unsigned char* [16];
-        //Encode ADPCM for each channel
-        for(unsigned char c=0;c<brstmi->num_channels;c++) {
-            ADPCMdata[c] = new unsigned char[brstmi->total_samples];
-            //Store coefs like this for the DSPEncodeFrame function
-            int16_t coefs[8][2]; for(unsigned int i=0;i<16;i++) {coefs[i/2][i%2] = brstmi->ADPCM_coefs[c][i];}
-            
-            unsigned long packetCount = brstmi->total_samples / PACKET_SAMPLES + (brstmi->total_samples % PACKET_SAMPLES != 0);
-            int16_t convSamps[16] = {0};
-            unsigned char block[8];
-            for (unsigned long p=0;p<packetCount;p++) {
-                memset(convSamps + 2, 0, PACKET_SAMPLES * sizeof(int16_t));
-                int numSamples = MIN(brstmi->total_samples - p * PACKET_SAMPLES, PACKET_SAMPLES);
-                for (unsigned int s=0; s<numSamples; ++s)
-                    convSamps[s+2] = brstmi->PCM_samples[c][p*PACKET_SAMPLES+s];
+    if(brstmi->codec == 2) {
+        if(encodeADPCM == 1) {
+            //yes copied code whatever will be split later
+            ADPCMdata = new unsigned char* [16];
+            //Encode ADPCM for each channel
+            for(unsigned char c=0;c<brstmi->num_channels;c++) {
+                ADPCMdata[c] = new unsigned char[brstmi->total_samples];
+                //Store coefs like this for the DSPEncodeFrame function
+                int16_t coefs[8][2]; for(unsigned int i=0;i<16;i++) {coefs[i/2][i%2] = brstmi->ADPCM_coefs[c][i];}
                 
-                DSPEncodeFrame(convSamps, PACKET_SAMPLES, block, coefs);
+                unsigned long packetCount = brstmi->total_samples / PACKET_SAMPLES + (brstmi->total_samples % PACKET_SAMPLES != 0);
+                int16_t convSamps[16] = {0};
+                unsigned char block[8];
+                for (unsigned long p=0;p<packetCount;p++) {
+                    memset(convSamps + 2, 0, PACKET_SAMPLES * sizeof(int16_t));
+                    int numSamples = MIN(brstmi->total_samples - p * PACKET_SAMPLES, PACKET_SAMPLES);
+                    for (unsigned int s=0; s<numSamples; ++s)
+                        convSamps[s+2] = brstmi->PCM_samples[c][p*PACKET_SAMPLES+s];
+                    
+                    DSPEncodeFrame(convSamps, PACKET_SAMPLES, block, coefs);
+                    
+                    convSamps[0] = convSamps[14];
+                    convSamps[1] = convSamps[15];
+                    
+                    brstm_encoder_writebytes(ADPCMdata[c],block,brstm_encoder_GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
+                    
+                    //console output
+                    if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+                }
+                //Write ADPCM information to channel infos
+                brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCMdata[c][0],2,BOM),2,off=0x54 + c*0x4C); //Initial predictor scale
                 
-                convSamps[0] = convSamps[14];
-                convSamps[1] = convSamps[15];
-                
-                brstm_encoder_writebytes(ADPCMdata[c],block,brstm_encoder_GetBytesForAdpcmSamples(numSamples),ADPCMdataPos[c]);
-                
-                //console output
-                if(!(p%512) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+                if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " 100%)          ";
             }
-            //Write ADPCM information to channel infos
-            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCMdata[c][0],2,BOM),2,off=0x54 + c*0x4C); //Initial predictor scale
-            
-            if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " 100%)          ";
+        } else {
+            ADPCMdata = brstmi->ADPCM_data;
+            for(unsigned int c=0;c<brstmi->num_channels;c++) {
+                //Write ADPCM information to channel infos
+                brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCMdata[c][0],2,BOM),2,off=0x54 + c*0x4C); //Initial predictor scale
+            }
         }
-    } else {
-        ADPCMdata = brstmi->ADPCM_data;
-        for(unsigned int c=0;c<brstmi->num_channels;c++) {
-            //Write ADPCM information to channel infos
-            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCMdata[c][0],2,BOM),2,off=0x54 + c*0x4C); //Initial predictor scale
-        }
-    }
+    } //Else do nothing because the PCM audio is already in PCM_samples
     
     //I had to do this because calculating it the simpler way just didn't work with multi channel files for some reason
     unsigned char* CRCbuf = new unsigned char[TotalBytesPerChannel*brstmi->num_channels];
@@ -165,11 +159,19 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
             brstm_encoder_writebytes(CRCbuf,ADPCMdata[c],TotalBytesPerChannel,CRCbufpos);
             if(encodeADPCM == 1) delete[] ADPCMdata[c]; //delete the ADPCM data only if we made it locally
         } else {
-            
+            //PCM16
+            //TODO This is slow because of the brstm_encoder_getByteInt16 function, make those functions faster while keeping support for both big endian and little endian processors
+            for(unsigned long s=0;s<brstmi->total_samples;s++) {
+                unsigned char* samplebytes = brstm_encoder_getByteInt16(brstmi->PCM_samples[c][s],BOM);
+                brstm_encoder_writebytes(buffer,samplebytes,2,bufpos);
+                brstm_encoder_writebytes(CRCbuf,samplebytes,2,CRCbufpos);
+                //Console output, if PCM writing wasn't so slow then this wouldn't have to be here
+                if(!(s%8192) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing PCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " " << floor(((float)s/brstmi->total_samples) * 100) << "%)          ";
+            }
         }
     }
     
-    if(encodeADPCM == 1) delete[] ADPCMdata; //delete the ADPCM data only if we made it locally
+    if(encodeADPCM == 1 && brstmi->codec == 2) delete[] ADPCMdata; //delete the ADPCM data only if we made it locally
     
     //Finalize file (write some things we couldn't write earlier)
     //CRC32 hash
