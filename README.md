@@ -12,7 +12,7 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 | BRSTM        | Yes (only ADPCM)    | Yes (only ADPCM)    |
 | BCSTM        | No                  | No                  |
 | BFSTM        | No                  | No                  |
-| BWAV         | Yes                 | No                  |
+| BWAV         | Yes                 | Yes                 |
 
 ## Usage
 Compile everything by running build.sh or another compiler with the correct options
