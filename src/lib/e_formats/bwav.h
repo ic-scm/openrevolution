@@ -9,8 +9,7 @@
 #include "../crc/crc_32.c"
 
 unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM) {
-    if(debugLevel>=0) {std::cout << "BWAV encoder is not implemented yet.\n";}
-    //return 210;
+    if(debugLevel>=0) {std::cout << "Warning: BWAV encoder is still experimental and not fully tested\n";}
     
     //Check for invalid requests
     //Unsupported codec
@@ -151,6 +150,9 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
         }
     }
     
+    //I had to do this because calculating it the simpler way just didn't work with multi channel files for some reason
+    unsigned char* CRCbuf = new unsigned char[TotalBytesPerChannel*brstmi->num_channels];
+    unsigned long CRCbufpos = 0;
     //Write audio data to file
     if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                                                                        ";
     for(unsigned int c=0;c<brstmi->num_channels;c++) {
@@ -159,9 +161,8 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
         //Write audio data
         if(brstmi->codec == 2) {
             brstm_encoder_writebytes(buffer,ADPCMdata[c],TotalBytesPerChannel,bufpos);
-            //Calculate checksum
-            CRCsum = crc32buf((char*)ADPCMdata[c],TotalBytesPerChannel,CRCsum);
-            std::cout << "\nCurrent CRC: " << std::hex << CRCsum << " First byte: " << (int)ADPCMdata[c][0] << " Last: " << (int)ADPCMdata[c][TotalBytesPerChannel-1] << '\n';
+            //Write checksum calculation buffer
+            brstm_encoder_writebytes(CRCbuf,ADPCMdata[c],TotalBytesPerChannel,CRCbufpos);
             if(encodeADPCM == 1) delete[] ADPCMdata[c]; //delete the ADPCM data only if we made it locally
         } else {
             
@@ -172,7 +173,8 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     
     //Finalize file (write some things we couldn't write earlier)
     //CRC32 hash
-    //CRCsum = crc32buf((char*)buffer+chAudioOffsets[0],bufpos-chAudioOffsets[0],CRCsum);
+    CRCsum = crc32buf((char*)CRCbuf,TotalBytesPerChannel*brstmi->num_channels,CRCsum);
+    delete[] CRCbuf;
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(CRCsum,4,BOM),4,off=0x08);
     
     //copy finished file to brstm_encoded_data
