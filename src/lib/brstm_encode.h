@@ -5,24 +5,8 @@
 //This file requires brstm.h to be included too
 
 #include <math.h>
-#include "dspadpcm_encoder.c"
-#define PACKET_NIBBLES 16
-#define PACKET_SAMPLES 14
-#define PACKET_BYTES 8
-
-unsigned int brstm_encoder_GetBytesForAdpcmSamples(int samples) {
-    int extraBytes = 0;
-    int packets = samples / PACKET_SAMPLES;
-    int extraSamples = samples % PACKET_SAMPLES;
-
-    if (extraSamples != 0) {
-        extraBytes = (extraSamples / 2) + (extraSamples % 2) + 1;
-    }
-
-    return PACKET_BYTES * packets + extraBytes;
-}
-
 #include "utils.h"
+#include "audio_encoder.h"
 #include "e_formats/all.h"
 
 /* 
