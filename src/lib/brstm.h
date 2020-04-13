@@ -42,27 +42,27 @@ const char* BRSTM_codecs_usr_str[BRSTM_codecs_count] = {
 //The BRSTM struct
 struct Brstm {
     //Byte order mark
-    bool BOM;
+    bool BOM = 0;
     //File type, 1 = BRSTM, see above for full list
-    unsigned int  file_format;
+    unsigned int  file_format   = 0;
     //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
-    unsigned int  codec;
-    bool          loop_flag;
-    unsigned int  num_channels;
-    unsigned long sample_rate;
-    unsigned long loop_start;
-    unsigned long total_samples;
-    unsigned long audio_offset;
-    unsigned long total_blocks;
-    unsigned long blocks_size;
-    unsigned long blocks_samples;
-    unsigned long final_block_size;
-    unsigned long final_block_samples;
-    unsigned long final_block_size_p;
+    unsigned int  codec         = 0;
+    bool          loop_flag     = 0;
+    unsigned int  num_channels  = 0;
+    unsigned long sample_rate   = 0;
+    unsigned long loop_start    = 0;
+    unsigned long total_samples = 0;
+    unsigned long audio_offset  = 0;
+    unsigned long total_blocks  = 0;
+    unsigned long blocks_size   = 0;
+    unsigned long blocks_samples  = 0;
+    unsigned long final_block_size  = 0;
+    unsigned long final_block_samples = 0;
+    unsigned long final_block_size_p  = 0;
     
     //track information
-    unsigned int  num_tracks;
-    unsigned int  track_desc_type;
+    unsigned int  num_tracks      = 0;
+    unsigned int  track_desc_type = 0;
     unsigned int  track_num_channels[8] = {0,0,0,0,0,0,0,0};
     unsigned int  track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
     unsigned int  track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
@@ -70,17 +70,17 @@ struct Brstm {
     unsigned int  track_panning     [8] = {0,0,0,0,0,0,0,0};
     
     int16_t* PCM_samples[16];
-    int16_t* PCM_buffer[16];
+    int16_t* PCM_buffer [16];
     
-    unsigned char* ADPCM_data  [16];
-    unsigned char* ADPCM_buffer[16]; //Not used yet
-    int16_t  ADPCM_coefs [16][16];
+    unsigned char* ADPCM_data   [16];
+    unsigned char* ADPCM_buffer [16]; //Not used yet
+    int16_t  ADPCM_coefs    [16][16];
     int16_t* ADPCM_hsamples_1   [16];
     int16_t* ADPCM_hsamples_2   [16];
     
     //Encoder
-    unsigned char* encoded_file;
-    unsigned long  encoded_file_size;
+    unsigned char* encoded_file = nullptr;
+    unsigned long  encoded_file_size = 0;
     
     //Things you probably shouldn't touch
     //block cache
@@ -171,6 +171,17 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
  *      200 = Unknown error (this should never happen)
  */
 unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
+    //Initialize struct
+    for(unsigned int c=0;c<16;c++) {
+        brstmi->PCM_samples      [c] = nullptr;
+        brstmi->PCM_buffer       [c] = nullptr;
+        brstmi->ADPCM_data       [c] = nullptr;
+        brstmi->ADPCM_buffer     [c] = nullptr;
+        brstmi->ADPCM_hsamples_1 [c] = nullptr;
+        brstmi->ADPCM_hsamples_2 [c] = nullptr;
+        brstmi->PCM_blockbuffer  [c] = nullptr;
+    }
+    
     
     bool &BOM = brstmi->BOM;
     unsigned char readres = 0;
