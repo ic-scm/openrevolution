@@ -15,14 +15,14 @@
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM/WAV/other converter\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\nSupported input formats:  WAV, BRSTM, BWAV\nSupported output formats: WAV, BRSTM\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Creating looping file or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n";
+const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\nSupported input formats:  WAV, BRSTM, BWAV\nSupported output formats: WAV, BRSTM\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Creating looping file or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode","--extend"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend"};
-const unsigned int optcount = 7;
-const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1};
+const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode","--extend","--oCodec"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec"};
+const unsigned int optcount = 8;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -47,6 +47,8 @@ bool useFFMPEG = 0;
 const char* ffmpegArgs;
 
 unsigned long extendSampleCount = 0;
+
+int userCodec = -1;
 
 //Modified functions from brstm_encode.h, used to write WAV files
 void writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
@@ -330,9 +332,12 @@ int main(int argc, char** args) {
     }
     //FFMPEG
     if(optused[4]) {ffmpegArgs=optargstr[4]; useFFMPEG=1; reencode = 1;}
+    //Reencode
     if(optused[5]) reencode = 1;
+    //Extend
     if(optused[6]) {extendSampleCount = atoi(optargstr[6]);}
-    
+    //Output codec
+    if(optused[7]) {userCodec = atoi(optargstr[7]);}
     
     //Safety
     if(extendSampleCount > 80000000) {
@@ -341,6 +346,8 @@ int main(int argc, char** args) {
     }
     //Enable reencoding if we want to extend samples
     if(extendSampleCount) reencode = 1;
+    //Enable reencoding if the user requested an output codec that isn't ADPCM (the rebuilder is meant for ADPCM data)
+    if(userCodec != -1 && userCodec != 2) reencode = 1; 
     
     
     //Check file extensions
@@ -382,6 +389,7 @@ int main(int argc, char** args) {
         if(userLoop)  {std::cout << "You cannot use the loop option in decoding mode.\n"; exit(255);}
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in decoding mode.\n"; exit(255);}
         if(userTrackChannels) {std::cout << "You cannot use the track channel count option in decoding mode.\n"; exit(255);}
+        if(userCodec != -1) {std::cout << "You cannot use the output codec option in decoding mode.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
         
@@ -426,6 +434,7 @@ int main(int argc, char** args) {
             //Set other BRSTM data
             brstm->file_format = outputFileExt;
             brstm->codec = 2;
+            if(userCodec != -1) brstm->codec = userCodec;
             if(userLoop) {
                 brstm->loop_flag  = userLoopFlag;
                 brstm->loop_start = userLoopPoint;
@@ -472,6 +481,7 @@ int main(int argc, char** args) {
     else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 0) {
         //check for unsupported opts
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in rebuilder mode.\n"; exit(255);}
+        if(userCodec != -1) {std::cout << "You cannot use the output codec option in rebuilder mode.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
         
@@ -637,9 +647,10 @@ int main(int argc, char** args) {
             ffmpegSuccess:;
         }
         
-        //Set format and codec to ADPCM
+        //Set format and codec
         brstm->file_format = outputFileExt;
         brstm->codec = 2;
+        if(userCodec != -1) brstm->codec = userCodec;
         
         if(saveFile) {
             //Apply new loop setting
