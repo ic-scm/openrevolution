@@ -191,8 +191,8 @@ You can also write raw DSPADPCM data to ADPCM_data[c] and the coefs to ADPCM_coe
 
 Set audio and BRSTM details:
 ```cpp
-file_format   = Encoded file format (Only BRSTM is supported)
-codec         = BRSTM codec (only 2 is supported)
+file_format   = Encoded file format
+codec         = BRSTM codec
 loop_flag     = 0 or 1, loop flag
 num_channels  = Number of audio channels
 sample_rate   = Audio sample rate
@@ -244,6 +244,8 @@ brstm->track_volume      [0] = 0x7F;
 brstm->track_panning     [0] = 0x40;
 
 brstm_encode(/*
+
+Your BRSTM struct pointer (Brstm*)
 
 Console debug level:
 -1 = Never output anything
