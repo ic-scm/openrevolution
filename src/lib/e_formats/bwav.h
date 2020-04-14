@@ -48,7 +48,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     
     //Channel info for each channel
     //Total samples adjusted for bytes
-    unsigned long TotalBytesPerChannel = brstmi->codec == 2 ? ceil((double)brstmi->total_samples/(double)1.75) : brstmi->total_samples*2;
+    unsigned long TotalBytesPerChannel = brstmi->codec == 2 ? brstm_encoder_GetBytesForAdpcmSamples(brstmi->total_samples) : brstmi->total_samples*2;
     unsigned long chAudioOffsets[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     for(unsigned int c=0;c<brstmi->num_channels;c++) {
         //Codec

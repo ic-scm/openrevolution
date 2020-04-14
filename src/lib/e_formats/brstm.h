@@ -72,10 +72,11 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->blocks_size = 8192,4,BOM),4,bufpos);
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->blocks_samples = 14336,4,BOM),4,bufpos);
     brstmi->final_block_samples = brstmi->total_samples % 14336; //TODO does this cause a problem if total samples is a multiple of 14336?
-    brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_size = ceil(brstmi->final_block_samples / 1.75),4,BOM),4,bufpos); //Final block size
+    brstmi->final_block_size = brstm_encoder_GetBytesForAdpcmSamples(brstmi->final_block_samples);
+    brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_size,4,BOM),4,bufpos); //Final block size
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_samples,4,BOM),4,bufpos); 
     brstmi->final_block_size_p = brstmi->final_block_size;
-    while(brstmi->final_block_size_p % 16 != 0) {brstmi->final_block_size_p++;}
+    while(brstmi->final_block_size_p % 32 != 0) {brstmi->final_block_size_p++;}
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_size_p,4,BOM),4,bufpos); //Padded final block size
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(14336,4,BOM),4,bufpos);  //ADPC samples per entry
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(4,4,BOM),4,bufpos); //ADPC bytes per entry
@@ -236,8 +237,8 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     
     unsigned int HEADchunksize = bufpos - HEADchunkoffset;
     //Padding
-    brstm_encoder_writebytes_i(buffer,new unsigned char[6]{0x00,0x00,0x00,0x00,0x00,0x00},6,bufpos); //Write some useless padding because all the BRSTM encoders seem to do that and some BRSTM readers don't work without it
-    while(bufpos % 16 != 0) {
+    brstm_encoder_writebytes_i(buffer,new unsigned char[6]{0x00,0x00,0x00,0x00,0x00,0x00},6,bufpos);
+    while(bufpos % 32 != 0) {
         brstm_encoder_writebyte(buffer,0,bufpos);
         HEADchunksize = bufpos - HEADchunkoffset;
     }
@@ -262,7 +263,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     }
     unsigned int ADPCchunksize = bufpos - ADPCchunkoffset;
     //Padding
-    while(bufpos % 16 != 0) {
+    while(bufpos % 32 != 0) {
         brstm_encoder_writebyte(buffer,0,bufpos);
         ADPCchunksize = bufpos - ADPCchunkoffset;
     }
