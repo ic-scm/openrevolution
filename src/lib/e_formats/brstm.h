@@ -71,8 +71,8 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->total_blocks,4,BOM),4,bufpos);
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->blocks_size = 8192,4,BOM),4,bufpos);
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->blocks_samples = 14336,4,BOM),4,bufpos);
-    brstmi->final_block_samples = brstmi->total_samples % 14336; //TODO does this cause a problem if total samples is a multiple of 14336?
-    brstmi->final_block_size = brstm_encoder_GetBytesForAdpcmSamples(brstmi->final_block_samples);
+    brstmi->final_block_samples = brstmi->total_samples % 14336; //TODO TODO TODO does this cause a problem if total samples is a multiple of 14336?
+    brstmi->final_block_size = brstm_getBytesForAdpcmSamples(brstmi->final_block_samples);
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_size,4,BOM),4,bufpos); //Final block size
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->final_block_samples,4,BOM),4,bufpos); 
     brstmi->final_block_size_p = brstmi->final_block_size;
@@ -288,7 +288,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
         if(encodeADPCM == 1) {
             ADPCMdata = new unsigned char* [brstmi->num_channels];
             for(unsigned int c=0;c<brstmi->num_channels;c++) {
-                ADPCMdata[c] = new unsigned char[brstm_encoder_GetBytesForAdpcmSamples(brstmi->total_samples)];
+                ADPCMdata[c] = new unsigned char[brstm_getBytesForAdpcmSamples(brstmi->total_samples)];
             }
             brstm_encode_adpcm(brstmi,ADPCMdata,debugLevel);
         } else {

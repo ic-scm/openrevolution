@@ -2,21 +2,6 @@
 //Thanks to https://github.com/jackoalan/gc-dspadpcm-encode/
 
 #include "dspadpcm_encoder.c"
-#define PACKET_NIBBLES 16
-#define PACKET_SAMPLES 14
-#define PACKET_BYTES 8
-
-unsigned int brstm_encoder_GetBytesForAdpcmSamples(int samples) {
-    int extraBytes = 0;
-    int packets = samples / PACKET_SAMPLES;
-    int extraSamples = samples % PACKET_SAMPLES;
-
-    if (extraSamples != 0) {
-        extraBytes = (extraSamples / 2) + (extraSamples % 2) + 1;
-    }
-
-    return PACKET_BYTES * packets + extraBytes;
-}
 
 void brstm_encode_adpcm(Brstm* brstmi,unsigned char** ADPCMdata,signed int debugLevel) {
     //Encode ADPCM for each channel
@@ -39,7 +24,7 @@ void brstm_encode_adpcm(Brstm* brstmi,unsigned char** ADPCMdata,signed int debug
             convSamps[0] = convSamps[14];
             convSamps[1] = convSamps[15];
             
-            brstm_encoder_writebytes(ADPCMdata[c],block,brstm_encoder_GetBytesForAdpcmSamples(numSamples),ADPCMdataPos);
+            brstm_encoder_writebytes(ADPCMdata[c],block,brstm_getBytesForAdpcmSamples(numSamples),ADPCMdataPos);
             
             //console output
             if(!(p%512) && debugLevel>0) std::cout << "\r" << "Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";

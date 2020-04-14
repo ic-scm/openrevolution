@@ -71,6 +71,22 @@ char* brstm_getSliceAsString(const unsigned char* data,unsigned long start,unsig
     return brstm_slicestring;
 }
 
+#define PACKET_NIBBLES 16
+#define PACKET_SAMPLES 14
+#define PACKET_BYTES 8
+
+unsigned int brstm_getBytesForAdpcmSamples(int samples) {
+    int extraBytes = 0;
+    int packets = samples / PACKET_SAMPLES;
+    int extraSamples = samples % PACKET_SAMPLES;
+
+    if (extraSamples != 0) {
+        extraBytes = (extraSamples / 2) + (extraSamples % 2) + 1;
+    }
+
+    return PACKET_BYTES * packets + extraBytes;
+}
+
 //Encoder utils
 
 void brstm_encoder_writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {

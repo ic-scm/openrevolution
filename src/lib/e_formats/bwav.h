@@ -48,7 +48,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     
     //Channel info for each channel
     //Total samples adjusted for bytes
-    unsigned long TotalBytesPerChannel = brstmi->codec == 2 ? brstm_encoder_GetBytesForAdpcmSamples(brstmi->total_samples) : brstmi->total_samples*2;
+    unsigned long TotalBytesPerChannel = brstmi->codec == 2 ? brstm_getBytesForAdpcmSamples(brstmi->total_samples) : brstmi->total_samples*2;
     unsigned long chAudioOffsets[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     for(unsigned int c=0;c<brstmi->num_channels;c++) {
         //Codec
@@ -104,7 +104,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
         if(encodeADPCM == 1) {
             ADPCMdata = new unsigned char* [brstmi->num_channels];
             for(unsigned char c=0;c<brstmi->num_channels;c++) {
-                ADPCMdata[c] = new unsigned char[brstm_encoder_GetBytesForAdpcmSamples(brstmi->total_samples)];
+                ADPCMdata[c] = new unsigned char[brstm_getBytesForAdpcmSamples(brstmi->total_samples)];
             }
             brstm_encode_adpcm(brstmi,ADPCMdata,debugLevel);
         } else {
