@@ -272,8 +272,8 @@ void writeWAV(Brstm* brstm,std::ofstream& stream) {
 //Used in reencoder
 void delete_ffmpeg_files() {
     int tmp;
-    tmp = system("rm .brstm-ffmpeg-i.wav");
-    tmp = system("rm .brstm-ffmpeg-o.wav");
+    tmp = system("rm .brstm-ffmpeg-i.wav &> /dev/null");
+    tmp = system("rm .brstm-ffmpeg-o.wav &> /dev/null");
 }
 
 int main(int argc, char** args) {
@@ -612,7 +612,13 @@ int main(int argc, char** args) {
                     goto ffmpegOutputError;
                 }
                 //read new sample rate in case the file was resampled
+                unsigned long oldSampleRate = brstm->sample_rate;
                 brstm->sample_rate = brstm_getSliceAsNumber(memblock,24,4,0);
+                //calculate new loop point if audio was resampled
+                if(oldSampleRate != brstm->sample_rate) {
+                    std::cout << "Calculating new loop point for resampled audio\n";
+                    brstm->loop_start = brstm->loop_start * (brstm->sample_rate / (double)oldSampleRate);
+                }
                 if(brstm_getSliceAsNumber(memblock,34,2,0) != 16) {
                     goto ffmpegOutputError;
                 }
