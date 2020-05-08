@@ -65,6 +65,9 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
     } else if(brstmi->file_format==4) {
         //BWAV
         encres = brstm_formats_encode_bwav (brstmi,debugLevel,encodeADPCM);
+    } else if(brstmi->file_format==5) {
+        //ORSTM
+        encres = brstm_formats_encode_orstm(brstmi,debugLevel,encodeADPCM);
     } else {
         //Invalid
         if(debugLevel>=0) std::cout << "Invalid file format.\n";
