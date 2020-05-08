@@ -15,7 +15,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     BOM = 1; //Big Endian
     char spinner = '/';
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Starting BRSTM encode...                ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Starting BRSTM encode...                " << std::flush;
     
     delete[] brstmi->encoded_file;
     unsigned char* buffer = new unsigned char[(brstmi->total_samples*brstmi->num_channels)+((brstmi->total_samples*brstmi->num_channels/14336)*4)+brstmi->num_channels*256+8192];
@@ -23,7 +23,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     unsigned long  off; //for argument 4 of brstm_encoder_writebytes when we don't write to the end of the buffer
     
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (RSTM)             ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (RSTM)             " << std::flush;
     
     
     //Header
@@ -38,7 +38,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     for(unsigned int i=0;i<12;i++) { brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos); }
     
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (HEAD)             ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (HEAD)             " << std::flush;
     
     
     //HEAD chunk
@@ -138,7 +138,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
             }
         }
     } else {
-        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Decoding ADPCM to get history samples...            ";
+        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Decoding ADPCM to get history samples...            " << std::flush;
         
         for(unsigned char c=0;c<brstmi->num_channels;c++) {
             //Decode 4 bit ADPCM
@@ -196,7 +196,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
             }
         }
         
-        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (HEAD)                          ";
+        if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (HEAD)                          " << std::flush;
     }
     
     //HEAD3
@@ -247,7 +247,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(HEADchunksize,4,BOM),4,off=HEADchunkoffset+4);
     
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (ADPC)             ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (ADPC)             " << std::flush;
     
     
     //ADPC chunk
@@ -272,7 +272,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCchunksize,4,BOM),4,off=ADPCchunkoffset+4);
     
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (DATA)             ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building headers... (DATA)             " << std::flush;
     
     
     //DATA chunk
@@ -303,7 +303,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
         }
     }
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                                                                        ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                                                                        " << std::flush;
     
     //Write ADPCM data to output file buffer
     for(unsigned long b=0;b<brstmi->total_blocks-1;b++) {
@@ -350,7 +350,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     delete[] buffer;
     brstmi->encoded_file_size = bufpos;
     
-    if(debugLevel>0) std::cout << "\r" << "BRSTM encoding done                                                     \n";
+    if(debugLevel>0) std::cout << "\r" << "BRSTM encoding done                                                     \n" << std::flush;
     
     return 0;
 }

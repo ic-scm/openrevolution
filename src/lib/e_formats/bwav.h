@@ -25,7 +25,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     char spinner = '/';
     uint32_t CRCsum = 0xFFFFFFFF;
     
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building BWAV headers...                ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Building BWAV headers...                " << std::flush;
     
     delete[] brstmi->encoded_file;
     unsigned char* buffer = new unsigned char[(brstmi->total_samples*brstmi->num_channels*
@@ -120,7 +120,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     unsigned char* CRCbuf = new unsigned char[TotalBytesPerChannel*brstmi->num_channels];
     unsigned long CRCbufpos = 0;
     //Write audio data to file
-    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                                                                        ";
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing ADPCM data...                                                                        " << std::flush;
     for(unsigned int c=0;c<brstmi->num_channels;c++) {
         //Write padding until we reach the correct offset to audio data
         while(bufpos != chAudioOffsets[c]) brstm_encoder_writebyte(buffer,0x00,bufpos);
@@ -157,7 +157,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     delete[] buffer;
     brstmi->encoded_file_size = bufpos;
     
-    if(debugLevel>0) std::cout << "\r" << "BWAV encoding done                                   \n";
+    if(debugLevel>0) std::cout << "\r" << "BWAV encoding done                                   \n" << std::flush;
     
     return 0;
 }
