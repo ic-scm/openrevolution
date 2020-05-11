@@ -27,6 +27,8 @@ Usage guides:
 - [WiiBrew](https://wiibrew.org/wiki/BRSTM_file): BRSTM file structure reference
 - [kenrick95/nikku](https://github.com/kenrick95/nikku) and [BrawlLib](https://github.com/libertyernie/brawltools): DSPADPCM decoder reference
 - [jackoalan/gc-dspadpcm-encode](https://github.com/jackoalan/gc-dspadpcm-encode): DSPADPCM encoder
+- [gota7](https://gota7.github.io/Citric-Composer/specs/binaryWav.html): BWAV file structure reference
+- [Gianmarco Gargiulo](https://gianmarco.ga/): Logo
 - [RtAudio](https://github.com/thestk/rtaudio): RtAudio library
 
 ## Planned features
