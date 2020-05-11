@@ -136,14 +136,6 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             
             if(debugLevel>0) {std::cout << "Codec: " << HEAD1_codec << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
             
-            //PCM BRSTM files have a different weird structure so it's not just going to work yet
-            if(HEAD1_codec!=2) {
-                if(debugLevel>=0) {
-                    std::cout << "Unsupported codec.\n";
-                }
-                return 220;
-            }
-            
             //safety
             if(HEAD1_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels. Max supported is 16.\n";} return 249;}
             
@@ -217,98 +209,101 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             
             HEAD3_offset-=8;
             
-            //ADPC chunk
-            magicstr=brstm_getSliceAsString(fileData,ADPC_offset,4);
-            if(strcmp(magicstr,emagic3) == 0) {
-                //Start reading ADPC
-                ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4,BOM);
-                ADPC_total_entries = (ADPC_total_length-8)/HEAD1_bytes_per_ADPC;
-                for(unsigned int n=0;n<HEAD3_num_channels;n++) {
-                    ADPC_hsamples_1[n] = new int16_t[ADPC_total_entries/HEAD3_num_channels];
-                    ADPC_hsamples_2[n] = new int16_t[ADPC_total_entries/HEAD3_num_channels];
-                    
-                    if(debugLevel>1) {std::cout << "Channel " << n << ": ";}
-                    
-                    unsigned int it;
-                    for(unsigned int i=0;i<ADPC_total_entries/HEAD3_num_channels;i++) {
-                        unsigned int offset=ADPC_offset+8+(n*HEAD1_bytes_per_ADPC)+((i*HEAD1_bytes_per_ADPC)*HEAD3_num_channels);
-                        ADPC_hsamples_1[n][i] = brstm_getSliceAsInt16Sample(fileData,offset,BOM);
-                        ADPC_hsamples_2[n][i] = brstm_getSliceAsInt16Sample(fileData,offset+2,BOM);
-                        it=i+1;
+            //Allocate hsamples
+            for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+                ADPC_hsamples_1[c] = new int16_t[HEAD1_total_blocks];
+                ADPC_hsamples_2[c] = new int16_t[HEAD1_total_blocks];
+            }
+            
+            //ADPC chunk (Only for ADPCM codec)
+            if(HEAD1_codec == 2) {
+                magicstr=brstm_getSliceAsString(fileData,ADPC_offset,4);
+                if(strcmp(magicstr,emagic3) == 0) {
+                    //Start reading ADPC
+                    ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4,BOM);
+                    ADPC_total_entries = HEAD1_total_blocks;
+                    for(unsigned int n=0;n<HEAD3_num_channels;n++) {
+                        if(debugLevel>1) {std::cout << "Channel " << n << ": ";}
+                        
+                        unsigned int it;
+                        for(unsigned int i=0;i<ADPC_total_entries/HEAD3_num_channels;i++) {
+                            unsigned int offset=ADPC_offset+8+(n*HEAD1_bytes_per_ADPC)+((i*HEAD1_bytes_per_ADPC)*HEAD3_num_channels);
+                            ADPC_hsamples_1[n][i] = brstm_getSliceAsInt16Sample(fileData,offset,BOM);
+                            ADPC_hsamples_2[n][i] = brstm_getSliceAsInt16Sample(fileData,offset+2,BOM);
+                            it=i+1;
+                        }
+                        if(debugLevel>1) {std::cout << it << " history sample pairs read.\n";}
                     }
-                    if(debugLevel>1) {std::cout << it << " history sample pairs read.\n";}
-                }
+                    if(debugLevel>1) {std::cout << "ADPC length: " << ADPC_total_length << "\nTotal entries: " << ADPC_total_entries << "\n\n";}
+                } else { if(debugLevel>=0) {std::cout << "Invalid ADPC chunk.\n";} return 240;}
+            }
+            
+            //DATA chunk
+            magicstr=brstm_getSliceAsString(fileData,DATA_offset,4);
+            if(strcmp(magicstr,emagic4) == 0) {
+                //Start reading DATA
+                DATA_total_length = brstm_getSliceAsNumber(fileData,DATA_offset+0x04,4,BOM);
                 
-                if(debugLevel>1) {std::cout << "ADPC length: " << ADPC_total_length << "\nTotal entries: " << ADPC_total_entries << "\n\n";}
+                if(debugLevel>1) {std::cout << "DATA length: " << DATA_total_length << '\n';}
                 
-                //DATA chunk
-                magicstr=brstm_getSliceAsString(fileData,DATA_offset,4);
-                if(strcmp(magicstr,emagic4) == 0) {
-                    //Start reading DATA
-                    DATA_total_length = brstm_getSliceAsNumber(fileData,DATA_offset+0x04,4,BOM);
+                if(decodeAudio) {
+                    unsigned long decoded_samples=0;
                     
-                    if(debugLevel>1) {std::cout << "DATA length: " << DATA_total_length << '\n';}
+                    unsigned long posOffset=0;
                     
-                    if(decodeAudio) {
-                        unsigned long decoded_samples=0;
+                    for(unsigned int c=0;c<HEAD3_num_channels;c++) {
+                        //Create new array of samples for the current channel
+                        switch(decodeAudio) {
+                            case 1: PCM_samples[c] = new int16_t[HEAD1_total_samples]; break;
+                            case 2: ADPCM_data [c] = new unsigned char[((DATA_total_length-32))/HEAD3_num_channels]; break;
+                        }
                         
-                        unsigned long posOffset=0;
-                        
-                        for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-                            //Create new array of samples for the current channel
-                            switch(decodeAudio) {
-                                case 1: PCM_samples[c] = new int16_t[HEAD1_total_samples]; break;
-                                case 2: ADPCM_data [c] = new unsigned char[((DATA_total_length-32))/HEAD3_num_channels]; break;
+                        posOffset=0+(HEAD1_blocks_size*c);
+                        unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
+                        for(unsigned long b=0;b<HEAD1_total_blocks;b++) {
+                            //Read every block
+                            unsigned int currentBlockSize    = HEAD1_blocks_size;
+                            unsigned int currentBlockSamples = HEAD1_blocks_samples;
+                            //Final block
+                            if(b==HEAD1_total_blocks-1) {
+                                currentBlockSize    = HEAD1_final_block_size;
+                                currentBlockSamples = HEAD1_final_block_samples;
+                            }
+                            if(b>=HEAD1_total_blocks-1 && c>0) {
+                                //Go back to the previous position
+                                posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
+                                //Go to the next block in position of first channel
+                                posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
+                                //Jump to the correct channel in the final block
+                                posOffset+=HEAD1_final_block_size_p*c;
                             }
                             
-                            posOffset=0+(HEAD1_blocks_size*c);
-                            unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
-                            for(unsigned long b=0;b<HEAD1_total_blocks;b++) {
-                                //Read every block
-                                unsigned int currentBlockSize    = HEAD1_blocks_size;
-                                unsigned int currentBlockSamples = HEAD1_blocks_samples;
-                                //Final block
-                                if(b==HEAD1_total_blocks-1) {
-                                    currentBlockSize    = HEAD1_final_block_size;
-                                    currentBlockSamples = HEAD1_final_block_samples;
-                                }
-                                if(b>=HEAD1_total_blocks-1 && c>0) {
-                                    //Go back to the previous position
-                                    posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
-                                    //Go to the next block in position of first channel
-                                    posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
-                                    //Jump to the correct channel in the final block
-                                    posOffset+=HEAD1_final_block_size_p*c;
-                                }
-                                
-                                
-                                if(decodeAudio == 1) {
-                                    //Decode audio normally
-                                    brstm_decode_block(brstmi,b,c,fileData,0,brstmi->PCM_samples,b*brstmi->blocks_samples);
-                                } else {
-                                    //Write raw data to ADPCM_data
-                                    if(HEAD1_codec!=2) {
-                                        if(debugLevel>=0) {
-                                            std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
-                                        }
-                                        return 220;
+                            
+                            if(decodeAudio == 1) {
+                                //Decode audio normally
+                                brstm_decode_block(brstmi,b,c,fileData,0,brstmi->PCM_samples,b*brstmi->blocks_samples);
+                            } else {
+                                //Write raw data to ADPCM_data
+                                if(HEAD1_codec!=2) {
+                                    if(debugLevel>=0) {
+                                        std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
                                     }
-                                    //Get data from just the current block
-                                    unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
-                                    for(unsigned int i=0; i<currentBlockSize; i++) {
-                                        ADPCM_data[c][outputPos++] = blockData[i];
-                                    }
+                                    return 220;
                                 }
-                                
-                                posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
+                                //Get data from just the current block
+                                unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
+                                for(unsigned int i=0; i<currentBlockSize; i++) {
+                                    ADPCM_data[c][outputPos++] = blockData[i];
+                                }
                             }
+                            
+                            posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
                         }
                     }
-                    //end
-                    
-                } else { if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";} return 230;}
+                }
+                //end
                 
-            } else { if(debugLevel>=0) {std::cout << "Invalid ADPC chunk.\n";} return 240;}
+            } else { if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";} return 230;}
             
         } else { if(debugLevel>=0) {std::cout << "Invalid HEAD chunk.\n";} return 250;}
         
