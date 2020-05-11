@@ -1,4 +1,4 @@
-//Revolution audio decoder
+//OpenRevolution audio decoder
 //Copyright (C) 2020 Extrasklep
 
 #pragma once

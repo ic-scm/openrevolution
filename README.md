@@ -18,9 +18,9 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 Compile everything by running build.sh or another compiler with the correct options
 
 Usage guides:
-- [src/](https://github.com/Extrasklep/revolution/tree/master/src): Command line tools
-- [src/rt_player](https://github.com/Extrasklep/revolution/tree/master/src/rt_player): RtAudio command line player
-- [src/lib](https://github.com/Extrasklep/revolution/tree/master/src/lib) Library documentation
+- [src/](https://github.com/Extrasklep/openrevolution/tree/master/src): Command line tools
+- [src/rt_player](https://github.com/Extrasklep/openrevolution/tree/master/src/rt_player): RtAudio command line player
+- [src/lib](https://github.com/Extrasklep/openrevolution/tree/master/src/lib) Library documentation
 
 ## Thanks to
 

@@ -1,4 +1,4 @@
-//Some functions used by brstm.h, brstm_encode.h and other parts of the Revolution libs
+//Some functions used by brstm.h, brstm_encode.h and other parts of the OpenRevolution libs
 //Copyright (C) 2020 Extrasklep
 
 //Bool endian: 0 = little endian, 1 = big endian

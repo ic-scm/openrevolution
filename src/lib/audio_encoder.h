@@ -1,4 +1,4 @@
-//Revolution ADPCM encoder
+//OpenRevolution audio encoder
 //Thanks to https://github.com/jackoalan/gc-dspadpcm-encode/
 
 #include "dspadpcm_encoder.c"
