@@ -221,12 +221,11 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                 if(strcmp(magicstr,emagic3) == 0) {
                     //Start reading ADPC
                     ADPC_total_length  = brstm_getSliceAsNumber(fileData,ADPC_offset+0x04,4,BOM);
-                    ADPC_total_entries = HEAD1_total_blocks;
                     for(unsigned int n=0;n<HEAD3_num_channels;n++) {
                         if(debugLevel>1) {std::cout << "Channel " << n << ": ";}
                         
                         unsigned int it;
-                        for(unsigned int i=0;i<ADPC_total_entries/HEAD3_num_channels;i++) {
+                        for(unsigned int i=0;i<HEAD1_total_blocks;i++) {
                             unsigned int offset=ADPC_offset+8+(n*HEAD1_bytes_per_ADPC)+((i*HEAD1_bytes_per_ADPC)*HEAD3_num_channels);
                             ADPC_hsamples_1[n][i] = brstm_getSliceAsInt16Sample(fileData,offset,BOM);
                             ADPC_hsamples_2[n][i] = brstm_getSliceAsInt16Sample(fileData,offset+2,BOM);
