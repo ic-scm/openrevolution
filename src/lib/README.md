@@ -181,6 +181,13 @@ const char* brstm_getCodecString(Brstm*)
 ```
 Returns codec string
 
+
+```cpp
+const char* brstm_getVersionString()
+```
+Returns version string
+
+
 ### Encoder
 
 Create a BRSTM struct like with reading (or even read into that struct to reencode/rebuild a file)

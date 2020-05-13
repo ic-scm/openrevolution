@@ -9,6 +9,9 @@
 
 //Bool endian: 0 = little endian, 1 = big endian
 
+const char* BRSTM_version_str = "v2.1.1";
+const char* brstm_getVersionString() {return BRSTM_version_str;}
+
 //Format information
 const unsigned int BRSTM_formats_count = 6;
 //File header magic words for each file format

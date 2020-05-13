@@ -184,6 +184,10 @@ int main( int argc, char* args[] ) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
     }
+    if(strcmp(args[1],"--version") == 0) {
+        std::cout << brstm_getVersionString() << '\n';
+        exit(0);
+    }
     //Parse command line args
     for(unsigned int a=2;a<argc;a++) {
         int vOpt = -1;
