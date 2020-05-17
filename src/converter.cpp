@@ -15,14 +15,14 @@
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM/WAV/other converter\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n";
+const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode","--extend","--oCodec"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec"};
-const unsigned int optcount = 8;
-const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1};
+const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode","--extend","--oCodec","-kc"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels"};
+const unsigned int optcount = 9;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -41,6 +41,9 @@ unsigned long userLoopPoint = 0;
 bool brstmStereoTracks; //used internally later
 //0 = option not used, 1 = 1ch, 2 = 2ch
 unsigned char userTrackChannels = 0;
+
+//keep channels
+bool keepChannels[16] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
 
 bool reencode = 0;
 bool useFFMPEG = 0;
@@ -170,6 +173,39 @@ void extendPCMSamples(Brstm* brstm,unsigned long newSampleCount) {
     }
     brstm->loop_start = newSampleCount - brstm->total_samples + brstm->loop_start;
     brstm->total_samples = newSampleCount;
+}
+
+void removeChannels(Brstm* brstm,bool mode) {
+    unsigned int newChannelCount = 0;
+    unsigned int c = 0, realc = 0;
+    for(;c<brstm->num_channels;c++) {
+        if(keepChannels[c] == 0) {
+            if(mode == 1) {delete[] brstm->ADPCM_data[c]; brstm->ADPCM_data[c] = nullptr;}
+            else {delete[] brstm->PCM_samples[c]; brstm->PCM_samples[c] = nullptr;}
+        }
+        else {
+            newChannelCount++;
+        }
+    }
+    if(newChannelCount < 1) {
+        std::cout << "Cannot remove all channels.\n";
+        exit(255);
+    }
+    for(c=0;realc<brstm->num_channels;realc++) {
+        if(keepChannels[realc] == 1) {
+            if(mode == 1) {
+                brstm->ADPCM_data[c] = brstm->ADPCM_data[realc];
+                if(c != realc) brstm->ADPCM_data[realc] = nullptr;
+            } else {
+                brstm->PCM_samples[c] = brstm->PCM_samples[realc];
+                if(c != realc) brstm->PCM_samples[realc] = nullptr;
+            }
+            c++;
+        }
+    }
+    brstm->num_channels = newChannelCount;
+    //make sure new track information will be written
+    if(userTrackChannels == 0) userTrackChannels = brstm->track_num_channels[0];
 }
 
 void readWAV(Brstm* brstm,std::ifstream& stream,std::streampos fsize) {
@@ -342,6 +378,13 @@ int main(int argc, char** args) {
     if(optused[6]) {extendSampleCount = atoi(optargstr[6]);}
     //Output codec
     if(optused[7]) {userCodec = atoi(optargstr[7]);}
+    //Keep channels
+    if(optused[8]) {
+        unsigned char len = strlen(optargstr[8]);
+        for(unsigned char i=0;i<len;i++) {
+            if(optargstr[8][i] == '0') keepChannels[i] = 0;
+        }
+    }
     
     //Safety
     if(extendSampleCount > 80000000) {
@@ -409,6 +452,8 @@ int main(int argc, char** args) {
         }
         delete[] memblock;
         if(saveFile) {
+            //Remove channels
+            removeChannels(brstm,0);
             //Extender
             if(extendSampleCount) {
                 if(verb) std::cout << "Extending from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
@@ -443,6 +488,8 @@ int main(int argc, char** args) {
                 brstm->loop_flag  = userLoopFlag;
                 brstm->loop_start = userLoopPoint;
             }
+            //Remove channels
+            removeChannels(brstm,0);
             //Make sure the amount of channels is valid
             if(brstmStereoTracks && brstm->num_channels%2 != 0) {
                 std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << 
@@ -513,6 +560,8 @@ int main(int argc, char** args) {
                 brstm->loop_flag = userLoopFlag;
                 brstm->loop_start = userLoopPoint;
             }
+            //Remove channels
+            removeChannels(brstm,1);
             //Apply new track settings
             if(userTrackChannels != 0) {
                 brstmStereoTracks = userTrackChannels - 1;
@@ -572,6 +621,9 @@ int main(int argc, char** args) {
             return result;
         }
         delete[] memblock;
+        
+        //Remove channels
+        removeChannels(brstm,0);
         
         //FFMPEG: save audio to WAV file, run ffmpeg on it, and read the output
         if(useFFMPEG) {
