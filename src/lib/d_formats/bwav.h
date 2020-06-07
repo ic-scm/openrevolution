@@ -1,8 +1,6 @@
 //Revolution BWAV reader
 //Copyright (C) 2020 Extrasklep
 
-#include <math.h>
-
 unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
     bool &BOM = brstmi->BOM;
     //Byte Order Mark
@@ -13,29 +11,12 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
     }
     //BWAV is weird and stupid
     brstmi->num_channels = brstm_getSliceAsNumber(fileData,0x0E,2,BOM);
-    //channel information chunk
-    unsigned int channelPans[brstmi->num_channels];
-    for(unsigned int c=0; c<brstmi->num_channels; c++) {
-        unsigned int offset = 0x10 + c*0x4C;
-        //history samples
-        brstmi->ADPCM_hsamples_1[c] = new int16_t[1];
-        brstmi->ADPCM_hsamples_2[c] = new int16_t[1];
-        brstmi->ADPCM_hsamples_1[c][0] = brstm_getSliceAsInt16Sample(fileData,offset+0x46,BOM);
-        brstmi->ADPCM_hsamples_2[c][0] = brstm_getSliceAsInt16Sample(fileData,offset+0x48,BOM);
-        //coefs
-        if(brstmi->codec == 2) {
-            for(unsigned int i=0;i<16;i++) {
-                brstmi->ADPCM_coefs[c][i] = brstm_getSliceAsInt16Sample(fileData,offset+0x10+i*2,BOM);
-            }
-        }
-        
-        channelPans[c] = brstm_getSliceAsNumber(fileData,offset+0x02,2,BOM);
-        brstmi->codec = brstm_getSliceAsNumber(fileData,offset+0x00,2,BOM) + 1; //add 1 so the codec number is like BRSTM's codec number
-        brstmi->sample_rate = brstm_getSliceAsNumber(fileData,offset+0x04,4,BOM);
-        brstmi->total_samples = brstm_getSliceAsNumber(fileData,offset+0x08,4,BOM);
-        brstmi->loop_flag = ( (int32_t)brstm_getSliceAsNumber(fileData,offset+0x3C,4,BOM) != -1 );
-        brstmi->loop_start = brstm_getSliceAsNumber(fileData,offset+0x40,4,BOM);
-    }
+    brstmi->codec = brstm_getSliceAsNumber(fileData,0x10,2,BOM) + 1; //add 1 so the codec number is like BRSTM's codec number
+    brstmi->sample_rate = brstm_getSliceAsNumber(fileData,0x14,4,BOM);
+    brstmi->total_samples = brstm_getSliceAsNumber(fileData,0x18,4,BOM);
+    brstmi->loop_flag = ( (int32_t)brstm_getSliceAsNumber(fileData,0x4C,4,BOM) != -1 );
+    brstmi->loop_start = brstm_getSliceAsNumber(fileData,0x50,4,BOM);
+    
     brstmi->audio_offset = brstm_getSliceAsNumber(fileData,0x40,4,BOM);
     brstmi->total_blocks = 1;
     brstmi->blocks_size = brstmi->num_channels > 1 ? (brstm_getSliceAsNumber(fileData,0x8C,4,BOM) - brstmi->audio_offset) : (brstmi->codec == 1 ? brstmi->total_samples*2 : brstm_getBytesForAdpcmSamples(brstmi->total_samples));
@@ -43,6 +24,12 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
     brstmi->final_block_size = brstmi->blocks_size;
     brstmi->final_block_samples = brstmi->blocks_samples;
     brstmi->final_block_size_p = brstmi->final_block_size;
+    
+    unsigned int channelPans[2];
+    channelPans[0] = brstm_getSliceAsNumber(fileData,0x12,2,BOM);
+    if(brstmi->num_channels > 1) {
+        channelPans[1] = brstm_getSliceAsNumber(fileData,0x12+0x4C,2,BOM);
+    }
     
     //Guess track data based on channel pans and channel count
     brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0 && channelPans[0] == 0 && channelPans[1] == 1) ? brstmi->num_channels/2 : brstmi->num_channels;
@@ -52,10 +39,24 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
         brstmi->track_num_channels[c/track_num_channels] = track_num_channels;
         if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
         if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
+        
+        //Read coefs
+        if(brstmi->codec == 2) {
+            for(unsigned int i=0;i<16;i++) {
+                brstmi->ADPCM_coefs[c][i] = brstm_getSliceAsInt16Sample(fileData,0x20+i*2+c*0x4C,BOM);
+            }
+        }
     }
     if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: BWAV track information is guessed\n";}
     
     //Audio
+    //Create and read history samples
+    for(unsigned char c=0;c<brstmi->num_channels;c++) {
+        brstmi->ADPCM_hsamples_1[c] = new int16_t[1];
+        brstmi->ADPCM_hsamples_2[c] = new int16_t[1];
+        brstmi->ADPCM_hsamples_1[c][0] = brstm_getSliceAsInt16Sample(fileData,0x56+c*0x4C,BOM);
+        brstmi->ADPCM_hsamples_2[c][0] = brstm_getSliceAsInt16Sample(fileData,0x58+c*0x4C,BOM);
+    }
     if(decodeAudio) {
         for(unsigned int c=0;c<brstmi->num_channels;c++) {
             //Create new array of samples for the current channel
