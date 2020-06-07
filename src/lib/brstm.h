@@ -136,12 +136,17 @@ const char* brstm_getErrorString(unsigned char code) {
 unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
     switch(brstmi->file_format) {
         case 0:
+        return num;
         case 1:
+        return num;
         case 2:
+        return num;
         case 3:
         return num;
         case 4:
         return num+1;
+        case 5:
+        return num;
     }
     return 0;
 }
