@@ -19,7 +19,7 @@ brstm_converter input.brstm -o output.brstm -l 12345 # change loop point in an e
 brstm_converter input.bwav -o output.brstm --ffmpeg "-af volume=10dB" # convert bwav to brstm and amplify the audio by 10dB
 
 ## RtAudio player
-[See README in rt_player](https://github.com/Extrasklep/revolution/tree/master/src/rt_player)
+[See README in rt_player](/src/rt_player)
 
 
 ## Old programs
