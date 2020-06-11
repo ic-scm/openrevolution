@@ -34,12 +34,13 @@ const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
 };
 
 //Codec information
-const unsigned int BRSTM_codecs_count = 3;
+const unsigned int BRSTM_codecs_count = 4;
 //Human readable strings
 const char* BRSTM_codecs_usr_str[BRSTM_codecs_count] = {
 "8-bit PCM",
 "16-bit PCM",
-"4-bit DSPADPCM"
+"4-bit DSPADPCM",
+"IMA ADPCM"
 };
 
 
@@ -135,20 +136,40 @@ const char* brstm_getErrorString(unsigned char code) {
 //Used by brstm_fstream_read, return standard codec number from the number in the file
 unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
     switch(brstmi->file_format) {
-        case 0:
-        return num;
-        case 1:
-        return num;
-        case 2:
-        return num;
-        case 3:
-        return num;
-        case 4:
-        return num+1;
-        case 5:
-        return num;
+        case 0: {
+            //None
+            return -1;
+        }
+        case 1: {
+            //BRSTM
+            if(num >= 0 && num < 3) {
+                return num;
+            }
+            return -1;
+        }
+        case 2: {
+            //BCSTM (unsupported)
+            return -1;
+        }
+        case 3: {
+            //BFSTM (unsupported)
+            return -1;
+        }
+        case 4: {
+            //BWAV
+            if(num == 0) {
+                return 1;
+            } else if(num == 1) {
+                return 2;
+            }
+            return -1;
+        }
+        case 5: {
+            //ORSTM (doesn't exist)
+            return -1;
+        }
     }
-    return 0;
+    return -1;
 }
 
 /* 
