@@ -8,6 +8,8 @@ C++ RtAudio BRSTM player
 
 -q - Quiet output (Don't display the player UI)
 
+--force-sample-rate [sample rate] - Force playback sample rate
+
 **Memory modes**
 
 -m - Load the entire file into memory (default for <15MB files)
