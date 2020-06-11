@@ -74,7 +74,74 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
         brstmi->audio_offset = brstm_getSliceAsNumber(fileData,0x34+INFO_stream_offset,4,BOM) + 0x08 + DATA_offset;
         //0x38: Size of region info?
         //0x3C -> 0x44: other unkown region info stuff
+        if(!(brstmi->codec >= 0 && brstmi->codec < 3)) {
+            if(debugLevel>=0) {std::cout << "Unsupported codec.\n";}
+            return 220;
+        }
+        if(brstmi->num_channels > 16) {
+            if(debugLevel>=0) {std::cout << "Too many channels, max supported is 16.\n";}
+            return 249;
+        }
     }
+    
+    //TODO the weird track info chunk
+    
+    //Channel info
+    if(INFO_channel_offset != -1) {
+        //Reference table
+        INFO_channel_offset += INFO_offset + 8;
+        uint32_t num_references = brstm_getSliceAsNumber(fileData,0x00+INFO_channel_offset,4,BOM);
+        if(num_references > 16) {
+            if(debugLevel>=0) {std::cout << "Too many channels, max supported is 16.\n";}
+            return 249;
+        }
+        uint32_t offptr = 4;
+        int32_t  offsets[num_references];
+        uint32_t struct2start;
+        for(unsigned int i=0;i<num_references;i++) {
+            offptr += 4;
+            offsets[i] = brstm_getSliceAsNumber(fileData,offptr+INFO_channel_offset,4,BOM);
+            offptr += 4;
+            if(offsets[i] != -1) {
+                //Read channel data at offset
+                //yet another offset, I know a person who knows a person who knows a person
+                int32_t offset2 = brstm_getSliceAsNumber(fileData,offsets[i]+INFO_channel_offset+0x04,4,BOM);
+                if(offset2 != -1) {
+                    //DSPADPCM coefs
+                    for(unsigned int c=0;c<16;c++) {
+                        brstmi->ADPCM_coefs[i][c] = brstm_getSliceAsInt16Sample(fileData,c*2+offset2+offsets[i]+INFO_channel_offset,BOM);
+                    }
+                    //other predictor scales and history samples not important
+                }
+            }
+        }
+    }
+    
+    //SEEK chunk (ADPC)
+    //Allocate hsample memory
+    for(unsigned int c=0;c<brstmi->num_channels;c++) {
+        brstmi->ADPCM_hsamples_1[c] = new int16_t[brstmi->total_blocks];
+        brstmi->ADPCM_hsamples_2[c] = new int16_t[brstmi->total_blocks];
+    }
+    if(SEEK_offset != (uint32_t)-1) {
+        magicstr = brstm_getSliceAsString(fileData,SEEK_offset,4);
+        if(strcmp(magicstr,emagic3) != 0) {
+            if(debugLevel>=0) {std::cout << "Invalid SEEK chunk.";}
+            return 240;
+        }
+        
+        uint32_t offptr = SEEK_offset + 8;
+        for(unsigned long b=0;b<brstmi->total_blocks;b++) {
+            for(unsigned int c=0;c<brstmi->num_channels;c++) {
+                brstmi->ADPCM_hsamples_1[c][b] = brstm_getSliceAsInt16Sample(fileData,offptr,BOM);
+                offptr += 2;
+                brstmi->ADPCM_hsamples_2[c][b] = brstm_getSliceAsInt16Sample(fileData,offptr+2,BOM);
+                offptr += 2;
+            }
+        }
+    }
+    
+    
     
     return 0;
 }
