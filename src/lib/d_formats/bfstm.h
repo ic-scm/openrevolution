@@ -37,6 +37,10 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     uint32_t DATA_size   = brstm_getSliceAsNumber(fileData,0x34,4,BOM);
     
     //INFO chunk
+    if(INFO_offset == (uint32_t)-1) {
+        if(debugLevel>=0) {std::cout << "INFO chunk does not exist.\n";}
+        return 250;
+    }
     magicstr = brstm_getSliceAsString(fileData,INFO_offset,4);
     if(strcmp(magicstr,emagic2) != 0) {
         if(debugLevel>=0) {std::cout << "Invalid INFO chunk.";}
@@ -51,7 +55,25 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     if(INFO_stream_offset != -1) {
         INFO_stream_offset += INFO_offset + 8;
         
-        brstmi->codec = brstm_getSliceAsNumber(fileData,0x00+INFO_stream_offset,1,BOM);
+        brstmi->codec        = brstm_getSliceAsNumber(fileData,0x00+INFO_stream_offset,1,BOM);
+        brstmi->loop_flag    = brstm_getSliceAsNumber(fileData,0x01+INFO_stream_offset,1,BOM);
+        brstmi->num_channels = brstm_getSliceAsNumber(fileData,0x02+INFO_stream_offset,1,BOM);
+        //0x03: Num regions??
+        brstmi->sample_rate    = brstm_getSliceAsNumber(fileData,0x04+INFO_stream_offset,4,BOM);
+        brstmi->loop_start     = brstm_getSliceAsNumber(fileData,0x08+INFO_stream_offset,4,BOM);
+        brstmi->total_samples  = brstm_getSliceAsNumber(fileData,0x0C+INFO_stream_offset,4,BOM);
+        brstmi->total_blocks   = brstm_getSliceAsNumber(fileData,0x10+INFO_stream_offset,4,BOM);
+        brstmi->blocks_size    = brstm_getSliceAsNumber(fileData,0x14+INFO_stream_offset,4,BOM);
+        brstmi->blocks_samples = brstm_getSliceAsNumber(fileData,0x18+INFO_stream_offset,4,BOM);
+        brstmi->final_block_size    = brstm_getSliceAsNumber(fileData,0x1C+INFO_stream_offset,4,BOM);
+        brstmi->final_block_samples = brstm_getSliceAsNumber(fileData,0x20+INFO_stream_offset,4,BOM);
+        brstmi->final_block_size_p  = brstm_getSliceAsNumber(fileData,0x24+INFO_stream_offset,4,BOM);
+        //0x28: Bytes per SEEK chunk, not important and should always be the same
+        //0x2C: SEEK sample interval?
+        //0x30: Sample data flag?
+        brstmi->audio_offset = brstm_getSliceAsNumber(fileData,0x34+INFO_stream_offset,4,BOM) + 0x08 + DATA_offset;
+        //0x38: Size of region info?
+        //0x3C -> 0x44: other unkown region info stuff
     }
     
     return 0;
