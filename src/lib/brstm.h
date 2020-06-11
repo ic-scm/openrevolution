@@ -152,7 +152,10 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
             return -1;
         }
         case 3: {
-            //BFSTM (unsupported)
+            //BFSTM
+            if(num >= 0 && num < 4) {
+                return num;
+            }
             return -1;
         }
         case 4: {
