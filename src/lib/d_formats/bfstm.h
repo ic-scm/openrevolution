@@ -130,15 +130,18 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
             return 240;
         }
         
+        //History samples broken in BFSTM for some dumb reason....
+        /*
         uint32_t offptr = SEEK_offset + 8;
         for(unsigned long b=0;b<brstmi->total_blocks;b++) {
             for(unsigned int c=0;c<brstmi->num_channels;c++) {
                 brstmi->ADPCM_hsamples_1[c][b] = brstm_getSliceAsInt16Sample(fileData,offptr,BOM);
                 offptr += 2;
-                brstmi->ADPCM_hsamples_2[c][b] = brstm_getSliceAsInt16Sample(fileData,offptr+2,BOM);
+                brstmi->ADPCM_hsamples_2[c][b] = brstm_getSliceAsInt16Sample(fileData,offptr,BOM);
                 offptr += 2;
             }
         }
+        */
     }
     
     
