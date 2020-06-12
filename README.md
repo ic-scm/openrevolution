@@ -11,7 +11,7 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 |:------------ |:-------------------:|:-------------------:|
 | BRSTM        | Yes                 | Yes (only ADPCM)    |
 | BCSTM        | No                  | No                  |
-| BFSTM        | No                  | No                  |
+| BFSTM        | Yes                 | No                  |
 | BWAV         | Yes                 | Yes                 |
 
 ## Usage
@@ -28,12 +28,13 @@ Usage guides:
 - [kenrick95/nikku](https://github.com/kenrick95/nikku) and [BrawlLib](https://github.com/libertyernie/brawltools): DSPADPCM decoder reference
 - [jackoalan/gc-dspadpcm-encode](https://github.com/jackoalan/gc-dspadpcm-encode): DSPADPCM encoder
 - [gota7](https://gota7.github.io/Citric-Composer/specs/binaryWav.html): BWAV file structure reference
+- [mk8.tockdom.com](http://mk8.tockdom.com/wiki/BFSTM_\(File_Format\)): BFSTM file structure reference
 - [Gianmarco Gargiulo](https://gianmarco.ga/): Logo
 - [RtAudio](https://github.com/thestk/rtaudio): RtAudio library
 
 ## Planned features
 
 - Qt GUI
-- Support for more file formats (BCSTM, BFSTM etc.)
+- Support for more file formats
 - Multithreaded encoding
 
