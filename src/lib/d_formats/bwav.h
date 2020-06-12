@@ -33,6 +33,10 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
     
     //Guess track data based on channel pans and channel count
     brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0 && channelPans[0] == 0 && channelPans[1] == 1) ? brstmi->num_channels/2 : brstmi->num_channels;
+    if(brstmi->num_tracks > 8) {
+        if(debugLevel>=0) {std::cout << "Too many tracks, Max supported is 8.\n";}
+        return 248;
+    }
     unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
     brstmi->track_desc_type = 0;
     for(unsigned char c=0; c<brstmi->num_channels; c++) {
