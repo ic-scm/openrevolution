@@ -86,7 +86,7 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
         }
         
         //Overwrite loaded history samples with decoded samples
-        if(b<brstmi->total_blocks) {
+        if(b<brstmi->total_blocks-1) {
             brstmi->ADPCM_hsamples_1[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-1];
             brstmi->ADPCM_hsamples_2[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-2];
         }
