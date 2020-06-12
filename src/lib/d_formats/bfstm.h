@@ -144,7 +144,87 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
         */
     }
     
+    //Write standard track information
+    brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
+    if(brstmi->num_tracks > 8) {
+        if(debugLevel>=0) {std::cout << "Too many tracks, Max supported is 8.\n";}
+        return 248;
+    }
+    unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
+    brstmi->track_desc_type = 0;
+    for(unsigned char c=0; c<brstmi->num_channels; c++) {
+        brstmi->track_num_channels[c/track_num_channels] = track_num_channels;
+        if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
+        if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
+    }
+    if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: BFSTM track information is guessed\n";}
     
+    //DATA chunk
+    if(DATA_offset == (uint32_t)-1) {
+        if(debugLevel>=0) {std::cout << "DATA chunk does not exist.\n";}
+        return 230;
+    }
+    magicstr = brstm_getSliceAsString(fileData,DATA_offset,4);
+    if(strcmp(magicstr,emagic4) != 0) {
+        if(debugLevel>=0) {std::cout << "Invalid DATA chunk.";}
+        return 230;
+    }
+    
+    if(decodeAudio) {
+        unsigned long decoded_samples=0;
+        
+        unsigned long posOffset=0;
+        
+        for(unsigned int c=0;c<brstmi->num_channels;c++) {
+            //Create new array of samples for the current channel
+            switch(decodeAudio) {
+                case 1: brstmi->PCM_samples[c] = new int16_t[brstmi->total_samples]; break;
+                case 2: brstmi->ADPCM_data [c] = new unsigned char[brstm_getBytesForAdpcmSamples(brstmi->total_samples)]; break;
+            }
+            
+            posOffset=0+(brstmi->blocks_size*c);
+            unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
+            for(unsigned long b=0;b<brstmi->total_blocks;b++) {
+                //Read every block
+                unsigned int currentBlockSize    = brstmi->blocks_size;
+                unsigned int currentBlockSamples = brstmi->blocks_samples;
+                //Final block
+                if(b==brstmi->total_blocks-1) {
+                    currentBlockSize    = brstmi->final_block_size;
+                    currentBlockSamples = brstmi->final_block_size_p;
+                }
+                if(b>=brstmi->total_blocks-1 && c>0) {
+                    //Go back to the previous position
+                    posOffset-=brstmi->blocks_size*brstmi->num_channels;
+                    //Go to the next block in position of first channel
+                    posOffset+=brstmi->blocks_size*(brstmi->num_channels-c);
+                    //Jump to the correct channel in the final block
+                    posOffset+=brstmi->final_block_size_p*c;
+                }
+                
+                
+                if(decodeAudio == 1) {
+                    //Decode audio normally
+                    brstm_decode_block(brstmi,b,c,fileData,0,brstmi->PCM_samples,b*brstmi->blocks_samples);
+                } else {
+                    //Write raw data to ADPCM_data
+                    if(brstmi->codec!=2) {
+                        if(debugLevel>=0) {
+                            std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
+                        }
+                        return 220;
+                    }
+                    //Get data from just the current block
+                    unsigned char* blockData = brstm_getSlice(fileData,brstmi->audio_offset+posOffset,currentBlockSize);
+                    for(unsigned int i=0; i<currentBlockSize; i++) {
+                        brstmi->ADPCM_data[c][outputPos++] = blockData[i];
+                    }
+                }
+                
+                posOffset+=brstmi->blocks_size*brstmi->num_channels;
+            }
+        }
+    }
     
     return 0;
 }
