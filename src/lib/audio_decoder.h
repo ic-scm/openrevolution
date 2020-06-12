@@ -84,6 +84,12 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
             decodeDest[c][decodeDestOff+(outputPos++)] = cyn1;
             c_writtensamples++;
         }
+        
+        //Overwrite loaded history samples with decoded samples
+        if(b<brstmi->total_blocks) {
+            brstmi->ADPCM_hsamples_1[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-1];
+            brstmi->ADPCM_hsamples_2[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-2];
+        }
     }
     
     posOffset+=brstmi->blocks_size*brstmi->num_channels;
