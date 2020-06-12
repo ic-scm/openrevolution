@@ -26,15 +26,15 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
         BOM = 0; //Little endian
     }
     //uint16_t header_size = brstm_getSliceAsNumber(fileData,0x06,2,BOM);
-    uint32_t file_size       = brstm_getSliceAsNumber(fileData,0x0C,4,BOM);
-    uint16_t num_file_chunks = brstm_getSliceAsNumber(fileData,0x10,2,BOM);
+    //uint32_t file_size       = brstm_getSliceAsNumber(fileData,0x0C,4,BOM);
+    //uint16_t num_file_chunks = brstm_getSliceAsNumber(fileData,0x10,2,BOM);
     
     uint32_t INFO_offset = brstm_getSliceAsNumber(fileData,0x18,4,BOM);
-    uint32_t INFO_size   = brstm_getSliceAsNumber(fileData,0x1C,4,BOM);
+    //uint32_t INFO_size   = brstm_getSliceAsNumber(fileData,0x1C,4,BOM);
     uint32_t SEEK_offset = brstm_getSliceAsNumber(fileData,0x24,4,BOM);
-    uint32_t SEEK_size   = brstm_getSliceAsNumber(fileData,0x28,4,BOM);
+    //uint32_t SEEK_size   = brstm_getSliceAsNumber(fileData,0x28,4,BOM);
     uint32_t DATA_offset = brstm_getSliceAsNumber(fileData,0x30,4,BOM);
-    uint32_t DATA_size   = brstm_getSliceAsNumber(fileData,0x34,4,BOM);
+    //uint32_t DATA_size   = brstm_getSliceAsNumber(fileData,0x34,4,BOM);
     
     //INFO chunk
     if(INFO_offset == (uint32_t)-1) {
@@ -48,7 +48,7 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     }
     //INFO header (offsets to other chunks in INFO)
     int32_t INFO_stream_offset  = brstm_getSliceAsNumber(fileData,0x0C+INFO_offset,4,BOM);
-    int32_t INFO_track_offset   = brstm_getSliceAsNumber(fileData,0x14+INFO_offset,4,BOM);
+    //int32_t INFO_track_offset   = brstm_getSliceAsNumber(fileData,0x14+INFO_offset,4,BOM);
     int32_t INFO_channel_offset = brstm_getSliceAsNumber(fileData,0x1C+INFO_offset,4,BOM);
     
     //Stream info
@@ -97,7 +97,6 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
         }
         uint32_t offptr = 4;
         int32_t  offsets[num_references];
-        uint32_t struct2start;
         for(unsigned int i=0;i<num_references;i++) {
             offptr += 4;
             offsets[i] = brstm_getSliceAsNumber(fileData,offptr+INFO_channel_offset,4,BOM);
@@ -171,8 +170,6 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     }
     
     if(decodeAudio) {
-        unsigned long decoded_samples=0;
-        
         unsigned long posOffset=0;
         
         for(unsigned int c=0;c<brstmi->num_channels;c++) {
@@ -187,11 +184,9 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
             for(unsigned long b=0;b<brstmi->total_blocks;b++) {
                 //Read every block
                 unsigned int currentBlockSize    = brstmi->blocks_size;
-                unsigned int currentBlockSamples = brstmi->blocks_samples;
                 //Final block
                 if(b==brstmi->total_blocks-1) {
                     currentBlockSize    = brstmi->final_block_size;
-                    currentBlockSamples = brstmi->final_block_size_p;
                 }
                 if(b>=brstmi->total_blocks-1 && c>0) {
                     //Go back to the previous position
