@@ -96,7 +96,7 @@ int compareFileExt(const char* filename, const char* ext) {
     unsigned int extlen = strlen(ext);
     unsigned int fnlen  = strlen(filename);
     //return no match if filename is shorter than extension
-    if(fnlen < extlen) {return 1;}
+    if(fnlen <= extlen) {return 1;}
     //return if extension in filename is not the same length
     if(filename[fnlen-1-extlen] != '.') {return 2;}
     char* lext = new char[extlen+1];
