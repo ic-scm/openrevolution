@@ -138,8 +138,8 @@ const char* brstm_getErrorString(unsigned char code) {
 unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
     switch(brstmi->file_format) {
         case 0: {
-            //None
-            return -1;
+            //WAV (PCM16 only)
+            return 1;
         }
         case 1: {
             //BRSTM
@@ -221,21 +221,24 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     unsigned char readres = 0;
     
     //Find filetype
-    brstmi->file_format = 0;
+    brstmi->file_format = BRSTM_formats_count;
     for(unsigned int t=0;t<BRSTM_formats_count;t++) {
         if(strcmp(BRSTM_formats_str[t],brstm_getSliceAsString(fileData,0,strlen(BRSTM_formats_str[t]))) == 0) {
             brstmi->file_format = t;
             break;
         }
     }
-    if(brstmi->file_format == 0) {
+    if(brstmi->file_format >= BRSTM_formats_count) {
         if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
         return 210;
     }
     
     if(debugLevel>0) std::cout << "File format: " << brstm_getShortFormatString(brstmi) << '\n';
     
-    if(brstmi->file_format == 1) {
+    if(brstmi->file_format == 0) {
+        //WAV
+        readres = brstm_formats_read_wav  (brstmi,fileData,debugLevel,decodeAudio);
+    } else if(brstmi->file_format == 1) {
         //BRSTM
         readres = brstm_formats_read_brstm(brstmi,fileData,debugLevel,decodeAudio);
     } else if(brstmi->file_format == 2) {
@@ -430,6 +433,7 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
     bool &BOM = brstmi->BOM;
     unsigned char res = 0;
     unsigned char* brstm_header;
+    brstmi->file_format = BRSTM_formats_count;
     
     //find file format so we can read the header size from the correct offset
     for(unsigned int t=0;t<BRSTM_formats_count;t++) {
@@ -445,7 +449,7 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
             break;
         }
     }
-    if(brstmi->file_format == 0) {
+    if(brstmi->file_format >= BRSTM_formats_count) {
         if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
         return 210;
     }
