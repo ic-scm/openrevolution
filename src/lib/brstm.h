@@ -13,26 +13,25 @@ const char* BRSTM_version_str = "v2.2.0";
 const char* brstm_getVersionString() {return BRSTM_version_str;}
 
 //Format information
-const unsigned int BRSTM_formats_count = 7;
+const unsigned int BRSTM_formats_count = 6;
 //File header magic words for each file format
-const char* BRSTM_formats_str[BRSTM_formats_count] = {"    ","RSTM","CSTM","FSTM","BWAV","OSTM","RIFF"};
+const char* BRSTM_formats_str[BRSTM_formats_count] = {"RIFF","RSTM","CSTM","FSTM","BWAV","OSTM"};
 //Offset to the audio offset information in each format (32 bit integer)
 //(doesn't have to be accurate, just enough to fit the entire file header before it)
-const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70,0x00,0x30,0x40,0x00,0x00};
+const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70,0x00,0x30,0x40,0x00};
 //Offset to the codec information and their sizes in each format
-const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x00,0x60,0x00,0x60,0x10,0x00,0x00};
-const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1,1,1,1,2,1,1};
+const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x00,0x60,0x00,0x60,0x10,0x00};
+const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1,1,1,1,2,1};
 //Short human readable strings (equal to file extension)
-const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"None","BRSTM","BCSTM","BFSTM","BWAV","ORSTM","WAV"};
+const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"WAV","BRSTM","BCSTM","BFSTM","BWAV","ORSTM"};
 //Long human readable strings
 const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
-"Unknown format",
+"Waveform Audio",
 "Binary Revolution Stream",
 "Binary CTR Stream",
 "Binary Cafe Stream",
 "Nintendo BWAV",
-"Open Revolution Stream",
-"Waveform Audio"
+"Open Revolution Stream"
 };
 
 //Codec information
