@@ -59,7 +59,8 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
     }
     if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: Track information is guessed\n";}
     
-    { //Read audio from wav file
+    if(decodeAudio == 1) {
+        //Read audio from wav file
         unsigned int c;
         for(c=0;c<brstmi->num_channels;c++) {
             brstmi->PCM_samples[c] = new int16_t[brstmi->total_samples];
@@ -69,6 +70,11 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
                 brstmi->PCM_samples[c][i] = brstm_getSliceAsInt16Sample(fileData,wavAudioOffset+i*(2*brstmi->num_channels)+c*2,0);
             }
         }
+    } else if(decodeAudio == 2) {
+        if(debugLevel>=0) std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
+        return 220;
+    } else if(decodeAudio == 0) {
+        if(debugLevel>=0) std::cout << "Warning: Realtime decoding may not work correctly for this format\n";
     }
     return 0;
 }
