@@ -63,6 +63,7 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
         brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->total_samples,4,BOM),4,bufpos);
         //ADPCM coefs 16xInt16
         if(brstmi->codec == 2) {
+            DSPCorrelateCoefs(brstmi->PCM_samples[c],brstmi->total_samples,brstmi->ADPCM_coefs[c]);
             for(unsigned char i=0;i<16;i++) {
                 brstm_encoder_writebytes(buffer,brstm_encoder_getByteInt16(brstmi->ADPCM_coefs[c][i],BOM),2,bufpos);
             }
