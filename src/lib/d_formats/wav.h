@@ -2,6 +2,7 @@
 //Copyright (C) 2020 Extrasklep
 
 unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
+    brstmi->BOM = 0;
     //Read the WAV file data
     if(strcmp("RIFF",brstm_getSliceAsString(fileData,0,4)) != 0) {
         if(debugLevel>=0) std::cout << "Invalid RIFF header.\n";
@@ -37,12 +38,15 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
     brstmi->loop_flag = 0;
     brstmi->loop_start = 0;
     brstmi->audio_offset = wavAudioOffset;
-    brstmi->total_blocks = brstmi->total_samples;
-    brstmi->blocks_size = 2;
-    brstmi->blocks_samples = 1;
-    brstmi->final_block_size = 2;
-    brstmi->final_block_samples = 1;
-    brstmi->final_block_size_p = 2;
+    //Extend block size and set audio stream type to 1
+    brstmi->total_blocks = brstmi->total_samples / 2048;
+    if(brstmi->total_samples % 2048 != 0) brstmi->total_blocks++;
+    brstmi->blocks_size = 2*2048 * brstmi->num_channels;
+    brstmi->blocks_samples = 1*2048;
+    brstmi->final_block_size = 2*(brstmi->total_samples % 2048) * brstmi->num_channels;
+    brstmi->final_block_samples = 1*(brstmi->total_samples % 2048);
+    brstmi->final_block_size_p = brstmi->final_block_size;
+    brstmi->audio_stream_format = 1;
     
     //Write standard track information
     brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
@@ -73,8 +77,6 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
     } else if(decodeAudio == 2) {
         if(debugLevel>=0) std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
         return 220;
-    } else if(decodeAudio == 0) {
-        if(debugLevel>=0) std::cout << "Warning: Realtime decoding may not work correctly for this format\n";
     }
     return 0;
 }

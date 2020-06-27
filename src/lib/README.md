@@ -48,6 +48,7 @@ struct Brstm {
     int16_t* PCM_blockbuffer[16];
     int PCM_blockbuffer_currentBlock = -1;
     bool getbuffer_useBuffer = true;
+    unsigned int audio_stream_format = 0; //See full description in brstm.h
 };
 ```
 

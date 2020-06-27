@@ -20,7 +20,7 @@ const char* BRSTM_formats_str[BRSTM_formats_count] = {"RIFF","RSTM","CSTM","FSTM
 //(doesn't have to be accurate, just enough to fit the entire file header before it)
 const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70,0x00,0x30,0x40,0x00};
 //Offset to the codec information and their sizes in each format
-const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x00,0x60,0x00,0x60,0x10,0x00};
+const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14,0x60,0x00,0x60,0x10,0x00};
 const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1,1,1,1,2,1};
 //Short human readable strings (equal to file extension)
 const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"WAV","BRSTM","BCSTM","BFSTM","BWAV","ORSTM"};
@@ -93,6 +93,12 @@ struct Brstm {
     int16_t* PCM_blockbuffer[16];
     int PCM_blockbuffer_currentBlock = -1;
     bool getbuffer_useBuffer = true;
+    //Audio stream format,
+    //0 for normal block data in BRSTM and similar files
+    //1 for WAV which has 1 sample per block
+    //so the block size here can be made bigger and block reads
+    //won't be made one by one for every sample
+    unsigned int audio_stream_format = 0;
 };
 
 #include "utils.h"
@@ -461,7 +467,8 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
         return 210;
     }
     
-    //read Byte Order Mark
+    //Read Byte Order Mark
+    //WAV does not have a byte order mark but this will default to LE which is correct
     unsigned char bomword[2];
     stream.seekg(0x04);
     stream.read((char*)bomword,2);
@@ -472,10 +479,15 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
     }
     
     //get offset to audio data so we know how much data to read to get the full header
-    stream.seekg(BRSTM_formats_audio_off_off[brstmi->file_format]);
-    unsigned char audioOff[4];
-    stream.read((char*)audioOff,4);
-    brstmi->audio_offset = brstm_getSliceAsNumber(audioOff,0,4,BOM) + 64;
+    if(BRSTM_formats_audio_off_off[brstmi->file_format] != 0) {
+        stream.seekg(BRSTM_formats_audio_off_off[brstmi->file_format]);
+        unsigned char audioOff[4];
+        stream.read((char*)audioOff,4);
+        brstmi->audio_offset = brstm_getSliceAsNumber(audioOff,0,4,BOM) + 64;
+    } else {
+        //If the audio offset for this file in the library is set to 0 then use a default offset.
+        brstmi->audio_offset = 8192;
+    }
     
     //Get codec
     stream.seekg(BRSTM_formats_codec_off[brstmi->file_format]);
@@ -565,4 +577,5 @@ void brstm_close(Brstm * brstmi) {
         brstmi->track_panning     [i] = 0;
     }
     brstmi->PCM_blockbuffer_currentBlock = -1;
+    brstmi->audio_stream_format = 0;
 }
