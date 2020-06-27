@@ -116,8 +116,8 @@ int compareFileExt(const char* filename, const char* ext) {
 
 //-1 = unsupported, 0 = WAV, 1+ = BRSTM lib formats
 int getFileExt(const char* filename) {
-    if(compareFileExt(filename,"WAV") == 0) return 0;
-    for(unsigned int f=1;f<BRSTM_formats_count;f++) {
+    //if(compareFileExt(filename,"WAV") == 0) return 0;
+    for(unsigned int f=0;f<BRSTM_formats_count;f++) {
         if(compareFileExt(filename,BRSTM_formats_short_usr_str[f]) == 0) return f;
     }
     //No match
