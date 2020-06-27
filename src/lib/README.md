@@ -4,7 +4,7 @@ The BRSTM struct
 struct Brstm {
     //Byte order mark
     bool BOM;
-    //File type, 1 = BRSTM, see brstm.h file for full list
+    //File type, 0 = WAV, 1 = BRSTM, see brstm.h file for full list
     unsigned int  file_format;
     //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
     unsigned int  codec;
@@ -263,7 +263,7 @@ Console debug level:
 
 Encode ADPCM flag:
  0 = Use the ADPCM data from ADPCM_data (requires coefs in ADPCM_coefs[ch][coef])
- 1 = Encode PCM_samples into ADPCM
+ 1 = Use PCM_samples (and encode into ADPCM)
 
 Returns error code (>127) or warning code (<128)
 (see brstm_encode.h file for full list of error/warning codes). (unsigned char)
@@ -276,6 +276,3 @@ brstm_close(brstm); //This will delete the encoded data and PCM_samples
 delete brstm;
 
 ```
-
-### Editing headers
-I might add proper header editing some day (but I proably won't) so just do lossless conversions and change the data in your BRSTM struct.
