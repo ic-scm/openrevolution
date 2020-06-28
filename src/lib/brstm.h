@@ -134,6 +134,7 @@ const char* brstm_getErrorString(unsigned char code) {
         case 244: return "Unknown track description type";
         case 240: return invalidfile;
         case 230: return invalidfile;
+        case 222: return "Cannot write raw ADPCM data because the codec is not ADPCM";
         case 220: return "Unsupported audio codec";
         case 210: return "Unsupported file format or invalid file";
     }
@@ -206,6 +207,7 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
  *      244 = Unknown track info type
  *      240 = Invalid ADPC chunk (Doesn't begin with ADPC)
  *      230 = Invalid DATA chunk (Doesn't begin with DATA)
+ *      222 = Cannot write raw ADPCM data because the codec is not ADPCM
  *      220 = Unsupported or unknown audio codec
  *      210 = Unsupported file format
  *      200 = Unknown error (this should never happen)

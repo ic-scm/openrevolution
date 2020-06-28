@@ -37,12 +37,12 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
     //Check for invalid requests
     //Too many tracks
     if(brstmi->num_tracks > 8) {
-        if(debugLevel>=0) std::cout << "Too many tracks. Max supported is 8.\n";
+        if(debugLevel>=0) std::cout << "Too many tracks, max supported is 8.\n";
         return 248;
     }
     //Too many channels
     if(brstmi->num_channels > 16) {
-        if(debugLevel>=0) std::cout << "Too many channels. Max supported is 16.\n";
+        if(debugLevel>=0) std::cout << "Too many channels, max supported is 16.\n";
         return 249;
     }
     //Unsupported track description type

@@ -137,7 +137,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             if(debugLevel>0) {std::cout << "Codec: " << HEAD1_codec << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
             
             //safety
-            if(HEAD1_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels. Max supported is 16.\n";} return 249;}
+            if(HEAD1_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels, max supported is 16.\n";} return 249;}
             
             //HEAD2
             HEAD2_offset+=8;
@@ -145,7 +145,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             HEAD2_track_type = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_offset+0x01,1,BOM);
             
             //safety
-            if(HEAD2_num_tracks>8) { if(debugLevel>=0) {std::cout << "Too many tracks. Max supported is 8.\n";} return 248;}
+            if(HEAD2_num_tracks>8) { if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";} return 248;}
             
             //read info for each track
             for(unsigned char i=0;i<HEAD2_num_tracks;i++) {
@@ -179,7 +179,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             HEAD3_num_channels = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_offset+0x00,1,BOM);
             
             //safety
-            if(HEAD3_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels. Max supported is 16.\n";} return 249;}
+            if(HEAD3_num_channels>16) { if(debugLevel>=0) {std::cout << "Too many channels, max supported is 16.\n";} return 249;}
             
             for(unsigned char i=0;i<HEAD3_num_channels;i++) {
                 unsigned int readOffset = HEAD_offset+HEAD3_offset+0x04+4+(i*8);
@@ -287,7 +287,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                                     if(debugLevel>=0) {
                                         std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
                                     }
-                                    return 220;
+                                    return 222;
                                 }
                                 //Get data from just the current block
                                 unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);

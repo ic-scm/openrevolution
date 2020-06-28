@@ -20,7 +20,7 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
     }
     brstmi->num_channels = brstm_getSliceAsNumber(fileData,22,2,0);
     if(brstmi->num_channels > 16) {
-        if(debugLevel>=0) std::cout << "Too many channels. Max supported is 16.\n";
+        if(debugLevel>=0) std::cout << "Too many channels, max supported is 16.\n";
         return 249;
     }
     brstmi->sample_rate = brstm_getSliceAsNumber(fileData,24,4,0);
@@ -51,7 +51,7 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
     //Write standard track information
     brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
     if(brstmi->num_tracks > 8) {
-        if(debugLevel>=0) {std::cout << "Too many tracks, Max supported is 8.\n";}
+        if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";}
         return 248;
     }
     unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
@@ -76,7 +76,7 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
         }
     } else if(decodeAudio == 2) {
         if(debugLevel>=0) std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
-        return 220;
+        return 222;
     }
     return 0;
 }

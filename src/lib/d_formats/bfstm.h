@@ -144,7 +144,7 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     //Write standard track information
     brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
     if(brstmi->num_tracks > 8) {
-        if(debugLevel>=0) {std::cout << "Too many tracks, Max supported is 8.\n";}
+        if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";}
         return 248;
     }
     unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
@@ -205,7 +205,7 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
                         if(debugLevel>=0) {
                             std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
                         }
-                        return 220;
+                        return 222;
                     }
                     //Get data from just the current block
                     unsigned char* blockData = brstm_getSlice(fileData,brstmi->audio_offset+posOffset,currentBlockSize);
