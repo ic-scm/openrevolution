@@ -1,5 +1,7 @@
 //C++ BRSTM re-encoder
-//Copyright (C) 2020 Extrasklep
+//This program is outdated and should not be used anymore!
+//It is only kept as a reference and for historical purposes.
+//Copyright (C) 2020 IC
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -13,7 +15,7 @@
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "BRSTM Re-encoder\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
+const char* helpString0 = "BRSTM Re-encoder\nCopyright (C) 2020 IC\nThis program is free software, see the license file for more information.\nUsage:\n";
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\n";
 
 //------------------ Command line arguments

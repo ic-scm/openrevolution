@@ -1,5 +1,5 @@
-//C++ BRSTM reader/player
-//Copyright (C) 2020 Extrasklep
+//C++ BRSTM RtAudio player
+//Copyright (C) 2020 IC
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -167,7 +167,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "BRSTM player\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
+const char* helpString0 = "BRSTM player\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\n";
 const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
 const char* opts[] = {"-v","-m","-s","-d","--force-sample-rate","-q"};

@@ -1,6 +1,6 @@
-//C++ BRSTM reader
-//Copyright (C) 2020 Extrasklep
-//https://github.com/Extrasklep/openrevolution
+//C++ BRSTM and other format reading tools
+//Copyright (C) 2020 IC
+//https://github.com/ic-scm/openrevolution
 
 #pragma once
 #include <iostream>

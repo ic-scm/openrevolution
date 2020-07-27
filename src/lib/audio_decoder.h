@@ -1,5 +1,5 @@
 //OpenRevolution audio decoder
-//Copyright (C) 2020 Extrasklep
+//Copyright (C) 2020 IC
 
 #pragma once
 

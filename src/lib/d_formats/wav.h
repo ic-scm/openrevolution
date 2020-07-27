@@ -1,5 +1,5 @@
 //OpenRevolution WAV reader
-//Copyright (C) 2020 Extrasklep
+//Copyright (C) 2020 IC
 
 unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
     brstmi->BOM = 0;

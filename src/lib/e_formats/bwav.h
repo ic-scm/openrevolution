@@ -1,5 +1,5 @@
-//Revolution BWAV encoder
-//Copyright (C) 2020 Extrasklep
+//OpenRevolution BWAV encoder
+//Copyright (C) 2020 IC
 
 //Thanks to https://gota7.github.io/Citric-Composer/specs/binaryWav.html
 //And again BWAV is weird and stupid

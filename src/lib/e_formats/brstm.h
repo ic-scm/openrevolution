@@ -1,5 +1,5 @@
-//Revolution BRSTM encoder
-//Copyright (C) 2020 Extrasklep
+//OpenRevolution BRSTM encoder
+//Copyright (C) 2020 IC
 
 #include <math.h>
 

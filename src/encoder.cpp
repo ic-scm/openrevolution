@@ -1,5 +1,7 @@
 //C++ BRSTM wav encoder
-//Copyright (C) 2020 Extrasklep
+//This program is outdated and should not be used anymore!
+//It is only kept as a reference and for historical purposes.
+//Copyright (C) 2020 IC
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -12,7 +14,7 @@
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "WAV to BRSTM encoder\nCopyright (C) 2020 Extrasklep\nThis program is free software, see the license file for more information.\nUsage:\n";
+const char* helpString0 = "WAV to BRSTM encoder\nCopyright (C) 2020 IC\nThis program is free software, see the license file for more information.\nUsage:\n";
 const char* helpString1 = " [.wav input file] [options...]\nOptions:\n-o [output file name] - If this is not used the output will not be saved.\n-v - Verbose output\n-l --loop [loop point] - Creating looping BRSTM\n-c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n";
 
 //------------------ Command line arguments
