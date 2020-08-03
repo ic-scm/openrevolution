@@ -1,5 +1,5 @@
 //C++ BRSTM converter
-//Decoder, encoder, reencoder and rebuilder merger into one program
+//Decoder, encoder, reencoder and rebuilder merged into one program
 //Copyright (C) 2020 IC
 #include <iostream>
 #include <fstream>
