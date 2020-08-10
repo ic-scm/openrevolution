@@ -237,6 +237,20 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                 } else { if(debugLevel>=0) {std::cout << "Invalid ADPC chunk.\n";} return 240;}
             }
             
+            //Copy current state of history samples for the check after decoding (which overwrites history samples).
+            int16_t* check_ADPC_hsamples_1[16];
+            int16_t* check_ADPC_hsamples_2[16];
+            if(debugLevel >= 1 && decodeAudio == 1 && HEAD1_codec == 2) {
+                for(unsigned int c=0; c<HEAD3_num_channels; c++) {
+                    check_ADPC_hsamples_1[c] = new int16_t[HEAD1_total_blocks];
+                    check_ADPC_hsamples_2[c] = new int16_t[HEAD1_total_blocks];
+                    for(unsigned int b=0; b<HEAD1_total_blocks; b++) {
+                        check_ADPC_hsamples_1[c][b] = ADPC_hsamples_1[c][b];
+                        check_ADPC_hsamples_2[c][b] = ADPC_hsamples_2[c][b];
+                    }
+                }
+            }
+            
             //DATA chunk
             magicstr=brstm_getSliceAsString(fileData,DATA_offset,4);
             if(strcmp(magicstr,emagic4) == 0) {
@@ -300,6 +314,33 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                         }
                     }
                 }
+                
+                //History sample check when fully decoding ADPCM files.
+                if(debugLevel >= 1 && decodeAudio == 1 && HEAD1_codec == 2) {
+                    unsigned long hserrorcount = 0;
+                    unsigned long hstotalcount = 0;
+                    for(unsigned int c=0; c<HEAD3_num_channels; c++) {
+                        for(unsigned int b=1; b<HEAD1_total_blocks; b++) {
+                            if(
+                                (check_ADPC_hsamples_1[c][b] < PCM_samples[c][b*HEAD1_blocks_samples - 1] - 128) ||
+                                (check_ADPC_hsamples_1[c][b] > PCM_samples[c][b*HEAD1_blocks_samples - 1] + 128) ||
+                                (check_ADPC_hsamples_2[c][b] < PCM_samples[c][b*HEAD1_blocks_samples - 2] - 128) ||
+                                (check_ADPC_hsamples_2[c][b] > PCM_samples[c][b*HEAD1_blocks_samples - 2] + 128)
+                            ) {hserrorcount++;}
+                            
+                            hstotalcount++;
+                        }
+                        delete[] check_ADPC_hsamples_1[c];
+                        delete[] check_ADPC_hsamples_2[c];
+                    }
+                    
+                    if(hserrorcount == 0) {
+                        std::cout << "History samples seem to be correct.\n";
+                    } else {
+                        std::cout << hserrorcount << " out of " << hstotalcount << " history samples seem to be incorrect.\n";
+                    }
+                }
+                
                 //end
                 
             } else { if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";} return 230;}
