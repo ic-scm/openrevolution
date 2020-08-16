@@ -43,7 +43,7 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     }
     magicstr = brstm_getSliceAsString(fileData,INFO_offset,4);
     if(strcmp(magicstr,emagic2) != 0) {
-        if(debugLevel>=0) {std::cout << "Invalid INFO chunk.";}
+        if(debugLevel>=0) {std::cout << "Invalid INFO chunk.\n";}
         return 250;
     }
     //INFO header (offsets to other chunks in INFO)
@@ -127,7 +127,7 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     if(brstmi->codec == 2 && SEEK_offset != (uint32_t)-1) {
         magicstr = brstm_getSliceAsString(fileData,SEEK_offset,4);
         if(strcmp(magicstr,emagic3) != 0) {
-            if(debugLevel>=0) {std::cout << "Invalid SEEK chunk.";}
+            if(debugLevel>=0) {std::cout << "Invalid SEEK chunk.\n";}
             return 240;
         }
         
@@ -167,7 +167,7 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     }
     magicstr = brstm_getSliceAsString(fileData,DATA_offset,4);
     if(strcmp(magicstr,emagic4) != 0) {
-        if(debugLevel>=0) {std::cout << "Invalid DATA chunk.";}
+        if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";}
         return 230;
     }
     
