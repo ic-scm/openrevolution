@@ -25,13 +25,43 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
         BOM = 0; //Little endian
     }
     
-    uint32_t INFO_offset = brstm_getSliceAsNumber(fileData,0x18,4,BOM);
-    //uint32_t INFO_size   = brstm_getSliceAsNumber(fileData,0x1C,4,BOM);
-    uint32_t SEEK_offset = brstm_getSliceAsNumber(fileData,0x24,4,BOM);
-    //uint32_t SEEK_size   = brstm_getSliceAsNumber(fileData,0x28,4,BOM);
-    uint32_t DATA_offset = brstm_getSliceAsNumber(fileData,0x30,4,BOM);
-    //uint32_t DATA_size   = brstm_getSliceAsNumber(fileData,0x34,4,BOM);
-    
+    //Get all chunk offsets correctly.
+    uint16_t num_file_chunks = brstm_getSliceAsNumber(fileData,0x10,2,BOM);
+    uint32_t INFO_offset = -1; //Marker 0x4000
+    uint32_t SEEK_offset = -1; //Marker 0x4001
+    uint32_t DATA_offset = -1; //Marker 0x4002
+    uint32_t REGN_offset = -1; //Marker 0x4003 - This chunk is unsupported and will be ignored.
+    for(unsigned int c=0; c<num_file_chunks; c++) {
+        uint16_t chunk_marker = brstm_getSliceAsNumber(fileData,(12*c)+0x14,2,BOM);
+        uint32_t chunk_offset = brstm_getSliceAsNumber(fileData,(12*c)+0x14+4,4,BOM);
+        switch(chunk_marker) {
+            case 0x4000: {
+                INFO_offset = chunk_offset;
+                break;
+            }
+            case 0x4001: {
+                SEEK_offset = chunk_offset;
+                break;
+            }
+            case 0x4002: {
+                DATA_offset = chunk_offset;
+                break;
+            }
+            case 0x4003: {
+                if(debugLevel>=0) {
+                    std::cout << "Warning: REGN chunk is not supported and will be ignored.\n";
+                }
+                REGN_offset = chunk_offset;
+                break;
+            }
+            default: {
+                if(debugLevel>=0) {
+                    std::cout << "Warning: Unrecognized chunk with code 0x" << std::hex << chunk_marker << std::dec << ".\n";
+                }
+                break;
+            }
+        }
+    }
     
     //INFO chunk
     if(INFO_offset == (uint32_t)-1) {
@@ -153,6 +183,7 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
     }
     if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: BCSTM track information is guessed\n";}
     
+    //TODO: REGN chunk?
     
     //DATA chunk
     if(DATA_offset == (uint32_t)-1) {
