@@ -4,8 +4,6 @@
 //This is mostly shared code with the BFSTM reader, the two formats are very similar.
 
 unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
-    if(debugLevel>=0) {std::cout << "BCSTM is not implemented yet.\n";}
-    
     bool &BOM = brstmi->BOM;
     
     //BCSTM file magic words
@@ -118,15 +116,16 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
     for(unsigned int c=0;c<brstmi->num_channels;c++) {
         brstmi->ADPCM_hsamples_1[c] = new int16_t[brstmi->total_blocks];
         brstmi->ADPCM_hsamples_2[c] = new int16_t[brstmi->total_blocks];
+        brstmi->ADPCM_hsamples_1[c][0] = 0;
+        brstmi->ADPCM_hsamples_2[c][0] = 0;
     }
-    if(SEEK_offset != (uint32_t)-1) {
+    if(brstmi->codec == 2 && SEEK_offset != (uint32_t)-1) {
         magicstr = brstm_getSliceAsString(fileData,SEEK_offset,4);
         if(strcmp(magicstr,emagic3) != 0) {
             if(debugLevel>=0) {std::cout << "Invalid SEEK chunk.";}
             return 240;
         }
         
-        //History samples broken in BFSTM for some dumb reason....
         /*
         uint32_t offptr = SEEK_offset + 8;
         for(unsigned long b=0;b<brstmi->total_blocks;b++) {

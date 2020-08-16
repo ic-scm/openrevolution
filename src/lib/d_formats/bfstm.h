@@ -1,6 +1,8 @@
 //OpenRevolution BFSTM reader
 //Copyright (C) 2020 IC
 
+//This is mostly shared code with the BCSTM reader, the two formats are very similar.
+
 unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
     bool &BOM = brstmi->BOM;
     
@@ -119,8 +121,10 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     for(unsigned int c=0;c<brstmi->num_channels;c++) {
         brstmi->ADPCM_hsamples_1[c] = new int16_t[brstmi->total_blocks];
         brstmi->ADPCM_hsamples_2[c] = new int16_t[brstmi->total_blocks];
+        brstmi->ADPCM_hsamples_1[c][0] = 0;
+        brstmi->ADPCM_hsamples_2[c][0] = 0;
     }
-    if(SEEK_offset != (uint32_t)-1) {
+    if(brstmi->codec == 2 && SEEK_offset != (uint32_t)-1) {
         magicstr = brstm_getSliceAsString(fileData,SEEK_offset,4);
         if(strcmp(magicstr,emagic3) != 0) {
             if(debugLevel>=0) {std::cout << "Invalid SEEK chunk.";}
