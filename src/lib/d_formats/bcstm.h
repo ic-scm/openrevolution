@@ -126,7 +126,6 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
             return 240;
         }
         
-        /*
         uint32_t offptr = SEEK_offset + 8;
         for(unsigned long b=0;b<brstmi->total_blocks;b++) {
             for(unsigned int c=0;c<brstmi->num_channels;c++) {
@@ -136,7 +135,7 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
                 offptr += 2;
             }
         }
-        */
+        
     }
     
     //Write standard track information
