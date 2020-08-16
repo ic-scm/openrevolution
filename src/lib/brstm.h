@@ -320,7 +320,7 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     
     //Fail on unsupported codecs
     if(brstmi->codec > 2) {
-        std::cout << brstm_getCodecString(brstmi) << " codec is not supported.\n";
+        if(debugLevel >= 0) {std::cout << brstm_getCodecString(brstmi) << " codec is not supported.\n";}
         return 220;
     }
     
