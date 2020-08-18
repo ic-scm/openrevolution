@@ -322,10 +322,10 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                     for(unsigned int c=0; c<HEAD3_num_channels; c++) {
                         for(unsigned int b=1; b<HEAD1_total_blocks; b++) {
                             if(
-                                (check_ADPC_hsamples_1[c][b] < PCM_samples[c][b*HEAD1_blocks_samples - 1] - 128) ||
-                                (check_ADPC_hsamples_1[c][b] > PCM_samples[c][b*HEAD1_blocks_samples - 1] + 128) ||
-                                (check_ADPC_hsamples_2[c][b] < PCM_samples[c][b*HEAD1_blocks_samples - 2] - 128) ||
-                                (check_ADPC_hsamples_2[c][b] > PCM_samples[c][b*HEAD1_blocks_samples - 2] + 128)
+                                (check_ADPC_hsamples_1[c][b] < PCM_samples[c][b*HEAD1_blocks_samples - 1] - 256) ||
+                                (check_ADPC_hsamples_1[c][b] > PCM_samples[c][b*HEAD1_blocks_samples - 1] + 256) ||
+                                (check_ADPC_hsamples_2[c][b] < PCM_samples[c][b*HEAD1_blocks_samples - 2] - 256) ||
+                                (check_ADPC_hsamples_2[c][b] > PCM_samples[c][b*HEAD1_blocks_samples - 2] + 256)
                             ) {hserrorcount++;}
                             
                             hstotalcount++;
