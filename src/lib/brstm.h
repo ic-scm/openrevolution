@@ -51,7 +51,7 @@ struct Brstm {
     bool BOM = 0;
     //File type, 1 = BRSTM, see above for full list
     unsigned int  file_format   = 0;
-    //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM
+    //Audio codec, 0 = PCM8, 1 = PCM16, 2 = DSPADPCM, see above for full list
     unsigned int  codec         = 0;
     bool          loop_flag     = 0;
     unsigned int  num_channels  = 0;
@@ -66,7 +66,7 @@ struct Brstm {
     unsigned long final_block_samples = 0;
     unsigned long final_block_size_p  = 0;
     
-    //track information
+    //Track information
     unsigned int  num_tracks      = 0;
     unsigned int  track_desc_type = 0;
     unsigned int  track_num_channels[8] = {0,0,0,0,0,0,0,0};
@@ -89,7 +89,7 @@ struct Brstm {
     unsigned long  encoded_file_size = 0;
     
     //Things you probably shouldn't touch
-    //block cache
+    //Block cache
     int16_t* PCM_blockbuffer[16];
     int PCM_blockbuffer_currentBlock = -1;
     bool getbuffer_useBuffer = true;
@@ -156,7 +156,10 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
             return -1;
         }
         case 2: {
-            //BCSTM (unsupported)
+            //BCSTM
+            if(num >= 0 && num < 4) {
+                return num;
+            }
             return -1;
         }
         case 3: {
@@ -420,7 +423,7 @@ void brstm_getbuffer(Brstm * brstmi,const unsigned char* fileData,unsigned long 
     brstm_getbuffer_main(brstmi,fileData,0,sampleOffset,bufferSamples);
 }
 
-//don't do void* kids
+//BRSTM file fstream object to be passed to other functions because passing through void* never worked.
 std::ifstream* brstm_ifstream;
 
 void brstm_fstream_getbuffer(Brstm * brstmi,std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples) {
