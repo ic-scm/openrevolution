@@ -10,7 +10,7 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 | Format       | Read                | Write               |
 |:------------ |:-------------------:|:-------------------:|
 | BRSTM        | Yes                 | Yes (only ADPCM)    |
-| BCSTM        | No                  | No                  |
+| BCSTM        | Yes                 | No                  |
 | BFSTM        | Yes                 | No                  |
 | BWAV         | Yes                 | Yes                 |
 
@@ -28,7 +28,7 @@ Usage guides:
 - [kenrick95/nikku](https://github.com/kenrick95/nikku) and [BrawlLib](https://github.com/libertyernie/brawltools): DSPADPCM decoder reference
 - [jackoalan/gc-dspadpcm-encode](https://github.com/jackoalan/gc-dspadpcm-encode): DSPADPCM encoder
 - [gota7](https://gota7.github.io/Citric-Composer/specs/binaryWav.html): BWAV file structure reference
-- [mk8.tockdom.com](http://mk8.tockdom.com/wiki/BFSTM_\(File_Format\)): BFSTM file structure reference
+- [mk8.tockdom.com](http://mk8.tockdom.com/wiki/BFSTM_\(File_Format\)) and [3dbrew.org](https://www.3dbrew.org/wiki/BCSTM): BCSTM/BFSTM file structure reference (the two formats are almost the same)
 - [Gianmarco Gargiulo](https://gianmarco.ga/): Logo
 - [RtAudio](https://github.com/thestk/rtaudio): RtAudio library
 
