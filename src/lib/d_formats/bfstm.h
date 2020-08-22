@@ -210,7 +210,8 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
             //Create new array of samples for the current channel
             switch(decodeAudio) {
                 case 1: brstmi->PCM_samples[c] = new int16_t[brstmi->total_samples]; break;
-                case 2: brstmi->ADPCM_data [c] = new unsigned char[brstm_getBytesForAdpcmSamples(brstmi->total_samples)]; break;
+                //Adding 1024 bytes of safe space because Nintendo sometimes can't make proper files in their own formats.
+                case 2: brstmi->ADPCM_data [c] = new unsigned char[brstm_getBytesForAdpcmSamples(brstmi->total_samples)+1024]; break;
             }
             
             posOffset=0+(brstmi->blocks_size*c);
