@@ -193,14 +193,19 @@ unsigned char brstm_formats_read_bfstm(Brstm* brstmi,const unsigned char* fileDa
     //TODO: REGN chunk?
     
     //DATA chunk
-    if(DATA_offset == (uint32_t)-1) {
-        if(debugLevel>=0) {std::cout << "DATA chunk does not exist.\n";}
-        return 230;
-    }
-    magicstr = brstm_getSliceAsString(fileData,DATA_offset,4);
-    if(strcmp(magicstr,emagic4) != 0) {
-        if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";}
-        return 230;
+    //Do not read the DATA chunk header when not decoding audio, when using brstm_fstream this would cause an error
+    //when reading files with a REGN chunk because the fstream reader is not smart enough to read the offsets correctly,
+    //and will only give the data of the file until the REGN chunk.
+    if(decodeAudio) {
+        if(DATA_offset == (uint32_t)-1) {
+            if(debugLevel>=0) {std::cout << "DATA chunk does not exist.\n";}
+            return 230;
+        }
+        magicstr = brstm_getSliceAsString(fileData,DATA_offset,4);
+        if(strcmp(magicstr,emagic4) != 0) {
+            if(debugLevel>=0) {std::cout << "Invalid DATA chunk.\n";}
+            return 230;
+        }
     }
     
     if(decodeAudio) {
