@@ -26,6 +26,7 @@
  *      249 = Too many channels
  *      248 = Too many tracks
  *      244 = Unknown track info type
+ *      222 = Cannot write raw ADPCM data because the codec is not ADPCM
  *      220 = Unsupported or unknown audio codec
  *      210 = Invalid or unsupported file format
  *      200 = Unknown error (this should never happen)
@@ -49,6 +50,11 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
     if(!(brstmi->track_desc_type >= 0 && brstmi->track_desc_type <= 1)) {
         if(debugLevel>=0) std::cout << "Invalid track description type.\n";
         return 244;
+    }
+    //Trying to write ADPCM data when codec is not ADPCM
+    if(encodeADPCM == 0 && brstmi->codec != 2) {
+        if(debugLevel>=0) {std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";}
+        return 222;
     }
     
     unsigned char encres = 0;
