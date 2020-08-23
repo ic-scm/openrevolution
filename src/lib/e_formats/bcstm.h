@@ -146,6 +146,8 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi,signed int de
                     HS1[c][b] = brstmi->PCM_samples[c][(b*brstmi->blocks_samples)-1];
                     HS2[c][b] = brstmi->PCM_samples[c][(b*brstmi->blocks_samples)-2];
                 }
+                //Calculate ADPCM coefs for channel
+                DSPCorrelateCoefs(brstmi->PCM_samples[c],brstmi->total_samples,brstmi->ADPCM_coefs[c]);
             }
         } else {
             for(unsigned char c=0;c<brstmi->num_channels;c++) {
@@ -279,16 +281,67 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi,signed int de
         }
     }
     
-    //Track info
+    //Track info, unsupported
     if(info_subchunks_to_write[1]) {
         //info_subchunk_offsets[1] = bufpos - (INFOchunkoffset + 8);
         if(debugLevel>=0) std::cout << "Warning: Writing track information is not currently supported.\n";
     }
     
     //Channel info
+    uint32_t chinfo_ips_offsets[brstmi->num_channels];
+    uint32_t chinfo_lps_offsets[brstmi->num_channels];
     if(info_subchunks_to_write[2]) {
         info_subchunk_offsets[2] = bufpos - (INFOchunkoffset + 8);
+        //Channel info reference table.
+        uint32_t struct_beg = bufpos;
+        //Number of references (channels)
+        brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->num_channels,4,BOM),4,bufpos);
+        //References
+        uint32_t chinfo_ref_table_offsets[brstmi->num_channels];
+        for(unsigned int c=0; c<brstmi->num_channels; c++) {
+            //Section code
+            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(0x4102,2,BOM),2,bufpos);
+            //Padding
+            brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos);
+            //Offset to channel info reference, will be written later
+            chinfo_ref_table_offsets[c] = bufpos;
+            brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
+        }
         
+        //Second references...
+        uint32_t chinfo_ref2_offsets[brstmi->num_channels];
+        uint32_t chinfo_ref2_begs[brstmi->num_channels];
+        for(unsigned int c=0; c<brstmi->num_channels; c++) {
+            chinfo_ref2_begs[c] = bufpos;
+            //Write the offset to first reference table
+            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(bufpos-struct_beg,4,BOM),4,off=chinfo_ref_table_offsets[c]);
+            //Section code
+            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(0x0300,2,BOM),2,bufpos);
+            //Padding
+            brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos);
+            //Offset to actual channel info, will be written later
+            chinfo_ref2_offsets[c] = bufpos;
+            brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
+        }
+        
+        //Actual channel information
+        for(unsigned int c=0; c<brstmi->num_channels; c++) {
+            //Write the offset to second references
+            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(bufpos-chinfo_ref2_begs[c],4,BOM),4,off=chinfo_ref2_offsets[c]);
+            //ADPCM coefs
+            for(unsigned int a=0; a<16; a++) {
+                brstm_encoder_writebytes(buffer,brstm_encoder_getByteInt16(brstmi->ADPCM_coefs[c][a],BOM),2,bufpos);
+            }
+            chinfo_ips_offsets[c] = bufpos;
+            brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Initial predictor scale, will be written later
+            brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS1, always zero
+            brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS2, always zero
+            chinfo_lps_offsets[c] = bufpos;
+            brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop predictor scale, will be written later
+            brstm_encoder_writebytes  (buffer,brstm_encoder_getByteInt16(LoopHS1[c],BOM),2,bufpos); //Loop HS1
+            brstm_encoder_writebytes  (buffer,brstm_encoder_getByteInt16(LoopHS2[c],BOM),2,bufpos); //Loop HS2
+            brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Padding
+        }
     }
     
     //Finalize INFO chunk
