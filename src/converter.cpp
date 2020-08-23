@@ -171,7 +171,7 @@ void extendPCMSamples(Brstm* brstm,unsigned long newSampleCount) {
         delete[] brstm->PCM_samples[c];
         brstm->PCM_samples[c] = newPCMsamples;
     }
-    brstm->loop_start = newSampleCount - brstm->total_samples + brstm->loop_start;
+    if(brstm->loop_flag) brstm->loop_start = newSampleCount - brstm->total_samples + brstm->loop_start;
     brstm->total_samples = newSampleCount;
 }
 
@@ -357,7 +357,9 @@ int main(int argc, char** args) {
     if(optused[2]) {
         unsigned long lp = atoi(optargstr[2]);
         if(lp == (unsigned long)(-1)) {
-            userLoop = 0;
+            userLoop = 1;
+            userLoopFlag  = 0;
+            userLoopPoint = 0;
         } else {
             userLoop = 1;
             userLoopFlag  = 1;
