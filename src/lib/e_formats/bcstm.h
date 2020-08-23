@@ -389,6 +389,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi,signed int de
     
     
     //DATA chunk
+    if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing audio data...                   " << std::flush;
     uint32_t DATAchunkoffset;
     uint32_t DATAchunksize;
     uint32_t data_audio_beg;
@@ -401,6 +402,91 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi,signed int de
         brstm_encoder_writebyte(buffer,0,bufpos);
     }
     data_audio_beg = bufpos - (DATAchunkoffset + 8);
+    
+    //Encode / write audio
+    if(brstmi->codec != 2 && debugLevel>=0) {std::cout << "Warning: PCM " << eformat_s[eformat] << " encoding is untested\n";}
+    //DSPADPCM
+    unsigned char** ADPCMdata;
+    if(brstmi->codec == 2) {
+        if(encodeADPCM == 1) {
+            ADPCMdata = new unsigned char* [brstmi->num_channels];
+            for(unsigned int c=0;c<brstmi->num_channels;c++) {
+                ADPCMdata[c] = new unsigned char[brstm_getBytesForAdpcmSamples(brstmi->total_samples)];
+            }
+            brstm_encode_adpcm(brstmi,ADPCMdata,debugLevel);
+        } else {
+            ADPCMdata = brstmi->ADPCM_data;
+        }
+        //Write ADPCM information to channel information in INFO chunk
+        for(unsigned int c=0;c<brstmi->num_channels;c++) {
+            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCMdata[c][0],2,BOM),2,off=chinfo_ips_offsets[c]); //Initial scale
+            brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(ADPCMdata[c][(unsigned long)(brstmi->loop_start / 1.75)],2,BOM),2,off=chinfo_lps_offsets[c]); //Loop initial scale
+        }
+    }
+    //Write audio data to output file buffer
+    for(unsigned long b=0;b<brstmi->total_blocks-1;b++) {
+        for(unsigned int c=0;c<brstmi->num_channels;c++) {
+            switch(brstmi->codec) {
+                //4-bit DSPADPCM
+                case 2: {
+                    brstm_encoder_writebytes(buffer,&ADPCMdata[c][b*brstmi->blocks_size],brstmi->blocks_size,bufpos);
+                    break;
+                }
+                //8-bit PCM
+                case 0: {
+                    for(unsigned int i=0; i<brstmi->blocks_samples; i++) {
+                        brstm_encoder_writebyte(buffer,(brstmi->PCM_samples[c][b*brstmi->blocks_samples+i]+32768)/256,bufpos);
+                    }
+                    break;
+                }
+                //16-bit PCM
+                case 1: {
+                    for(unsigned int i=0; i<brstmi->blocks_samples; i++) {
+                        brstm_encoder_writebytes(
+                            buffer,brstm_encoder_getByteInt16(brstmi->PCM_samples[c][b*brstmi->blocks_samples+i],BOM),2,bufpos
+                        );
+                        if(!(b%4) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing PCM data... ("
+                        << floor(((float)(b*brstmi->blocks_samples+i)/brstmi->total_samples) * 100) << "%)          ";
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    //Final block
+    for(unsigned int c=0;c<brstmi->num_channels;c++) {
+        unsigned int i=brstmi->final_block_size;
+        switch(brstmi->codec) {
+            //4-bit DSPADPCM
+            case 2: {
+                brstm_encoder_writebytes(buffer,&ADPCMdata[c][(brstmi->total_blocks-1)*brstmi->blocks_size],brstmi->final_block_size,bufpos);
+                break;
+            }
+            //8-bit PCM
+            case 0: {
+                for(unsigned int i=0; i<brstmi->final_block_samples; i++) {
+                    brstm_encoder_writebyte(buffer,(brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i]+32768)/256,bufpos);
+                }
+                break;
+            }
+            //16-bit PCM
+            case 1: {
+                for(unsigned int i=0; i<brstmi->final_block_samples; i++) {
+                    brstm_encoder_writebytes(
+                        buffer,brstm_encoder_getByteInt16(brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i],BOM),2,bufpos
+                    );
+                }
+                break;
+            }
+        }
+        if(brstmi->codec == 2 && encodeADPCM == 1) delete[] ADPCMdata[c]; //delete the ADPCM data only if we made it locally
+        //padding
+        while(i<brstmi->final_block_size_p) {
+            brstm_encoder_writebyte(buffer,0x00,bufpos);
+            i++;
+        }
+    }
+    if(brstmi->codec == 2 && encodeADPCM == 1) delete[] ADPCMdata; //delete the ADPCM data only if we made it locally
     
     
     //Finalize DATA chunk
