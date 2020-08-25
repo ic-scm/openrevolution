@@ -70,6 +70,7 @@ struct Brstm {
     unsigned int  num_tracks      = 0;
     unsigned int  track_desc_type = 0;
     unsigned int  track_num_channels[8] = {0,0,0,0,0,0,0,0};
+    //TODO: Add support for more channels per track.
     unsigned int  track_lchannel_id [8] = {0,0,0,0,0,0,0,0};
     unsigned int  track_rchannel_id [8] = {0,0,0,0,0,0,0,0};
     unsigned int  track_volume      [8] = {0,0,0,0,0,0,0,0};
