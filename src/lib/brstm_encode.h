@@ -53,8 +53,26 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
     }
     //Trying to write ADPCM data when codec is not ADPCM
     if(encodeADPCM == 0 && brstmi->codec != 2) {
-        if(debugLevel>=0) {std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";}
+        if(debugLevel>=0) std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
         return 222;
+    }
+    //Validate track information
+    for(unsigned int t=0; t<brstmi->num_tracks; t++) {
+        //Invalid channel count
+        if(brstmi->track_num_channels[t] > 2 || brstmi->track_num_channels == 0) {
+            if(debugLevel>=0) {
+                std::cout << "Invalid track channel count in track " << t << ".\n";
+                if(brstmi->track_num_channels[t] > 2) {
+                    std::cout << "Creating tracks with more than 2 channels is not currently supported.\n";
+                }
+            }
+            return 244;
+        }
+        //Invalid channel
+        if(brstmi->track_lchannel_id[t] >= brstmi->num_channels || brstmi->track_rchannel_id[t] >= brstmi->num_channels) {
+            if(debugLevel>=0) std::cout << "Invalid channel ID in track " << t << ".\n";
+            return 244;
+        }
     }
     
     unsigned char encres = 0;
