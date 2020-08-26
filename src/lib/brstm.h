@@ -132,7 +132,7 @@ const char* brstm_getErrorString(unsigned char code) {
         case 250: return invalidfile;
         case 249: return "Too many channels";
         case 248: return "Too many tracks";
-        case 244: return "Unknown track description type";
+        case 244: return "Invalid track information";
         case 240: return invalidfile;
         case 230: return invalidfile;
         case 222: return "Cannot write raw ADPCM data because the codec is not ADPCM";
@@ -208,7 +208,7 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
  *      250 = Invalid HEAD chunk (Doesn't begin with HEAD)
  *      249 = Too many channels
  *      248 = Too many tracks
- *      244 = Unknown track info type
+ *      244 = Invalid track information
  *      240 = Invalid ADPC chunk (Doesn't begin with ADPC)
  *      230 = Invalid DATA chunk (Doesn't begin with DATA)
  *      222 = Cannot write raw ADPCM data because the codec is not ADPCM

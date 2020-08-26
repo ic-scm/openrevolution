@@ -25,7 +25,7 @@
  *        0 = No error
  *      249 = Too many channels
  *      248 = Too many tracks
- *      244 = Unknown track info type
+ *      244 = Invalid track information
  *      222 = Cannot write raw ADPCM data because the codec is not ADPCM
  *      220 = Unsupported or unknown audio codec
  *      210 = Invalid or unsupported file format

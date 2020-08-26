@@ -88,7 +88,7 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
     }
     //INFO header (offsets to other chunks in INFO)
     int32_t INFO_stream_offset  = brstm_getSliceAsNumber(fileData,0x0C+INFO_offset,4,BOM);
-    //int32_t INFO_track_offset   = brstm_getSliceAsNumber(fileData,0x14+INFO_offset,4,BOM);
+    int32_t INFO_track_offset   = brstm_getSliceAsNumber(fileData,0x14+INFO_offset,4,BOM);
     int32_t INFO_channel_offset = brstm_getSliceAsNumber(fileData,0x1C+INFO_offset,4,BOM);
     
     //Stream info
@@ -124,7 +124,73 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
         }
     }
     
-    //TODO the weird track info chunk
+    //Track info
+    if(INFO_track_offset != -1) {
+        INFO_track_offset += INFO_offset + 8;
+        //Reference table
+        uint32_t num_references = brstm_getSliceAsNumber(fileData,0x00+INFO_track_offset,4,BOM);
+        if(num_references > 8) {
+            if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";}
+            return 248;
+        }
+        
+        brstmi->num_tracks = num_references;
+        brstmi->track_desc_type = 1;
+        
+        //Information
+        int32_t offsets[num_references];
+        //True if a track with more than 2 channels was found.
+        bool unsupported_track_flag = 0;
+        for(uint32_t i=0; i<num_references; i++) {
+            //Get offset from reference table
+            offsets[i] = brstm_getSliceAsNumber(fileData,0x08*i+0x08+INFO_track_offset,4,BOM);
+            if(offsets[i] == -1) {
+                if(debugLevel>=0) {std::cout << "Invalid track information.\n";}
+                return 244;
+            }
+            //Read data
+            brstmi->track_volume [i] = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+0x00,1,BOM);
+            brstmi->track_panning[i] = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+0x01,1,BOM);
+            //Channel index
+            int32_t chindex_offset = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+0x08,4,BOM);
+            if(chindex_offset == -1) {
+                if(debugLevel>=0) {std::cout << "Invalid track information.\n";}
+                return 244;
+            }
+            uint32_t chindex_count = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+chindex_offset+0x00,4,BOM);
+            if(chindex_count == 0) {
+                if(debugLevel>=0) {std::cout << "Invalid track information.\n";}
+                return 244;
+            }
+            if(chindex_count > 2) {
+                unsupported_track_flag = 1;
+                chindex_count = 2;
+            }
+            brstmi->track_num_channels[i] = chindex_count;
+            brstmi->track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+chindex_offset+0x04,1,BOM);
+            if(chindex_count >= 2) brstmi->track_rchannel_id[i] = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+chindex_offset+0x05,1,BOM);
+        }
+        
+        if(unsupported_track_flag) {
+            if(debugLevel>=0) {std::cout << "Warning: This " << eformat_s[eformat] << " file has a track with more than 2 channels which is not currently supported.\n";}
+        }
+    }
+    //Guess and write standard track information if the track information subchunk does not exist.
+    else {
+        brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
+        if(brstmi->num_tracks > 8) {
+            if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";}
+            return 248;
+        }
+        unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
+        brstmi->track_desc_type = 0;
+        for(unsigned char c=0; c<brstmi->num_channels; c++) {
+            brstmi->track_num_channels[c/track_num_channels] = track_num_channels;
+            if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
+            if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
+        }
+        if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: " << eformat_s[eformat] << " track information is guessed\n";}
+    }
     
     //Channel info
     if(INFO_channel_offset != -1) {
@@ -182,21 +248,6 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
         }
         
     }
-    
-    //Write standard track information
-    brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
-    if(brstmi->num_tracks > 8) {
-        if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";}
-        return 248;
-    }
-    unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
-    brstmi->track_desc_type = 0;
-    for(unsigned char c=0; c<brstmi->num_channels; c++) {
-        brstmi->track_num_channels[c/track_num_channels] = track_num_channels;
-        if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
-        if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
-    }
-    if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: " << eformat_s[eformat] << " track information is guessed\n";}
     
     //TODO: REGN chunk?
     
