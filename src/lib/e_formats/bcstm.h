@@ -14,18 +14,14 @@ unsigned char brstm_formats_encode_bcstm(Brstm* brstmi, signed int debugLevel, u
 
 //bool eformat: 0 = BCSTM, 1 = BFSTM.
 unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool eformat) {
-    if(eformat == 1) {
-        std::cout << "BFSTM encoder is not implemented yet.\n";
-        return 210;
-    }
-    if(debugLevel>=0) {std::cout << "BCSTM encoder is currently work in progress.\n";}
-    
     //Strings and other things that change from BCSTM to BFSTM.
     const char* eformat_s[2] = {"BCSTM","BFSTM"};
     const char  eformat_l[2] = {'C','F'};
     //Chunk header strings, starting from 0x4000.
     //REGN is not supported.
     const char* chunks_s[4] = {"INFO","SEEK","DATA","REGN"};
+    
+    if(debugLevel>=0) {std::cout << eformat_s[eformat] << " encoder is currently work in progress.\n";}
     
     //Check for invalid requests
     if(brstmi->codec > 3) {
@@ -63,8 +59,13 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     }
     //Header size, will be written later
     brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos);
-    //Version number? TODO: Research more about it and check if it's different in BFSTM
-    uint8_t version[4] = {0x00,0x00,0x00,0x02};
+    //Version number
+    uint8_t version[4] = {0x00,0x00,0x00,0x00};
+    if(eformat == 0) {
+        version[3] = 0x02;
+    } else {
+        version[1] = 0x03;
+    }
     brstm_encoder_writebytes(buffer,version,4,bufpos);
     //File size, will be written later
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
@@ -74,8 +75,8 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos);
     
     //Chunk information
-    //TODO: find a PCM file to see if it has the SEEK chunk here.
     bool chunks_to_write[4] = {1,1,1,0};
+    if(brstmi->codec != 2) chunks_to_write[1] = 0;
     //Writing offsets to chunk offsets and sizes to be finalized later.
     uint32_t chunks_header_offsets[4] = {0,0,0,0};
     uint32_t chunks_header_sizes  [4] = {0,0,0,0};
@@ -264,7 +265,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
         //Sample data offset from beginning of DATA chunk content. Will be written later.
         data_audio_offset_offset = bufpos;
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
-        if(version[2] >= 1) {
+        if(version[2] >= 1 || version[1] >= 1 || version[0] >= 1) {
             //Region info size? Seems to be 0x100 in all files.
             brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(0x100,2,BOM),2,bufpos);
             brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Padding
@@ -275,7 +276,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
             brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0xFF,0xFF,0xFF,0xFF},4,bufpos);
         }
         //"Original" loop start and end in newer files.
-        if(version[1] >= 1) {
+        if((version[1] >= 1 && eformat == 0) || (version[1] >= 4 && eformat == 1) || version[0] >= 1) {
             brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->loop_start,4,BOM),4,bufpos);
             brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->total_samples,4,BOM),4,bufpos);
         }
