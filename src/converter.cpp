@@ -203,9 +203,11 @@ void removeChannels(Brstm* brstm,bool mode) {
             c++;
         }
     }
+    if(brstm->num_channels != newChannelCount) {
+        //make sure new track information will be written
+        if(userTrackChannels == 0) userTrackChannels = brstm->track_num_channels[0];
+    }
     brstm->num_channels = newChannelCount;
-    //make sure new track information will be written
-    if(userTrackChannels == 0) userTrackChannels = brstm->track_num_channels[0];
 }
 
 void readWAV(Brstm* brstm,std::ifstream& stream,std::streampos fsize) {
