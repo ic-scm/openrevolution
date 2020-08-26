@@ -3,9 +3,9 @@
 
 //BCSTM and BFSTM are almost the same, the main encoder function will take a special argument so it can also be used as the BFSTM encoder.
 
-unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM, bool eformat);
+unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool eformat);
 
-unsigned char brstm_formats_encode_bcstm(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM) {
+unsigned char brstm_formats_encode_bcstm(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM) {
     //BCSTM files are usually little endian.
     brstmi->BOM = 0;
     return brstm_formats_multi_encode_bcstm_bfstm(brstmi,debugLevel,encodeADPCM,0);
@@ -13,7 +13,7 @@ unsigned char brstm_formats_encode_bcstm(Brstm* brstmi,signed int debugLevel,uin
 
 
 //bool eformat: 0 = BCSTM, 1 = BFSTM.
-unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM, bool eformat) {
+unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool eformat) {
     if(eformat == 1) {
         std::cout << "BFSTM encoder is not implemented yet.\n";
         return 210;

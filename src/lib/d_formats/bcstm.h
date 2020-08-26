@@ -1,20 +1,31 @@
-//OpenRevolution BCSTM reader
+//OpenRevolution BCSTM/BFSTM reader
 //Copyright (C) 2020 IC
 
-//This is mostly shared code with the BFSTM reader, the two formats are very similar.
+//BCSTM and BFSTM are almost the same, the main reader function will take a special argument so it can also be used as the BFSTM reader.
 
-unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
+unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned char* fileData, signed int debugLevel, uint8_t decodeAudio, bool eformat);
+
+unsigned char brstm_formats_read_bcstm(Brstm* brstmi, const unsigned char* fileData, signed int debugLevel, uint8_t decodeAudio) {
+    return brstm_formats_multi_read_bcstm_bfstm(brstmi,fileData,debugLevel,decodeAudio,0);
+}
+
+//bool eformat: 0 = BCSTM, 1 = BFSTM.
+unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned char* fileData, signed int debugLevel, uint8_t decodeAudio, bool eformat) {
     bool &BOM = brstmi->BOM;
     
-    //BCSTM file magic words
-    const char* emagic1 = "CSTM";
+    //Strings and other things that change from BCSTM to BFSTM.
+    const char* eformat_s[2] = {"BCSTM","BFSTM"};
+    const char  eformat_l[2] = {'C','F'};
+    
+    //BCSTM/BFSTM file magic words
+    const char* emagic1 = (eformat == 1 ? "FSTM" : "CSTM");
     const char* emagic2 = "INFO";
     const char* emagic3 = "SEEK";
     const char* emagic4 = "DATA";
     char* magicstr = brstm_getSliceAsString(fileData,0,4);
     
     if(strcmp(magicstr,emagic1) != 0) {
-        if(debugLevel>=0) {std::cout << "Invalid BCSTM file.\n";}
+        if(debugLevel>=0) {std::cout << "Invalid " << eformat_s[eformat] << " file.\n";}
         return 255;
     }
     
@@ -24,6 +35,8 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
     } else {
         BOM = 0; //Little endian
     }
+    //uint16_t header_size = brstm_getSliceAsNumber(fileData,0x06,2,BOM);
+    //uint32_t file_size       = brstm_getSliceAsNumber(fileData,0x0C,4,BOM);
     
     //Get all chunk offsets correctly.
     uint16_t num_file_chunks = brstm_getSliceAsNumber(fileData,0x10,2,BOM);
@@ -99,6 +112,8 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
         //0x2C: SEEK sample interval?
         //0x30: Sample data flag?
         brstmi->audio_offset = brstm_getSliceAsNumber(fileData,0x34+INFO_stream_offset,4,BOM) + 0x08 + DATA_offset;
+        //0x38: Size of region info?
+        //0x3C -> 0x44: other unkown region info stuff
         if(!(brstmi->codec >= 0 && brstmi->codec < 3)) {
             if(debugLevel>=0) {std::cout << "Unsupported codec.\n";}
             return 220;
@@ -181,7 +196,7 @@ unsigned char brstm_formats_read_bcstm(Brstm* brstmi,const unsigned char* fileDa
         if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
         if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
     }
-    if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: BCSTM track information is guessed\n";}
+    if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: " << eformat_s[eformat] << " track information is guessed\n";}
     
     //TODO: REGN chunk?
     
