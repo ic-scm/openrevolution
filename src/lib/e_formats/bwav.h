@@ -21,7 +21,6 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     }
     
     bool &BOM = brstmi->BOM;
-    BOM = 0; //Little Endian
     char spinner = '/';
     uint32_t CRCsum = 0xFFFFFFFF;
     
@@ -37,8 +36,15 @@ unsigned char brstm_formats_encode_bwav(Brstm* brstmi,signed int debugLevel,uint
     //Header
     //Magic word
     brstm_encoder_writebytes(buffer,(unsigned char*)"BWAV",4,bufpos);
-    //Byte Order Mark (LE) and version
-    brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0xFF,0xFE,0x01,0x00},4,bufpos);
+    //Byte order mark
+    switch(BOM) {
+        //LE
+        case 0: brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0xFF,0xFE},2,bufpos); break;
+        //BE
+        case 1: brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0xFE,0xFF},2,bufpos); break;
+    }
+    //Version
+    brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x01,0x00},2,bufpos);
     //CRC32 hash (will be actually written later)
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
     //Padding

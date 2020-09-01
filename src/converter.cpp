@@ -15,14 +15,14 @@
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM/WAV/other converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n";
+const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","--ffmpeg","--reencode","--extend","--oCodec","-kc"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels"};
-const unsigned int optcount = 9;
-const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1};
+const char* opts[] = {"-v","-o","-l","-c","-ffmpeg","-reencode","-extend","-oCodec","-kc","-oEndian"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels","--oEndian"};
+const unsigned int optcount = 10;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1,1};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -52,6 +52,8 @@ const char* ffmpegArgs;
 unsigned long extendSampleCount = 0;
 
 int userCodec = -1;
+
+int userEndian = -1;
 
 //Modified functions from brstm_encode.h, used to write WAV files
 void writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
@@ -389,6 +391,10 @@ int main(int argc, char** args) {
             if(optargstr[8][i] == '0') keepChannels[i] = 0;
         }
     }
+    //Custom byte order
+    if(optused[9]) {
+        userEndian = (bool)atoi(optargstr[9]);
+    }
     
     //Safety
     if(extendSampleCount > 80000000) {
@@ -441,6 +447,7 @@ int main(int argc, char** args) {
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in decoding mode.\n"; exit(255);}
         if(userTrackChannels) {std::cout << "You cannot use the track channel count option in decoding mode.\n"; exit(255);}
         if(userCodec != -1) {std::cout << "You cannot use the output codec option in decoding mode.\n"; exit(255);}
+        if(userEndian != -1) {std::cout << "You cannot use the output endian option in decoding mode.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
         
@@ -522,12 +529,20 @@ int main(int argc, char** args) {
                 extendPCMSamples(brstm,extendSampleCount);
             }
             
-            if(verb) std::cout << "Looping BRSTM: " << brstm->loop_flag << "\nLoop point: " << brstm->loop_start << "\nStereo BRSTM: " << (int)brstmStereoTracks << "\nTracks: " << brstm->num_tracks << "\n";
+            if(verb) std::cout
+                << "Looping BRSTM: " << brstm->loop_flag
+                << "\nLoop point: " << brstm->loop_start
+                << "\nTracks: " << brstm->num_tracks << "\n";
+            
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Encode
-            unsigned char res = brstm_encode(brstm,1,1);
+            unsigned char res;
+            //Use default byte order
+            if(userEndian == -1) res = brstm_encode(brstm,1,1);
+            //Use custom byte order
+            else res = brstm_encode(brstm,1,1,userEndian);
             if(res>127) {
                 std::cout << "BRSTM encode error " << (int)res << ".\n";
                 exit(res);
@@ -592,7 +607,6 @@ int main(int argc, char** args) {
                 << "Output:"
                 << "\n  Looping BRSTM: " << brstm->loop_flag
                 << "\n  Loop point: " << brstm->loop_start
-                << "\n  Stereo BRSTM: " << (int)brstmStereoTracks
                 << "\n  Tracks: " << brstm->num_tracks
                 << "\n";
             
@@ -600,7 +614,11 @@ int main(int argc, char** args) {
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Build new file
-            unsigned char res = brstm_encode(brstm,1,0);
+            unsigned char res;
+            //Use default byte order
+            if(userEndian == -1) res = brstm_encode(brstm,1,0);
+            //Use custom byte order
+            else res = brstm_encode(brstm,1,0,userEndian);
             if(res>127) {
                 std::cout << "BRSTM encode error " << (int)res << ".\n";
                 exit(res);
@@ -759,7 +777,6 @@ int main(int argc, char** args) {
                 << "Output:"
                 << "\n  Looping BRSTM: " << brstm->loop_flag
                 << "\n  Loop point: " << brstm->loop_start
-                << "\n  Stereo BRSTM: " << (int)brstmStereoTracks
                 << "\n  Tracks: " << brstm->num_tracks
                 << "\n";
             
@@ -767,7 +784,11 @@ int main(int argc, char** args) {
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Encode new file
-            unsigned char res = brstm_encode(brstm,1,1);
+            unsigned char res;
+            //Use default byte order
+            if(userEndian == -1) res = brstm_encode(brstm,1,1);
+            //Use custom byte order
+            else res = brstm_encode(brstm,1,1,userEndian);
             if(res>127) {
                 std::cout << "BRSTM encode error " << (int)res << ".\n";
                 exit(res);

@@ -264,6 +264,11 @@ Console debug level:
 Encode ADPCM flag:
  0 = Use the ADPCM data from ADPCM_data (requires coefs in ADPCM_coefs[ch][coef])
  1 = Use PCM_samples (and encode into ADPCM)
+ 
+(Optional) Byte order for the output file:
+ 0 = Little endian
+ 1 = Big endian
+If not used, the default for the chosen file format will be used. 
 
 Returns error code (>127) or warning code (<128)
 (see brstm_encode.h file for full list of error/warning codes). (unsigned char)

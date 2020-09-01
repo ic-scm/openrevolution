@@ -12,7 +12,6 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     }
     
     bool &BOM = brstmi->BOM;
-    BOM = 1; //Big Endian
     char spinner = '/';
     
     if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Starting BRSTM encode...                " << std::flush;
@@ -28,8 +27,15 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     
     //Header
     brstm_encoder_writebytes(buffer,(unsigned char*)"RSTM",4,bufpos);
-    //Big endian byte order mark and version
-    brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0xFE,0xFF,0x01,0x00},4,bufpos);
+    //Byte order mark
+    switch(BOM) {
+        //LE
+        case 0: brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0xFF,0xFE},2,bufpos); break;
+        //BE
+        case 1: brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0xFE,0xFF},2,bufpos); break;
+    }
+    //Version
+    brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x01,0x00},2,bufpos);
     //File size (will be actually written later)
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
     //Header size, number of chunks

@@ -22,6 +22,8 @@ const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70
 //Offset to the codec information and their sizes in each format
 const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14,0x60,0x60,0x60,0x10,0x00};
 const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1,1,1,1,2,1};
+//Default byte order for formats (used in encoder)
+const bool BRSTM_formats_default_endian[BRSTM_formats_count] = {0,1,0,1,0,0};
 //Short human readable strings (equal to file extension)
 const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"WAV","BRSTM","BCSTM","BFSTM","BWAV","ORSTM"};
 //Long human readable strings
@@ -274,7 +276,8 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     //BRSTM reader has it's own logger
     if(brstmi->file_format != 1) {
         if(debugLevel>0) {std::cout
-            << "Codec: " << brstm_getCodecString(brstmi)
+            << "Byte order: " << (BOM == 1 ? "Big endian" : "Little endian")
+            << "\nCodec: " << brstm_getCodecString(brstmi)
             << "\nLoop: " << brstmi->loop_flag
             << "\nChannels: " << brstmi->num_channels
             << "\nSample rate: " << brstmi->sample_rate

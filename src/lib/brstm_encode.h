@@ -20,6 +20,10 @@
  * encodeADPCM:
  *     0 = Use ADPCM data from ADPCM_data
  *     1 = Encode PCM_samples to ADPCM
+ * endian (optional):
+ *     Byte order to use for the file, if not used the default for the format will be used.
+ *     0 = LE
+ *     1 = BE
  * 
  * Returns error code (>127) or warning code (<128):
  *        0 = No error
@@ -34,7 +38,8 @@
  * Write your audio data in PCM_samples and other BRSTM header information in the brstm.h variables, more info in README
  * The created file will be in brstm_encoded_data with size brstm_encoded_data_size.
  */
-unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM) {
+unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool endian) {
+    brstmi->BOM = endian;
     //Check for invalid requests
     //Too many tracks
     if(brstmi->num_tracks > 8) {
@@ -99,4 +104,14 @@ unsigned char brstm_encode(Brstm* brstmi,signed int debugLevel,uint8_t encodeADP
     }
     
     return encres;
+}
+
+//No optional byte order argument, and backwards compatibility
+unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM) {
+    //Check for valid file format variable
+    if(brstmi->file_format >= BRSTM_formats_count) {
+        if(debugLevel>=0) std::cout << "Invalid file format.\n";
+        return 210;
+    }
+    return brstm_encode(brstmi, debugLevel, encodeADPCM, BRSTM_formats_default_endian[brstmi->file_format]);
 }

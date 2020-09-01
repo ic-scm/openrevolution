@@ -6,8 +6,6 @@
 unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool eformat);
 
 unsigned char brstm_formats_encode_bcstm(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM) {
-    //BCSTM files are usually little endian.
-    brstmi->BOM = 0;
     return brstm_formats_multi_encode_bcstm_bfstm(brstmi,debugLevel,encodeADPCM,0);
 }
 

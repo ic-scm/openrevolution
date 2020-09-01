@@ -90,7 +90,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
         } else {
             BOM = 0; //Little endian
         }
-        if(debugLevel>1) {std::cout << "BOM: " << (BOM ? "Big endian" : "Little endian") << '\n';}
+        if(debugLevel>0) {std::cout << "Byte order: " << (BOM ? "Big endian" : "Little endian") << '\n';}
         //Start reading header
         file_size   = brstm_getSliceAsNumber(fileData,0x08,4,BOM);
         header_size = brstm_getSliceAsNumber(fileData,0x0C,2,BOM);
