@@ -164,6 +164,11 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                     HEAD2_track_volume      [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1,BOM);
                     HEAD2_track_panning     [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1,BOM);
                 } else { if(debugLevel>=0) {std::cout << "Unknown track type.\n";} return 244;}
+                //Check for invalid channel numbers
+                if(brstmi->track_lchannel_id[i] >= brstmi->num_channels || brstmi->track_rchannel_id[i] >= brstmi->num_channels) {
+                    if(debugLevel>=0) {std::cout << "Invalid track information.\n";}
+                    return 244;
+                }
                 HEAD2_track_info_offsets[i]-=8;
             }
             

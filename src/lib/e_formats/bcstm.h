@@ -30,6 +30,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
         return 220;
     }
     
+    if(brstmi->codec != 2 && debugLevel>=0) {std::cout << "Warning: PCM " << eformat_s[eformat] << " encoding is untested\n";}
     
     bool &BOM = brstmi->BOM;
     char spinner = '/';
@@ -215,7 +216,6 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     //Chunk size, will be written later
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
     //Subchunk references: stream info, track info, channel info
-    //Track info is unsupported.
     bool info_subchunks_to_write[3] = {1,1,1};
     const uint16_t info_subchunk_codes[3] = {0x4100,0x0101,0x0101};
     uint32_t info_subchunk_offset_offsets[3] = {0,0,0}; //Reference for writing offsets later.
@@ -462,7 +462,6 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     data_audio_beg = bufpos - (DATAchunkoffset + 8);
     
     //Encode / write audio
-    if(brstmi->codec != 2 && debugLevel>=0) {std::cout << "Warning: PCM " << eformat_s[eformat] << " encoding is untested\n";}
     //DSPADPCM
     unsigned char** ADPCMdata;
     if(brstmi->codec == 2) {

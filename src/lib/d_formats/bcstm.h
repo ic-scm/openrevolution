@@ -169,6 +169,11 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
             brstmi->track_num_channels[i] = chindex_count;
             brstmi->track_lchannel_id [i] = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+chindex_offset+0x04,1,BOM);
             if(chindex_count >= 2) brstmi->track_rchannel_id[i] = brstm_getSliceAsNumber(fileData,INFO_track_offset+offsets[i]+chindex_offset+0x05,1,BOM);
+            //Check if channel index is valid
+            if(brstmi->track_lchannel_id[i] >= brstmi->num_channels || brstmi->track_rchannel_id[i] >= brstmi->num_channels) {
+                if(debugLevel>=0) {std::cout << "Invalid track information.\n";}
+                return 244;
+            }
         }
         
         if(unsupported_track_flag) {
