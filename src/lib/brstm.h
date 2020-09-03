@@ -9,7 +9,7 @@
 
 //Bool endian: 0 = little endian, 1 = big endian
 
-const char* BRSTM_version_str = "v2.4.2";
+const char* BRSTM_version_str = "v2.5.0";
 const char* brstm_getVersionString() {return BRSTM_version_str;}
 
 //Format information

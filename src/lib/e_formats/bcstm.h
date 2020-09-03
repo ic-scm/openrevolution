@@ -19,8 +19,6 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     //REGN is not supported.
     const char* chunks_s[4] = {"INFO","SEEK","DATA","REGN"};
     
-    if(debugLevel>=0) {std::cout << eformat_s[eformat] << " encoder is currently work in progress.\n";}
-    
     //Check for invalid requests
     if(brstmi->codec > 3) {
         if(debugLevel>=0) std::cout << "Unsupported codec.\n";
@@ -29,8 +27,6 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
         if(debugLevel>=0) std::cout << "IMAADPCM is not supported.\n";
         return 220;
     }
-    
-    if(brstmi->codec != 2 && debugLevel>=0) {std::cout << "Warning: PCM " << eformat_s[eformat] << " encoding is untested\n";}
     
     bool &BOM = brstmi->BOM;
     char spinner = '/';
