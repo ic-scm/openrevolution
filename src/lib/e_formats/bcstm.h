@@ -499,7 +499,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
                             buffer,brstm_encoder_getByteInt16(brstmi->PCM_samples[c][b*brstmi->blocks_samples+i],BOM),2,bufpos
                         );
                         if(!(b%4) && debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Writing PCM data... ("
-                        << floor(((float)(b*brstmi->blocks_samples+i)/brstmi->total_samples) * 100) << "%)          ";
+                        << floor(((float)(b*brstmi->blocks_samples+i)/brstmi->total_samples) * 100) << "%)            ";
                     }
                     break;
                 }
