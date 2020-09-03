@@ -45,12 +45,12 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
         //8 bit PCM
         if(brstmi->audio_stream_format == 0) {
             for(unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
-                decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockData[sampleIndex]-128)*256;
+                decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockData[sampleIndex])*256;
                 c_writtensamples++;
             }
         } else if(brstmi->audio_stream_format == 1) {
             for(unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
-                decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockData[sampleIndex*brstmi->num_channels+c]-128)*256;
+                decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockData[sampleIndex*brstmi->num_channels+c])*256;
                 c_writtensamples++;
             }
         }

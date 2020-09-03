@@ -492,7 +492,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
                 //8-bit PCM
                 case 0: {
                     for(unsigned int i=0; i<brstmi->blocks_samples; i++) {
-                        brstm_encoder_writebyte(buffer,(brstmi->PCM_samples[c][b*brstmi->blocks_samples+i]+32768)/256,bufpos);
+                        brstm_encoder_writebyte(buffer,(brstmi->PCM_samples[c][b*brstmi->blocks_samples+i])/256,bufpos);
                     }
                     break;
                 }
@@ -522,7 +522,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
             //8-bit PCM
             case 0: {
                 for(unsigned int i=0; i<brstmi->final_block_samples; i++) {
-                    brstm_encoder_writebyte(buffer,(brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i]+32768)/256,bufpos);
+                    brstm_encoder_writebyte(buffer,(brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i])/256,bufpos);
                 }
                 break;
             }
