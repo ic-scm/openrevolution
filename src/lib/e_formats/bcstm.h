@@ -54,14 +54,21 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     }
     //Header size, will be written later
     brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos);
-    //Version number
+    //Version number (LE)
     uint8_t version[4] = {0x00,0x00,0x00,0x00};
     if(eformat == 0) {
         version[3] = 0x02;
     } else {
-        version[1] = 0x03;
+        version[2] = 0x03;
     }
-    brstm_encoder_writebytes(buffer,version,4,bufpos);
+    //Write version in correct byte order
+    if(BOM == 1) {
+        for(signed char v=3; v>=0; v--) {
+            brstm_encoder_writebyte(buffer,version[v],bufpos);
+        }
+    } else {
+        brstm_encoder_writebytes(buffer,version,4,bufpos);
+    }
     //File size, will be written later
     brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x00,0x00,0x00,0x00},4,bufpos);
     //Number of chunks
@@ -270,7 +277,7 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
             brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0xFF,0xFF,0xFF,0xFF},4,bufpos);
         }
         //"Original" loop start and end in newer files.
-        if((version[1] >= 1 && eformat == 0) || (version[1] >= 4 && eformat == 1) || version[0] >= 1) {
+        if(version[2] >= 4 || version[1] >= 1 || version[0] >= 1) {
             brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->loop_start,4,BOM),4,bufpos);
             brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(brstmi->total_samples,4,BOM),4,bufpos);
         }
