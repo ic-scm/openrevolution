@@ -15,7 +15,7 @@
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM/WAV/other converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
+const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
 
 //------------------ Command line arguments
 
@@ -161,19 +161,27 @@ unsigned long getOverflowSampleNum(Brstm* brstm,unsigned long num) {
 }
 
 void extendPCMSamples(Brstm* brstm,unsigned long newSampleCount) {
-    if(newSampleCount <= brstm->total_samples) {
-        std::cout << "Extended sample count is not bigger than the original sample count.\n";
-        exit(255);
-    }
-    for(unsigned int c=0;c<brstm->num_channels;c++) {
-        int16_t* newPCMsamples = new int16_t[newSampleCount];
-        for(unsigned long s=0;s<newSampleCount;s++) {
-            newPCMsamples[s] = brstm->PCM_samples[c][getOverflowSampleNum(brstm,s)];
+    if(newSampleCount < brstm->total_samples) {
+        //Cut (cutting does not require removing any samples, if the total sample count is set to a lower number
+        //the other samples will just be ignored.)
+        //The loop point has to be changed to not be bigger than the new sample count.
+        if((brstm->loop_flag && !userLoopFlag) || (userLoopFlag && userLoopPoint+1 >= newSampleCount)) {
+            std::cout << "Warning: The loop point was removed when cutting.\n";
+            brstm->loop_flag = 0;
+            brstm->loop_start = 0;
         }
-        delete[] brstm->PCM_samples[c];
-        brstm->PCM_samples[c] = newPCMsamples;
+    } else if(newSampleCount > brstm->total_samples) {
+        //Extend
+        for(unsigned int c=0;c<brstm->num_channels;c++) {
+            int16_t* newPCMsamples = new int16_t[newSampleCount];
+            for(unsigned long s=0;s<newSampleCount;s++) {
+                newPCMsamples[s] = brstm->PCM_samples[c][getOverflowSampleNum(brstm,s)];
+            }
+            delete[] brstm->PCM_samples[c];
+            brstm->PCM_samples[c] = newPCMsamples;
+        }
+        if(brstm->loop_flag) brstm->loop_start = newSampleCount - brstm->total_samples + brstm->loop_start;
     }
-    if(brstm->loop_flag) brstm->loop_start = newSampleCount - brstm->total_samples + brstm->loop_start;
     brstm->total_samples = newSampleCount;
 }
 
@@ -401,7 +409,12 @@ int main(int argc, char** args) {
         std::cout << "Extensions longer than 80000000 samples are not supported for safety reasons.\n";
         exit(255);
     }
-    //Enable reencoding if we want to extend samples
+    //The extender / cutter won't run when the input count is set to 0
+    if(extendSampleCount > 0 && extendSampleCount < 128) {
+        std::cout << "Cuts shorter than 128 samples are not supported for safety reasons.\n";
+        exit(255);
+    }
+    //Enable reencoding if we want to extend or cut samples
     if(extendSampleCount) reencode = 1;
     //Enable reencoding if the user requested an output codec that isn't ADPCM (the rebuilder is meant for ADPCM data)
     if(userCodec != -1 && userCodec != 2) reencode = 1; 
@@ -465,9 +478,10 @@ int main(int argc, char** args) {
         if(saveFile) {
             //Remove channels
             removeChannels(brstm,0);
-            //Extender
+            //Extender / cutter
             if(extendSampleCount) {
-                if(verb) std::cout << "Extending from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
+                if(verb) std::cout << (brstm->total_samples >= extendSampleCount ? "Cutting" : "Extending")
+                    << " from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
                 extendPCMSamples(brstm,extendSampleCount);
             }
             //Open output file
@@ -523,9 +537,10 @@ int main(int argc, char** args) {
                 brstm->track_volume      [t] = 0x7F;
                 brstm->track_panning     [t] = 0x40;
             }
-            //Extender
+            //Extender / cutter
             if(extendSampleCount) {
-                if(verb) std::cout << "Extending from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
+                if(verb) std::cout << (brstm->total_samples >= extendSampleCount ? "Cutting" : "Extending")
+                    << " from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
                 extendPCMSamples(brstm,extendSampleCount);
             }
             
@@ -768,9 +783,10 @@ int main(int argc, char** args) {
                     brstm->track_panning     [t] = 0x40;
                 }
             }
-            //Extender
+            //Extender / cutter
             if(extendSampleCount) {
-                if(verb) std::cout << "Extending from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
+                if(verb) std::cout << (brstm->total_samples >= extendSampleCount ? "Cutting" : "Extending")
+                    << " from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
                 extendPCMSamples(brstm,extendSampleCount);
             }
             if(verb) std::cout
