@@ -146,9 +146,10 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             if(playback_current_sample >= brstm->total_samples) {
                 //if(brstm->loop_flag) {
                     playback_current_sample=brstm->loop_start;
-                    //refill buffer
-                    getBufferHelper(userData,playback_current_sample,nBufferFrames);
-                    ioffset-=i+1;
+                    //Refill buffer, using same safety as before.
+                    getBufferHelper(userData,playback_current_sample,brstm->total_samples-playback_current_sample < nBufferFrames-i ? brstm->total_samples-playback_current_sample : nBufferFrames-i);
+                    //1 is added because i will be incremented before next sample.
+                    ioffset=0-(i+1);
                 /*} else {
                     stop_playing=1; 
                     return 1;
