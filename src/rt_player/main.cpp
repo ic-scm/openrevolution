@@ -71,6 +71,9 @@ char getch(void) {
 }
 
 bool quietOutput = 0;
+bool track_mixing_enabled = 0;
+//Toggles for which tracks are playing when using the track mixer.
+bool tracks_enabled[9] = {1,0,0,0,0,0,0,0,0};
 long playback_current_sample=0;
 int current_track=0;
 unsigned long playback_seconds=0;
@@ -86,6 +89,37 @@ signed char memoryMode = -1;
 // 0 - load file into memory and decode in real time
 // 1 - stream file from disk
 // 2 - decode all audio data into memory before playing
+
+//Player UI
+void drawPlayerUI() {
+    playback_seconds=playback_current_sample/brstm->sample_rate;
+    if(!quietOutput) {
+        std::cout << '\r'
+        // Pause
+        << (paused ? "Paused " : "")
+        // Time
+        << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds);
+        // Tracks
+        if(!track_mixing_enabled) {
+            std::cout << " Track: " << current_track+1;
+        } else {
+            std::cout << " Tracks:";
+            for(unsigned int t=0; t<brstm->num_tracks; t++) {
+                std::cout << ' ' << t+1 << '[' << (tracks_enabled[t] ? 'X' : ' ') << ']';
+            }
+        }
+        // Controls guide
+        std::cout << ") (< >:Seek ";
+        if(track_mixing_enabled) {
+            std::cout << "1-" << brstm->num_tracks << ":Toggle tracks";
+        } else {
+            std::cout << "/\\ \\/:Switch track";
+        }
+        std::cout << "):\033[0m        "
+        // End
+        << (!paused ? "       " : "") << "\r";
+    }
+}
 
 //get the buffer in different ways depending on the memory mode
 void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int bufferSize) {
@@ -121,11 +155,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     //if(status) {std::cout << "Stream underflow detected!\n";}
     
     //Update the display
-    playback_seconds=playback_current_sample/brstm->sample_rate;
-    if(!quietOutput) {
-        std::cout << '\r' << (paused ? "Paused " : "") << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds)
-        << " Track: " << current_track+1 << ") (< >:Seek /\\ \\/:Switch track):\033[0m        " << (!paused ? "       " : "") << "\r";
-    }
+    drawPlayerUI();
     
     //Get buffer and write data
     unsigned char ch1id = brstm->track_lchannel_id [current_track];
@@ -169,12 +199,12 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM player\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
+const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
-const char* opts[] = {"-v","-m","-s","-d","--force-sample-rate","-q"};
-const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet"};
-const unsigned int optcount = 6;
-const bool optrequiredarg[optcount] = {0,0,0,0,1,0};
+const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer"};
+const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer"};
+const unsigned int optcount = 7;
+const bool optrequiredarg[optcount] = {0,0,0,0,1,0,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -222,6 +252,7 @@ int main( int argc, char* args[] ) {
     if(optused[3]) memoryMode=2;
     if(optused[4]) forcedSampleRate = atoi(optargstr[4]);
     if(optused[5]) quietOutput=1;
+    if(optused[6]) track_mixing_enabled=1;
     
     //BRSTM file memblock
     unsigned char* memblock;
@@ -290,6 +321,14 @@ int main( int argc, char* args[] ) {
         std::cout << "Warning: This file has no loop but it will be looped E to S\n";
     }
     
+    if(track_mixing_enabled && brstm->num_tracks >= 9) {
+        std::cout << "Too many channels for mixing.\n";
+        track_mixing_enabled = 0;
+    }
+    if(track_mixing_enabled && brstm->num_tracks == 1) {
+        track_mixing_enabled = 0;
+    }
+    
     //calculate total seconds
     total_seconds=brstm->total_samples/brstm->sample_rate;
     
@@ -324,10 +363,30 @@ int main( int argc, char* args[] ) {
             getch();
             input=getch();
             switch(input) {
-                case 'A': /*U*/ current_track++; if(current_track>=brstm->num_tracks) {current_track=brstm->num_tracks-1;} break;
-                case 'B': /*D*/ current_track--; if(current_track<0) {current_track=0;} break;
-                case 'C': /*R*/ playback_current_sample+=brstm->sample_rate; if(playback_current_sample>brstm->total_samples) {playback_current_sample=brstm->total_samples;} break;
-                case 'D': /*L*/ playback_current_sample-=brstm->sample_rate; if(playback_current_sample<0) {playback_current_sample=0;} break;
+                case 'A': /*UP - Switch track*/ {
+                    if(!track_mixing_enabled) {
+                        current_track++;
+                        if(current_track>=brstm->num_tracks) {current_track=brstm->num_tracks-1;}
+                    }
+                    break;
+                }
+                case 'B': /*DOWN - Switch track*/ {
+                    if(!track_mixing_enabled) {
+                        current_track--;
+                        if(current_track<0) {current_track=0;}
+                    }
+                    break;
+                }
+                case 'C': /*RIGHT - Fast Forward*/ {
+                    playback_current_sample+=brstm->sample_rate;
+                    if(playback_current_sample>brstm->total_samples) {playback_current_sample=brstm->total_samples;}
+                    break;
+                }
+                case 'D': /*LEFT - Rewind*/ {
+                    playback_current_sample-=brstm->sample_rate;
+                    if(playback_current_sample<0) {playback_current_sample=0;}
+                    break;
+                }
             }
         } else switch(input) {
             //reserved for more features in the future?
@@ -337,6 +396,16 @@ int main( int argc, char* args[] ) {
             case 'd': case 'D': break;*/
             case ' ': paused=!paused; break;
             case 'q': case 'Q': stop_playing = 1; break;
+            default: {
+                //Track toggles
+                if(input >= '0' && input <= '9' && track_mixing_enabled) {
+                    uint8_t input_num = input - '0';
+                    if(input_num > 0 && input_num <= brstm->num_tracks) {
+                        tracks_enabled[input_num-1] = !tracks_enabled[input_num-1];
+                    }
+                }
+                break;
+            }
         }
         //std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
