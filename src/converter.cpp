@@ -205,6 +205,10 @@ void removeChannels(Brstm* brstm,bool mode) {
         if(keepChannels[realc] == 1) {
             if(mode == 1) {
                 brstm->ADPCM_data[c] = brstm->ADPCM_data[realc];
+                //Move ADPCM coefs
+                for(unsigned char i=0; i<16; i++) {
+                    brstm->ADPCM_coefs[c][i] = brstm->ADPCM_coefs[realc][i];
+                }
                 if(c != realc) brstm->ADPCM_data[realc] = nullptr;
             } else {
                 brstm->PCM_samples[c] = brstm->PCM_samples[realc];
