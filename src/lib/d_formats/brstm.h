@@ -148,6 +148,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             if(HEAD2_num_tracks>8) { if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";} return 248;}
             
             //read info for each track
+            bool CsharpIdiot = 0;
             for(unsigned char i=0;i<HEAD2_num_tracks;i++) {
                 unsigned int readOffset = HEAD_offset+HEAD2_offset+0x04+4+(i*8);
                 unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4,BOM);
@@ -164,12 +165,33 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                     HEAD2_track_volume      [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x00,1,BOM);
                     HEAD2_track_panning     [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD2_track_info_offsets[i]+0x01,1,BOM);
                 } else { if(debugLevel>=0) {std::cout << "Unknown track type.\n";} return 244;}
+                HEAD2_track_info_offsets[i]-=8;
                 //Check for invalid channel numbers
                 if(brstmi->track_lchannel_id[i] >= brstmi->num_channels || brstmi->track_rchannel_id[i] >= brstmi->num_channels) {
-                    if(debugLevel>=0) {std::cout << "Invalid track information.\n";}
-                    return 244;
+                    CsharpIdiot = 1;
+                    break;
                 }
-                HEAD2_track_info_offsets[i]-=8;
+            }
+            
+            //Guess track information if the track information read from the file is invalid
+            if(CsharpIdiot) {
+                if(debugLevel>=0) std::cout << "Warning: Badly encoded file detected, track information is guessed\n";
+                brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
+                if(brstmi->num_tracks > 8) {
+                    if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";}
+                    return 248;
+                }
+                unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
+                brstmi->track_desc_type = 0;
+                for(unsigned char c=0; c<brstmi->num_channels; c++) {
+                    brstmi->track_num_channels[c/track_num_channels] = track_num_channels;
+                    if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
+                    if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
+                    else if(track_num_channels == 1) brstmi->track_rchannel_id[c/track_num_channels] = 0;
+                    //Erase any previously written volume and panning because this is type 0
+                    brstmi->track_volume [c/track_num_channels] = 0;
+                    brstmi->track_panning[c/track_num_channels] = 0;
+                }
             }
             
             if(debugLevel>0) {std::cout << "Tracks: " << HEAD2_num_tracks << "\nTrack type: " << HEAD2_track_type << "\n";}
