@@ -15,6 +15,8 @@
 
 #include "../lib/brstm.h"
 
+#define OUTPUT_BUFSIZE 256
+
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);
     strcpy(s,ss.c_str());
@@ -148,6 +150,25 @@ void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int buff
     }
 }
 
+int16_t* brstmbuffer[2];
+
+void mixTracks(unsigned int bufferSize) {
+    for(unsigned int s=0; s<bufferSize; s++) {
+        brstmbuffer[0][s] = 0;
+        brstmbuffer[1][s] = 0;
+    }
+    for(unsigned int t=0; t<brstm->num_tracks; t++) {
+        if(!tracks_enabled[t]) continue;
+        unsigned char ch1id = brstm->track_lchannel_id [t];
+        unsigned char ch2id = brstm->track_num_channels[t] == 2 ? brstm->track_rchannel_id[t] : ch1id;
+        double track_volume = (brstm->track_desc_type == 0 ? 1 : (double)brstm->track_volume[t]/127);
+        for(unsigned int s=0; s<bufferSize; s++) {
+            brstmbuffer[0][s] = brstm_clamp( ((int32_t)brstmbuffer[0][s] + brstm->PCM_buffer[ch1id][s]*track_volume), -32768, 32767);
+            brstmbuffer[1][s] = brstm_clamp( ((int32_t)brstmbuffer[1][s] + brstm->PCM_buffer[ch2id][s]*track_volume), -32768, 32767);
+        }
+    }
+}
+
 //RtAudio callback
 int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames, double streamTime, RtAudioStreamStatus status, void *userData) {
     unsigned int i;
@@ -157,27 +178,41 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
     //Update the display
     drawPlayerUI();
     
-    //Get buffer and write data
-    unsigned char ch1id = brstm->track_lchannel_id [current_track];
-    unsigned char ch2id = brstm->track_num_channels[current_track] == 2 ? brstm->track_rchannel_id[current_track] : ch1id;
-    
     if(!paused) {
         //userData is the file data (unsigned char*)
-        getBufferHelper(userData,playback_current_sample,
-                        //Avoid reading garbage outside the file
-                        brstm->total_samples-playback_current_sample < nBufferFrames ? brstm->total_samples-playback_current_sample : nBufferFrames
-                        );
+        //Avoid reading garbage outside the file
+        unsigned int samplesToGet = brstm->total_samples-playback_current_sample < nBufferFrames ? brstm->total_samples-playback_current_sample : nBufferFrames;
+        getBufferHelper(userData,playback_current_sample,samplesToGet);
+        //Channel IDs / track mixing
+        unsigned char ch1id, ch2id;
+        if(!track_mixing_enabled) {
+            ch1id = brstm->track_lchannel_id [current_track];
+            ch2id = brstm->track_num_channels[current_track] == 2 ? brstm->track_rchannel_id[current_track] : ch1id;
+            brstmbuffer[0] = brstm->PCM_buffer[ch1id];
+            brstmbuffer[1] = brstm->PCM_buffer[ch2id];
+        } else {
+            mixTracks(samplesToGet);
+        }
+        
+        
         int ioffset=0;
         for (i=0;i<nBufferFrames;i+=1) {
-            *buffer++ = brstm->PCM_buffer[ch1id][i+ioffset];
-            *buffer++ = brstm->PCM_buffer[ch2id][i+ioffset];
+            *buffer++ = brstmbuffer[0][i+ioffset];
+            *buffer++ = brstmbuffer[1][i+ioffset];
             
             playback_current_sample++;
             if(playback_current_sample >= brstm->total_samples) {
                 //if(brstm->loop_flag) {
                     playback_current_sample=brstm->loop_start;
                     //Refill buffer, using same safety as before.
-                    getBufferHelper(userData,playback_current_sample,brstm->total_samples-playback_current_sample < nBufferFrames-i ? brstm->total_samples-playback_current_sample : nBufferFrames-i);
+                    samplesToGet = brstm->total_samples-playback_current_sample < nBufferFrames-i ? brstm->total_samples-playback_current_sample : nBufferFrames-i;
+                    getBufferHelper(userData,playback_current_sample,samplesToGet);
+                    //Set up brstmbuffer
+                    if(track_mixing_enabled) {mixTracks(samplesToGet);}
+                    else {
+                        brstmbuffer[0] = brstm->PCM_buffer[ch1id];
+                        brstmbuffer[1] = brstm->PCM_buffer[ch2id];
+                    }
                     //1 is added because i will be incremented before next sample.
                     ioffset=0-(i+1);
                 /*} else {
@@ -329,6 +364,12 @@ int main( int argc, char* args[] ) {
         track_mixing_enabled = 0;
     }
     
+    //Allocate mixing buffer
+    if(track_mixing_enabled) {
+        brstmbuffer[0] = new int16_t[OUTPUT_BUFSIZE];
+        brstmbuffer[1] = new int16_t[OUTPUT_BUFSIZE];
+    }
+    
     //calculate total seconds
     total_seconds=brstm->total_samples/brstm->sample_rate;
     
@@ -345,7 +386,7 @@ int main( int argc, char* args[] ) {
     parameters.firstChannel = 0;
     options.streamName = "BRSTM";
     unsigned int sampleRate = forcedSampleRate ? forcedSampleRate : brstm->sample_rate;
-    unsigned int bufferFrames = 256; // 256 sample frames
+    unsigned int bufferFrames = OUTPUT_BUFSIZE;
     
     try {
         dac.openStream( &parameters, NULL, RTAUDIO_SINT16, sampleRate, &bufferFrames, &RtAudioCb,(void*)memblock, &options);
@@ -418,6 +459,12 @@ int main( int argc, char* args[] ) {
         e.printMessage();
     }
     if (dac.isStreamOpen()) dac.closeStream();
+    
+    //Free mixing buffer
+    if(track_mixing_enabled) {
+        delete[] brstmbuffer[0];
+        delete[] brstmbuffer[1];
+    }
     
     brstm_close(brstm);
     delete brstm;
