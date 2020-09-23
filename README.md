@@ -9,7 +9,7 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 
 | Format       | Read                | Write               |
 |:------------ |:-------------------:|:-------------------:|
-| BRSTM        | Yes                 | Yes (only ADPCM)    |
+| BRSTM        | Yes                 | Yes                 |
 | BCSTM        | Yes                 | Yes                 |
 | BFSTM        | Yes                 | Yes                 |
 | BWAV         | Yes                 | Yes                 |
