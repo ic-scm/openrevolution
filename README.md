@@ -19,8 +19,10 @@ Compile everything by running build.sh or another compiler with the correct opti
 
 Dependencies for library:
 - None
+
 Dependencies for converter (brstm_converter)
 - ffmpeg (optional) - Audio manipulation with the optional --ffmpeg option
+
 Dependencies for player (brstm_rt)
 - librtaudio - Audio output
 - unistd.h and termios.h
