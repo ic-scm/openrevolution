@@ -24,7 +24,7 @@ C++ RtAudio BRSTM player
 
 Left and right arrow keys: Seek 1 second
 
-Up and down arrow keys: Switch track (for multi track BRSTMs)
+Up/down arrow keys or number keys: Switch tracks (for multi-track files)
 
 Space: Pause
 
