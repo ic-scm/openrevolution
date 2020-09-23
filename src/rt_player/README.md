@@ -10,6 +10,8 @@ C++ RtAudio BRSTM player
 
 --force-sample-rate [sample rate] - Force playback sample rate
 
+--enable-mixer - Enable track mixing for multi-track files
+
 **Memory modes**
 
 -m - Load the entire file into memory (default for <15MB files)
