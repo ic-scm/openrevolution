@@ -212,24 +212,40 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                 unsigned int readOffset = HEAD_offset+HEAD3_offset+0x04+4+(i*8);
                 unsigned int infoOffset = brstm_getSliceAsNumber(fileData,readOffset,4,BOM);
                 HEAD3_ch_info_offsets[i]=infoOffset+8;
-                for(unsigned char x=0;x<32;x+=2) {
-                    HEAD3_int16_adpcm[i][x/2] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x08+x,BOM);
+                //This information exists only in ADPCM files
+                if(HEAD1_codec == 2) {
+                    for(unsigned char x=0;x<32;x+=2) {
+                        HEAD3_int16_adpcm[i][x/2] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x08+x,BOM);
+                    }
+                    HEAD3_ch_gain          [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x28,2,BOM);
+                    HEAD3_ch_initial_scale [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2A,2,BOM);
+                    HEAD3_ch_hsample_1     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2C,BOM);
+                    HEAD3_ch_hsample_2     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2E,BOM);
+                    HEAD3_ch_loop_ini_scale[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x30,2,BOM);
+                    HEAD3_ch_loop_hsample_1[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x32,BOM);
+                    HEAD3_ch_loop_hsample_2[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x34,BOM);
                 }
-                HEAD3_ch_gain          [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x28,2,BOM);
-                HEAD3_ch_initial_scale [i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2A,2,BOM);
-                HEAD3_ch_hsample_1     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2C,BOM);
-                HEAD3_ch_hsample_2     [i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x2E,BOM);
-                HEAD3_ch_loop_ini_scale[i] = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x30,2,BOM);
-                HEAD3_ch_loop_hsample_1[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x32,BOM);
-                HEAD3_ch_loop_hsample_2[i] = brstm_getSliceAsInt16Sample(fileData,HEAD_offset+HEAD3_ch_info_offsets[i]+0x34,BOM);
                 HEAD3_ch_info_offsets[i]-=8;
             }
             
             if(debugLevel>0) {std::cout << "Channels: " << HEAD3_num_channels << "\n";}
             if(debugLevel>1) {for(unsigned char i=0;i<HEAD3_num_channels;i++) {
-                std::cout << "\nChannel " << i+1 << "\nOffset: " << HEAD3_ch_info_offsets[i] << "\nGain: " << HEAD3_ch_gain[i] << "\nInitial scale: " << HEAD3_ch_initial_scale[i] << "\nHistory sample 1: " << HEAD3_ch_hsample_1[i] << "\nHistory sample 2: " << HEAD3_ch_hsample_2[i] << "\nLoop initial scale: " << HEAD3_ch_loop_ini_scale[i] << "\nLoop history sample 1: " << HEAD3_ch_loop_hsample_1[i] << "\nLoop history sample 2: " << HEAD3_ch_loop_hsample_2[i] << "\nADPCM coefficients: ";
-                for(unsigned char x=0;x<16;x++) {
-                    std::cout << HEAD3_int16_adpcm[i][x] << ' ';
+                std::cout
+                << "\nChannel " << i+1
+                << "\nOffset: " << HEAD3_ch_info_offsets[i];
+                if(HEAD1_codec == 2) {
+                    std::cout
+                    << "\nGain: " << HEAD3_ch_gain[i]
+                    << "\nInitial scale: " << HEAD3_ch_initial_scale[i]
+                    << "\nHistory sample 1: " << HEAD3_ch_hsample_1[i]
+                    << "\nHistory sample 2: " << HEAD3_ch_hsample_2[i]
+                    << "\nLoop initial scale: " << HEAD3_ch_loop_ini_scale[i]
+                    << "\nLoop history sample 1: " << HEAD3_ch_loop_hsample_1[i]
+                    << "\nLoop history sample 2: " << HEAD3_ch_loop_hsample_2[i]
+                    << "\nADPCM coefficients: ";
+                    for(unsigned char x=0;x<16;x++) {
+                        std::cout << HEAD3_int16_adpcm[i][x] << ' ';
+                    }
                 }
                 std::cout << "\n\n";
             }}
