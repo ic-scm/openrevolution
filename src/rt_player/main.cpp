@@ -80,6 +80,7 @@ long playback_current_sample=0;
 int current_track=0;
 unsigned long playback_seconds=0;
 unsigned long total_seconds=0;
+char total_seconds_string[10];
 bool stop_playing=0;
 bool paused=0;
 
@@ -100,7 +101,7 @@ void drawPlayerUI() {
         // Pause
         << (paused ? "Paused " : "")
         // Time
-        << "(" << secondsToMString(playback_seconds) << "/" << secondsToMString(total_seconds);
+        << "(" << secondsToMString(playback_seconds) << "/" << total_seconds_string;
         // Tracks
         if(!track_mixing_enabled) {
             std::cout << " Track: " << current_track+1;
@@ -372,6 +373,7 @@ int main( int argc, char* args[] ) {
     
     //calculate total seconds
     total_seconds=brstm->total_samples/brstm->sample_rate;
+    strcpy(total_seconds_string,secondsToMString(total_seconds));
     
     //Initialize rtaudio
     RtAudio dac;
