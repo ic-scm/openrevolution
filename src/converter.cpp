@@ -519,15 +519,15 @@ int main(int argc, char** args) {
             }
             //Remove channels
             removeChannels(brstm,0);
+            //Set channels to 1 if we have only 1 channel
+            if(brstmStereoTracks && brstm->num_channels < 2) {
+                brstmStereoTracks = false;
+            }
             //Make sure the amount of channels is valid
             if(brstmStereoTracks && brstm->num_channels%2 != 0) {
                 std::cout << "You cannot create a stereo BRSTM with " << brstm->num_channels << " channel" << 
                 (brstm->num_channels == 1 ? "" : "s") << ".\n";
                 exit(255);
-            }
-            //Set channels to 1 if we have only 1 channel
-            if(brstmStereoTracks && brstm->num_channels < 2) {
-                brstmStereoTracks = false;
             }
             brstm->num_tracks    = brstmStereoTracks ? brstm->num_channels / 2 : brstm->num_channels;
             brstm->track_desc_type    = 1;
