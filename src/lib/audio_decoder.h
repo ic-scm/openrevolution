@@ -125,7 +125,23 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
                 case 0: blockdata_tmp = (blockdata_tmp & 0b11110000) >> 4; break;
                 case 1: blockdata_tmp = (blockdata_tmp & 0b00001111); break;
             }
-            decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockdata_tmp + 8) * 4096 + 2048;
+            decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockdata_tmp - 8) * 4096 + 2048;
+            c_writtensamples++;
+        }
+    }
+    
+    else if(brstmi->codec == 6 && brstmi->audio_stream_format != 1) {
+        //2 bit unsigned PCM
+        uint8_t blockdata_tmp = 0;
+        for(unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
+            blockdata_tmp = blockData[sampleIndex/4];
+            switch(sampleIndex % 4) {
+                case 0: blockdata_tmp = (blockdata_tmp & 0b11000000) >> 6; break;
+                case 1: blockdata_tmp = (blockdata_tmp & 0b00110000) >> 4; break;
+                case 2: blockdata_tmp = (blockdata_tmp & 0b00001100) >> 2; break;
+                case 3: blockdata_tmp = (blockdata_tmp & 0b00000011); break;
+            }
+            decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockdata_tmp - 2) * 16384 + 8192;
             c_writtensamples++;
         }
     }
