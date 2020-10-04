@@ -72,6 +72,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
         case 2: brstmi->blocks_samples = 14336; break;
         case 5: brstmi->blocks_samples = 16384; break;
         case 6: brstmi->blocks_samples = 32768; break;
+        case 7: brstmi->blocks_samples = 65536; break;
     }
     brstmi->blocks_size = 8192;
     brstmi->total_blocks = brstmi->total_samples / brstmi->blocks_samples;
@@ -85,6 +86,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
         : brstmi->codec == 0 ? brstmi->final_block_samples
         : brstmi->codec == 5 ? ceil((double)brstmi->final_block_samples / 2)
         : brstmi->codec == 6 ? ceil((double)brstmi->final_block_samples / 4)
+        : brstmi->codec == 7 ? ceil((double)brstmi->final_block_samples / 8)
         : 8192
     );
     brstmi->final_block_size_p = brstmi->final_block_size;
@@ -389,6 +391,22 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
                     }
                     break;
                 }
+                //1-bit unsigned PCM
+                case 7: {
+                    uint8_t byte_tmp;
+                    for(unsigned int i=0; i<brstmi->blocks_samples; i+=8) {
+                        byte_tmp = (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i] + 32768) / 32768) << 7);
+                        byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+1] + 32768) / 32768) << 6);
+                        byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+2] + 32768) / 32768) << 5);
+                        byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+3] + 32768) / 32768) << 4);
+                        byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+4] + 32768) / 32768) << 3);
+                        byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+5] + 32768) / 32768) << 2);
+                        byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+6] + 32768) / 32768) << 1);
+                        byte_tmp = byte_tmp | (uint8_t)(((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+7] + 32768) / 32768);
+                        brstm_encoder_writebyte(buffer,byte_tmp,bufpos);
+                    }
+                    break;
+                }
             }
         }
     }
@@ -437,6 +455,22 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
                     if(i+1 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+1] + 32768) / 16384) << 4);}
                     if(i+2 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+2] + 32768) / 16384) << 2);}
                     if(i+3 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)(((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+3] + 32768) / 16384);}
+                    brstm_encoder_writebyte(buffer,byte_tmp,bufpos);
+                }
+                break;
+            }
+            //1-bit unsigned PCM
+            case 7: {
+                uint8_t byte_tmp;
+                for(unsigned int i=0; i<brstmi->final_block_samples; i+=8) {
+                    byte_tmp = (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i] + 32768) / 32768) << 7);
+                    if(i+1 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+1] + 32768) / 32768) << 6);}
+                    if(i+2 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+2] + 32768) / 32768) << 5);}
+                    if(i+3 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+3] + 32768) / 32768) << 4);}
+                    if(i+4 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+4] + 32768) / 32768) << 3);}
+                    if(i+5 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+5] + 32768) / 32768) << 2);}
+                    if(i+6 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+6] + 32768) / 32768) << 1);}
+                    if(i+7 < brstmi->final_block_samples) {byte_tmp = byte_tmp | (uint8_t)(((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+7] + 32768) / 32768);}
                     brstm_encoder_writebyte(buffer,byte_tmp,bufpos);
                 }
                 break;
