@@ -9,7 +9,7 @@
 
 //Bool endian: 0 = little endian, 1 = big endian
 
-const char* BRSTM_version_str = "v2.5.2";
+const char* BRSTM_version_str = "v2.5.2-stupid-codecs-experiment";
 const char* brstm_getVersionString() {return BRSTM_version_str;}
 
 //Format information
@@ -37,13 +37,17 @@ const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
 };
 
 //Codec information
-const unsigned int BRSTM_codecs_count = 4;
+const unsigned int BRSTM_codecs_count = 8;
 //Human readable strings
 const char* BRSTM_codecs_usr_str[BRSTM_codecs_count] = {
 "8-bit PCM",
 "16-bit PCM",
 "4-bit DSPADPCM",
-"IMA ADPCM"
+"IMA ADPCM",
+"2-bit ADPCM",
+"4-bit unsigned PCM",
+"2-bit unsigned PCM",
+"1-bit unsigned PCM"
 };
 
 
@@ -153,7 +157,7 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
         }
         case 1: {
             //BRSTM
-            if(num >= 0 && num < 3) {
+            if(num >= 0 && num < 8) {
                 return num;
             }
             return -1;
@@ -326,7 +330,7 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     }
     
     //Fail on unsupported codecs
-    if(brstmi->codec > 2) {
+    if(brstmi->codec > 5 || brstmi->codec == 3 || brstmi->codec == 4) {
         if(debugLevel >= 0) {std::cout << brstm_getCodecString(brstmi) << " codec is not supported.\n";}
         return 220;
     }

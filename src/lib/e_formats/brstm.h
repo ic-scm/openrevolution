@@ -6,12 +6,9 @@
 unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uint8_t encodeADPCM) {
     //Check for invalid requests
     //Unsupported codec
-    if(brstmi->codec > 2) {
+    if(brstmi->codec > 7 || brstmi->codec == 4 || brstmi->codec == 3) {
         if(debugLevel>=0) std::cout << "Unsupported codec.\n";
         return 220;
-    }
-    if(brstmi->codec != 2) {
-        if(debugLevel>=0) std::cout << "Warning: PCM BRSTM files are untested\n";
     }
     
     bool &BOM = brstmi->BOM;
@@ -69,6 +66,12 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     brstm_encoder_writebytes(buffer,brstm_encoder_getByteUint(HEAD1offset,4,BOM),4,off=HEADchunkoffset+0x0C);
     //Calculate blocks
     brstmi->blocks_samples = (brstmi->codec == 2 ? 14336 : brstmi->codec == 1 ? 4096 : 8192);
+    switch(brstmi->codec) {
+        case 0: brstmi->blocks_samples = 8192; break;
+        case 1: brstmi->blocks_samples = 4096; break;
+        case 2: brstmi->blocks_samples = 14336; break;
+        case 5: brstmi->blocks_samples = 16384; break;
+    }
     brstmi->blocks_size = 8192;
     brstmi->total_blocks = brstmi->total_samples / brstmi->blocks_samples;
     if(brstmi->total_samples % brstmi->blocks_samples != 0) brstmi->total_blocks++;
@@ -78,7 +81,9 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
     brstmi->final_block_size = (
         brstmi->codec == 2 ? brstm_getBytesForAdpcmSamples(brstmi->final_block_samples)
         : brstmi->codec == 1 ? brstmi->final_block_samples * 2
-        : brstmi->final_block_samples
+        : brstmi->codec == 0 ? brstmi->final_block_samples
+        : brstmi->codec == 5 ? brstmi->final_block_samples / 2
+        : 8192
     );
     brstmi->final_block_size_p = brstmi->final_block_size;
     while(brstmi->final_block_size_p % 0x20 != 0) {brstmi->final_block_size_p++;}
@@ -360,6 +365,16 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
                     }
                     break;
                 }
+                //4-bit unsigned PCM
+                case 5: {
+                    uint8_t byte_tmp;
+                    for(unsigned int i=0; i<brstmi->blocks_samples; i+=2) {
+                        byte_tmp = (uint8_t)((((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i] + 32768) / 4096) << 4);
+                        byte_tmp = byte_tmp | (uint8_t)(((int32_t)brstmi->PCM_samples[c][b*brstmi->blocks_samples+i+1] + 32768) / 4096);
+                        brstm_encoder_writebyte(buffer,byte_tmp,bufpos);
+                    }
+                    break;
+                }
             }
         }
     }
@@ -388,6 +403,16 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
                 }
                 break;
             }
+            //4-bit unsigned PCM
+                case 5: {
+                    uint8_t byte_tmp;
+                    for(unsigned int i=0; i<brstmi->final_block_samples; i+=2) {
+                        byte_tmp = (uint8_t)((((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i] + 32768) / 4096) << 4);
+                        byte_tmp = byte_tmp | (uint8_t)(((int32_t)brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i+1] + 32768) / 4096);
+                        brstm_encoder_writebyte(buffer,byte_tmp,bufpos);
+                    }
+                    break;
+                }
         }
         if(brstmi->codec == 2 && encodeADPCM == 1) delete[] ADPCMdata[c]; //delete the ADPCM data only if we made it locally
         //padding

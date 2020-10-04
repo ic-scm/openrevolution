@@ -111,6 +111,23 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
             brstmi->ADPCM_hsamples_1[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-1];
             brstmi->ADPCM_hsamples_2[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-2];
         }
+    } else if(brstmi->codec == 4 && brstmi->audio_stream_format != 1) {
+        //2 bit ADPCM (does not support stream format 1)
+        //Unsupported
+    }
+    
+    else if(brstmi->codec == 5 && brstmi->audio_stream_format != 1) {
+        //4 bit unsigned PCM
+        uint8_t blockdata_tmp = 0;
+        for(unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;sampleIndex++) {
+            blockdata_tmp = blockData[sampleIndex/2];
+            switch(sampleIndex % 2) {
+                case 0: blockdata_tmp = (blockdata_tmp & 0b11110000) >> 4; break;
+                case 1: blockdata_tmp = (blockdata_tmp & 0b00001111); break;
+            }
+            decodeDest[c][decodeDestOff+(outputPos++)] = ((int16_t)blockdata_tmp + 8) * 4096 + 2048;
+            c_writtensamples++;
+        }
     }
     
     posOffset+=brstmi->blocks_size*brstmi->num_channels;
