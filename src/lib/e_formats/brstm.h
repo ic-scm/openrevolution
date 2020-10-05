@@ -242,7 +242,7 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
         //write channel info
         brstm_encoder_writebytes_i(buffer,new unsigned char[4]{0x01,0x00,0x00,0x00},4,bufpos); //Marker
         if(brstmi->codec == 2) {
-            //This information exists only in PCM files
+            //This information exists only in ADPCM files
             brstm_encoder_writebytes  (buffer,brstm_encoder_getByteUint(bufpos - HEADchunkoffset - 4,4,BOM),4,bufpos); //Offset to ADPCM coefs?
             //Write coefs
             for(unsigned int a=0;a<16;a++) {
