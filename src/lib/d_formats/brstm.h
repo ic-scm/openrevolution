@@ -134,7 +134,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             HEAD1_bytes_per_ADPC      = brstm_getSliceAsNumber(fileData,HEAD_offset+HEAD1_offset+0x30,4,BOM);
             HEAD1_offset-=8;
             
-            if(HEAD1_codec > 7 || HEAD1_codec == 4 || HEAD1_codec == 3) { if(debugLevel>=0) {std::cout << "Unsupported codec.\n";} return 220; }
+            if(HEAD1_codec > 7 || HEAD1_codec == 3) { if(debugLevel>=0) {std::cout << "Unsupported codec.\n";} return 220; }
             
             if(debugLevel>0) {std::cout << "Codec: " << BRSTM_codecs_usr_str[HEAD1_codec] << "\nLoop: " << HEAD1_loop << "\nChannels: " << HEAD1_num_channels << "\nSample rate: " << HEAD1_sample_rate << "\nLoop start: " << HEAD1_loop_start << "\nTotal samples: " << HEAD1_total_samples << "\nOffset to ADPCM data: " << HEAD1_ADPCM_offset << "\nTotal blocks: " << HEAD1_total_blocks << "\nBlock size: " << HEAD1_blocks_size << "\nSamples per block: " << HEAD1_blocks_samples << "\nFinal block size: " << HEAD1_final_block_size << "\nFinal block samples: " << HEAD1_final_block_samples << "\nFinal block size with padding: " << HEAD1_final_block_size_p << "\nSamples per entry in ADPC: " << HEAD1_samples_per_ADPC << "\nBytes per entry in ADPC: " << HEAD1_bytes_per_ADPC << "\n\n";}
             
@@ -258,10 +258,14 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             for(unsigned int c=0;c<HEAD3_num_channels;c++) {
                 ADPC_hsamples_1[c] = new int16_t[HEAD1_total_blocks];
                 ADPC_hsamples_2[c] = new int16_t[HEAD1_total_blocks];
+                for(uint32_t b=0; b<HEAD1_total_blocks; b++) {
+                    ADPC_hsamples_1[c][b] = 0;
+                    ADPC_hsamples_2[c][b] = 0;
+                }
             }
             
-            //ADPC chunk (Only for ADPCM codec)
-            if(HEAD1_codec == 2) {
+            //ADPC chunk (Only for ADPCM codecs)
+            if(HEAD1_codec == 2 || HEAD1_codec == 4) {
                 magicstr=brstm_getSliceAsString(fileData,ADPC_offset,4);
                 if(strcmp(magicstr,emagic3) == 0) {
                     //Start reading ADPC
@@ -285,7 +289,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
             //Copy current state of history samples for the check after decoding (which overwrites history samples).
             int16_t* check_ADPC_hsamples_1[16];
             int16_t* check_ADPC_hsamples_2[16];
-            if(debugLevel >= 1 && decodeAudio == 1 && HEAD1_codec == 2) {
+            if(debugLevel >= 1 && decodeAudio == 1 && (HEAD1_codec == 2 || HEAD1_codec == 4)) {
                 for(unsigned int c=0; c<HEAD3_num_channels; c++) {
                     check_ADPC_hsamples_1[c] = new int16_t[HEAD1_total_blocks];
                     check_ADPC_hsamples_2[c] = new int16_t[HEAD1_total_blocks];
@@ -361,7 +365,7 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                 }
                 
                 //History sample check when fully decoding ADPCM files.
-                if(debugLevel >= 1 && decodeAudio == 1 && HEAD1_codec == 2) {
+                if(debugLevel >= 1 && decodeAudio == 1 && (HEAD1_codec == 2 || HEAD1_codec == 4)) {
                     unsigned long hserrorcount = 0;
                     unsigned long hstotalcount = 0;
                     for(unsigned int c=0; c<HEAD3_num_channels; c++) {

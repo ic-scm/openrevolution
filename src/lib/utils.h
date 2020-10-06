@@ -87,6 +87,12 @@ unsigned int brstm_getBytesForAdpcmSamples(int samples) {
     return PACKET_BYTES * packets + extraBytes;
 }
 
+uint32_t brstm_getBytesFor2bitAdpcmSamples(uint32_t samples) {
+    uint32_t bytes = (samples / 12) * 4;
+    while(bytes%16 != 0) bytes++;
+    return bytes;
+}
+
 //Encoder utils
 
 void brstm_encoder_writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {

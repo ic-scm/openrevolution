@@ -113,7 +113,54 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
         }
     } else if(brstmi->codec == 4 && brstmi->audio_stream_format != 1) {
         //2 bit ADPCM (does not support stream format 1)
-        //Unsupported
+        const unsigned char ps = blockData[0];
+        const   signed int  yn1 = brstmi->ADPCM_hsamples_1[c][b], yn2 = brstmi->ADPCM_hsamples_2[c][b];
+        
+        signed int 
+        cps = ps,
+        cyn1 = yn1,
+        cyn2 = yn2;
+        unsigned long dataIndex = 0;
+        
+        const int16_t coefs[16] = {
+            0x7F, 0x7E, 0x7C, 0x77,
+            0x72, 0x6B, 0x63, 0x5B,
+            0x51, 0x46, 0x3A, 0x2E,
+            0x20, 0x13, 0x08,-0x08,
+        };
+        
+        for (unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;) {
+            long outSample = 0;
+            if (sampleIndex % 12 == 0) {
+                if(sampleIndex != 0) dataIndex++;
+                cps = blockData[dataIndex+3];
+            }
+            switch(sampleIndex++ % 4) {
+                case 0: outSample = blockData[dataIndex] >> 6; break;
+                case 1: outSample = blockData[dataIndex] >> 4 & 0b00000011; break;
+                case 2: outSample = blockData[dataIndex] >> 2 & 0b00000011; break;
+                case 3: outSample = blockData[dataIndex++] & 0b00000011; break;
+            }
+            if (outSample >= 2) {
+                outSample -= 4;
+            }
+            const long scale = 1 << ((cps & 0b11110000) >> 4);
+            const long cIndex = (cps & 0b00001111);
+            
+            outSample = ((cyn1 * coefs[cIndex] >> 6) - cyn2) + (outSample * scale);
+            
+            cyn2 = cyn1;
+            cyn1 = brstm_clamp(outSample, -32768, 32767);
+            
+            decodeDest[c][decodeDestOff+(outputPos++)] = cyn1;
+            c_writtensamples++;
+        }
+        
+        //Overwrite loaded history samples with decoded samples
+        if(b<brstmi->total_blocks-1) {
+            brstmi->ADPCM_hsamples_1[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-1];
+            brstmi->ADPCM_hsamples_2[c][b+1] = decodeDest[c][decodeDestOff+c_writtensamples-2];
+        }
     }
     
     else if(brstmi->codec == 5 && brstmi->audio_stream_format != 1) {

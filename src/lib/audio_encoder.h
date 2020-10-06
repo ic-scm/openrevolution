@@ -1,5 +1,5 @@
-//OpenRevolution audio encoder
-//Thanks to https://github.com/jackoalan/gc-dspadpcm-encode/
+//OpenRevolution audio encoders
+//Copyright (C) 2020 I.C. and others (See each encoder file for more information)
 
 #include "dspadpcm_encoder.c"
 
@@ -33,3 +33,7 @@ void brstm_encode_adpcm(Brstm* brstmi,unsigned char** ADPCMdata,signed int debug
         if(debugLevel>0) std::cout << "\r" << "Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " 100%)          ";
     }
 }
+
+//2 bit ADPCM
+void brstm_encode_adpcm_2bit(Brstm* brstmi, unsigned char** ADPCMdata, signed int debugLevel);
+#include "adpcm-2.6/adpcmtool.c"
