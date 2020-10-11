@@ -97,6 +97,9 @@ unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeA
     } else if(brstmi->file_format==5) {
         //ORSTM
         encres = brstm_formats_encode_orstm(brstmi,debugLevel,encodeADPCM);
+    } else if(brstmi->file_format==6) {
+        //RAW
+        encres = brstm_formats_encode_raw(brstmi,debugLevel,encodeADPCM);
     } else {
         //Invalid
         if(debugLevel>=0) std::cout << "Invalid file format.\n";
