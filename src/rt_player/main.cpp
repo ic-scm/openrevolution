@@ -1,4 +1,4 @@
-//C++ BRSTM RtAudio player
+//OpenRevolution RtAudio player
 //Copyright (C) 2020 IC
 #include <iostream>
 #include <fstream>
@@ -50,7 +50,7 @@ char* secondsToMString(unsigned int sec) {
     return mString;
 }
 
-//stolen
+// https://stackoverflow.com/a/16361724
 char getch(void) {
     char buf = 0;
     struct termios old = {0};
@@ -73,11 +73,17 @@ char getch(void) {
 }
 
 bool quietOutput = 0;
+bool verb=0;
+
+//Track switching and mixing
 bool track_mixing_enabled = 0;
 //Toggles for which tracks are playing when using the track mixer.
 bool tracks_enabled[9] = {1,0,0,0,0,0,0,0,0};
-long playback_current_sample=0;
+//Current track in normal track switching
 int current_track=0;
+
+//Playback
+long playback_current_sample=0;
 unsigned long playback_seconds=0;
 unsigned long total_seconds=0;
 char total_seconds_string[10];
@@ -88,10 +94,10 @@ std::ifstream file;
 Brstm* brstm;
 
 signed char memoryMode = -1;
-//-1 - automatic
-// 0 - load file into memory and decode in real time
-// 1 - stream file from disk
-// 2 - decode all audio data into memory before playing
+//-1 - Automatically picked
+// 0 - Load file into memory and decode in real time
+// 1 - Stream file from disk and decode in real time
+// 2 - Decode all audio data into memory before playing
 
 //Player UI
 void drawPlayerUI() {
@@ -124,22 +130,21 @@ void drawPlayerUI() {
     }
 }
 
-//get the buffer in different ways depending on the memory mode
+//Get the buffer in different ways depending on the memory mode
 void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int bufferSize) {
     switch(memoryMode) {
-        //realtime
+        //Realtime decoding from memory
         case 0:
         brstm_getbuffer(brstm,(const unsigned char*) userData,sampleOffset,bufferSize);
         return;
         
-        //streaming
+        //Streaming data from disk and realtime decoding
         case 1:
         brstm_fstream_getbuffer(brstm,file,sampleOffset,bufferSize);
         return;
         
-        //full decode
+        //Full decoding
         case 2:
-        //full decode mode
         for(unsigned int c=0;c<brstm->num_channels;c++) {
             delete[] brstm->PCM_buffer[c];
             brstm->PCM_buffer[c] = new int16_t[bufferSize];
@@ -154,10 +159,12 @@ void getBufferHelper(void* userData,unsigned long sampleOffset,unsigned int buff
 int16_t* brstmbuffer[2];
 
 void mixTracks(unsigned int bufferSize) {
+    //Clear out the mixing buffer
     for(unsigned int s=0; s<bufferSize; s++) {
         brstmbuffer[0][s] = 0;
         brstmbuffer[1][s] = 0;
     }
+    
     for(unsigned int t=0; t<brstm->num_tracks; t++) {
         if(!tracks_enabled[t]) continue;
         unsigned char ch1id = brstm->track_lchannel_id [t];
@@ -173,8 +180,9 @@ void mixTracks(unsigned int bufferSize) {
 //RtAudio callback
 int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames, double streamTime, RtAudioStreamStatus status, void *userData) {
     unsigned int i;
+    int ioffset=0;
     int16_t *buffer = (int16_t*) outputBuffer;
-    //if(status) {std::cout << "Stream underflow detected!\n";}
+    //if(status) std::cout << "Stream underflow detected!\n";
     
     //Update the display
     drawPlayerUI();
@@ -184,6 +192,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
         //Avoid reading garbage outside the file
         unsigned int samplesToGet = brstm->total_samples-playback_current_sample < nBufferFrames ? brstm->total_samples-playback_current_sample : nBufferFrames;
         getBufferHelper(userData,playback_current_sample,samplesToGet);
+        
         //Channel IDs / track mixing
         unsigned char ch1id, ch2id;
         if(!track_mixing_enabled) {
@@ -195,8 +204,6 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             mixTracks(samplesToGet);
         }
         
-        
-        int ioffset=0;
         for (i=0;i<nBufferFrames;i+=1) {
             *buffer++ = brstmbuffer[0][i+ioffset];
             *buffer++ = brstmbuffer[1][i+ioffset];
@@ -204,18 +211,23 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             playback_current_sample++;
             if(playback_current_sample >= brstm->total_samples) {
                 //if(brstm->loop_flag) {
+                    
                     playback_current_sample=brstm->loop_start;
+                    
                     //Refill buffer, using same safety as before.
                     samplesToGet = brstm->total_samples-playback_current_sample < nBufferFrames-i ? brstm->total_samples-playback_current_sample : nBufferFrames-i;
                     getBufferHelper(userData,playback_current_sample,samplesToGet);
+                    
                     //Set up brstmbuffer
                     if(track_mixing_enabled) {mixTracks(samplesToGet);}
                     else {
                         brstmbuffer[0] = brstm->PCM_buffer[ch1id];
                         brstmbuffer[1] = brstm->PCM_buffer[ch2id];
                     }
+                    
                     //1 is added because i will be incremented before next sample.
                     ioffset=0-(i+1);
+                    
                 /*} else {
                     stop_playing=1; 
                     return 1;
@@ -223,7 +235,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             }
         }
     } else {
-        //player is paused
+        //Player is paused
         for(i=0;i<nBufferFrames;i+=1) {
             *buffer++ = 0;
             *buffer++ = 0;
@@ -245,16 +257,17 @@ bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
 
-int main( int argc, char* args[] ) {
-    bool verb=0;
+int main(int argc, char** args) {
     if(argc<2) {
         std::cout << helpString0 << args[0] << helpString1;
         return 0;
     }
+    
     if(strcmp(args[1],"--version") == 0) {
         std::cout << brstm_getVersionString() << '\n';
         exit(0);
     }
+    
     //Parse command line args
     for(unsigned int a=2;a<argc;a++) {
         int vOpt = -1;
@@ -280,6 +293,7 @@ int main( int argc, char* args[] ) {
             }
         }
     }
+    
     //Apply the options
     unsigned long forcedSampleRate = 0;
     if(optused[0]) verb=1;
@@ -290,7 +304,7 @@ int main( int argc, char* args[] ) {
     if(optused[5]) quietOutput=1;
     if(optused[6]) track_mixing_enabled=1;
     
-    //BRSTM file memblock
+    //BRSTM file memblock and openrevolution lib struct
     unsigned char* memblock;
     brstm = new Brstm;
     
@@ -300,9 +314,9 @@ int main( int argc, char* args[] ) {
     if (file.is_open()) {
         fsize = file.tellg();
         file.seekg (0, std::ios::beg);
-        //pick default memory mode
+        //Pick default memory mode
         if(memoryMode == -1) {
-            //get base BRSTM information
+            //Get base file information
             unsigned char res = brstm_fstream_getBaseInformation(brstm,file,0);
             if(res>127) exit(res);
             if(brstm->file_format == 4) {
@@ -315,7 +329,7 @@ int main( int argc, char* args[] ) {
                 else {memoryMode = 0;}
             }
         }
-        //don't read the file in mode 1
+        //Don't read the file in mode 1 (Streaming)
         if(memoryMode != 1) {
             memblock = new unsigned char [fsize];
             file.seekg(0);
@@ -323,7 +337,11 @@ int main( int argc, char* args[] ) {
             if(verb) {std::cout << "Read file " << args[1] << " size " << fsize << '\n';}
             file.close();
         }
-    } else {perror("Unable to open input file"); exit(255);}
+    } else {
+        //File open error
+        perror(args[1]);
+        exit(255);
+    }
     
     if(verb) switch(memoryMode) {
         case 0: std::cout << "Realtime decoding mode\n"; break;
@@ -333,22 +351,22 @@ int main( int argc, char* args[] ) {
     
     //Read the BRSTM headers
     if(memoryMode != 1) {
-        //use normal brstm functions
+        //Use normal brstm read functions
         unsigned char result=brstm_read(brstm,memblock,verb,
-            //decode the audio data if memory mode is 2
+            //Decode the audio data if memory mode is 2 (Full decoding)
             memoryMode == 2 ? true : false
         );
-        //the file data will not be needed anymore in memory mode 2
+        //The file data will not be needed anymore in full decoding mode
         if(memoryMode == 2) {delete[] memblock;}
         if(result>127) {
-            std::cout << "BRSTM error " << (int)result << ".\n";
+            std::cout << "File read error " << (int)result << ".\n";
             return result;
         }
     } else {
-        //disk streaming mode
+        //Disk streaming mode
         unsigned char result = brstm_fstream_read(brstm,file,verb);
         if(result>127) {
-            std::cout << "BRSTM error " << (int)result << ".\n";
+            std::cout << "File read error " << (int)result << ".\n";
             return result;
         }
     }
@@ -371,11 +389,17 @@ int main( int argc, char* args[] ) {
         brstmbuffer[1] = new int16_t[OUTPUT_BUFSIZE];
     }
     
-    //calculate total seconds
+    //Calculate total seconds
     total_seconds=brstm->total_samples/brstm->sample_rate;
     strcpy(total_seconds_string,secondsToMString(total_seconds));
     
-    //Initialize rtaudio
+    //Print basic file information in non-verbose mode
+    if(verb == 0 && quietOutput == 0) {
+        const char* loopstr = (brstm->loop_flag ? (brstm->loop_start > 0 ? "Looping" : "E to S") : "No loop");
+        printf("%s | %s | %uHz | %uch/%utr | %s\n", brstm_getShortFormatString(brstm), brstm_getCodecString(brstm), brstm->sample_rate, brstm->num_channels, brstm->num_tracks, loopstr);
+    }
+    
+    //Initialize RtAudio
     RtAudio dac;
     if (dac.getDeviceCount()<1) {
         std::cout << "No audio device found.\n";
@@ -386,14 +410,14 @@ int main( int argc, char* args[] ) {
     parameters.deviceId = dac.getDefaultOutputDevice();
     parameters.nChannels = 2;
     parameters.firstChannel = 0;
-    options.streamName = "BRSTM";
+    options.streamName = "OpenRevolution brstm_rt";
     unsigned int sampleRate = forcedSampleRate ? forcedSampleRate : brstm->sample_rate;
     unsigned int bufferFrames = OUTPUT_BUFSIZE;
     
     try {
-        dac.openStream( &parameters, NULL, RTAUDIO_SINT16, sampleRate, &bufferFrames, &RtAudioCb,(void*)memblock, &options);
+        dac.openStream(&parameters, NULL, RTAUDIO_SINT16, sampleRate, &bufferFrames, &RtAudioCb, (void*)memblock, &options);
         dac.startStream();
-    } catch (RtAudioError& e) {
+    } catch(RtAudioError& e) {
         e.printMessage();
         exit(255);
     }
@@ -401,33 +425,33 @@ int main( int argc, char* args[] ) {
     //User input
     char input;
     while(stop_playing==0) {
-        input=getch();
-        if(input=='\033') {
+        input = getch();
+        if(input == '\033') {
             getch();
             input=getch();
             switch(input) {
                 case 'A': /*UP - Switch track*/ {
                     if(!track_mixing_enabled) {
                         current_track++;
-                        if(current_track>=brstm->num_tracks) {current_track=brstm->num_tracks-1;}
+                        if(current_track >= brstm->num_tracks) current_track=brstm->num_tracks-1;
                     }
                     break;
                 }
                 case 'B': /*DOWN - Switch track*/ {
                     if(!track_mixing_enabled) {
                         current_track--;
-                        if(current_track<0) {current_track=0;}
+                        if(current_track < 0) current_track=0;
                     }
                     break;
                 }
                 case 'C': /*RIGHT - Fast Forward*/ {
-                    playback_current_sample+=brstm->sample_rate;
-                    if(playback_current_sample>brstm->total_samples) {playback_current_sample=brstm->total_samples;}
+                    playback_current_sample += brstm->sample_rate;
+                    if(playback_current_sample > brstm->total_samples) playback_current_sample=brstm->total_samples;
                     break;
                 }
                 case 'D': /*LEFT - Rewind*/ {
-                    playback_current_sample-=brstm->sample_rate;
-                    if(playback_current_sample<0) {playback_current_sample=0;}
+                    playback_current_sample -= brstm->sample_rate;
+                    if(playback_current_sample < 0) playback_current_sample=0;
                     break;
                 }
             }
@@ -437,7 +461,9 @@ int main( int argc, char* args[] ) {
             case 's': case 'S': break;
             case 'a': case 'A': break;
             case 'd': case 'D': break;*/
+            //Pause
             case ' ': paused=!paused; break;
+            //Quit program
             case 'q': case 'Q': stop_playing = 1; break;
             default: {
                 //Track toggles
@@ -452,15 +478,16 @@ int main( int argc, char* args[] ) {
         }
         //std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
+    
     std::cout << '\n';
     
     try {
-        // Stop the stream
+        //Stop the stream
         dac.stopStream();
-    } catch (RtAudioError& e) {
+    } catch(RtAudioError& e) {
         e.printMessage();
     }
-    if (dac.isStreamOpen()) dac.closeStream();
+    if(dac.isStreamOpen()) dac.closeStream();
     
     //Free mixing buffer
     if(track_mixing_enabled) {
