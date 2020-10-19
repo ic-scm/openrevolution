@@ -271,7 +271,7 @@ const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose 
 const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer","-classic-ui"};
 const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer","--classic-ui"};
 const unsigned int optcount = 8;
-const bool optrequiredarg[optcount] = {0,0,0,0,1,0,0};
+const bool optrequiredarg[optcount] = {0,0,0,0,1,0,0,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
