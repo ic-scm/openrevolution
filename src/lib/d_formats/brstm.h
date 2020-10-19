@@ -69,10 +69,10 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
     unsigned int  &HEAD3_num_channels = brstmi->num_channels;
     
     int16_t* (&PCM_samples)[16] = brstmi->PCM_samples;
-    int16_t* (&PCM_buffer)[16] = brstmi->PCM_buffer;
+    //int16_t* (&PCM_buffer)[16] = brstmi->PCM_buffer;
     
     unsigned char* (&ADPCM_data)  [16] = brstmi->ADPCM_data;
-    unsigned char* (&ADPCM_buffer)[16] = brstmi->ADPCM_buffer;
+    //unsigned char* (&ADPCM_buffer)[16] = brstmi->ADPCM_buffer;
     int16_t  (&HEAD3_int16_adpcm) [16][16] = brstmi->ADPCM_coefs;
     int16_t* (&ADPC_hsamples_1)   [16] = brstmi->ADPCM_hsamples_1;
     int16_t* (&ADPC_hsamples_2)   [16] = brstmi->ADPCM_hsamples_2;

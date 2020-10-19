@@ -88,10 +88,10 @@ bool track_mixing_enabled = 0;
 //Toggles for which tracks are playing when using the track mixer.
 bool tracks_enabled[9] = {1,0,0,0,0,0,0,0,0};
 //Current track in normal track switching
-int current_track=0;
+unsigned int current_track=0;
 
 //Playback
-long playback_current_sample=0;
+unsigned long playback_current_sample=0;
 unsigned long playback_seconds=0;
 unsigned long total_seconds=0;
 char total_seconds_string[10];
@@ -213,7 +213,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
         getBufferHelper(userData,playback_current_sample,samplesToGet);
         
         //Channel IDs / track mixing
-        unsigned char ch1id, ch2id;
+        unsigned char ch1id = 0, ch2id = 0;
         if(!track_mixing_enabled) {
             ch1id = brstm->track_lchannel_id [current_track];
             ch2id = brstm->track_num_channels[current_track] == 2 ? brstm->track_rchannel_id[current_track] : ch1id;
@@ -288,7 +288,7 @@ int main(int argc, char** args) {
     }
     
     //Parse command line args
-    for(unsigned int a=2;a<argc;a++) {
+    for(int a=2;a<argc;a++) {
         int vOpt = -1;
         //Compare cmd arg against each known option
         for(unsigned int o=0;o<optcount;o++) {
@@ -416,11 +416,11 @@ int main(int argc, char** args) {
     //Print basic file information in non-verbose mode
     if(verb == 0 && quietOutput == 0) {
         const char* loopstr = (brstm->loop_flag ? (brstm->loop_start > 0 ? "Looping" : "E to S") : "No loop");
-        printf("%s | %s | %uHz | %uch/%utr | %s\n", brstm_getShortFormatString(brstm), brstm_getCodecString(brstm), brstm->sample_rate, brstm->num_channels, brstm->num_tracks, loopstr);
+        printf("%s | %s | %luHz | %uch/%utr | %s\n", brstm_getShortFormatString(brstm), brstm_getCodecString(brstm), brstm->sample_rate, brstm->num_channels, brstm->num_tracks, loopstr);
     }
     
     //Calculate UI refresh rate
-    ui_counter_l = (brstm->sample_rate / 8) / OUTPUT_BUFSIZE;
+    ui_counter_l = (brstm->sample_rate / 4) / OUTPUT_BUFSIZE;
     
     //Initialize RtAudio
     RtAudio dac;
@@ -450,9 +450,6 @@ int main(int argc, char** args) {
     while(stop_playing==0) {
         input = getch();
         
-        //Force display refresh to be more responsive to user input.
-        ui_counter = -1;
-        
         if(input == '\033') {
             getch();
             input=getch();
@@ -465,9 +462,8 @@ int main(int argc, char** args) {
                     break;
                 }
                 case 'B': /*DOWN - Switch track*/ {
-                    if(!track_mixing_enabled) {
+                    if(!track_mixing_enabled && current_track > 0) {
                         current_track--;
-                        if(current_track < 0) current_track=0;
                     }
                     break;
                 }
@@ -477,8 +473,8 @@ int main(int argc, char** args) {
                     break;
                 }
                 case 'D': /*LEFT - Rewind*/ {
-                    playback_current_sample -= brstm->sample_rate;
-                    if(playback_current_sample < 0) playback_current_sample=0;
+                    if(playback_current_sample >= brstm->sample_rate) playback_current_sample -= brstm->sample_rate;
+                    else playback_current_sample = 0;
                     break;
                 }
             }
@@ -503,6 +499,10 @@ int main(int argc, char** args) {
                 break;
             }
         }
+        
+        //Force display refresh to be more responsive to user input.
+        ui_counter = -1;
+        
         //std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     

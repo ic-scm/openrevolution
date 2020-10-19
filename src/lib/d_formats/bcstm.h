@@ -15,7 +15,7 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
     
     //Strings and other things that change from BCSTM to BFSTM.
     const char* eformat_s[2] = {"BCSTM","BFSTM"};
-    const char  eformat_l[2] = {'C','F'};
+    // const char  eformat_l[2] = {'C','F'};
     
     //BCSTM/BFSTM file magic words
     const char* emagic1 = (eformat == 1 ? "FSTM" : "CSTM");
@@ -114,7 +114,7 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
         brstmi->audio_offset = brstm_getSliceAsNumber(fileData,0x34+INFO_stream_offset,4,BOM) + 0x08 + DATA_offset;
         //0x38: Size of region info?
         //0x3C -> 0x44: other unkown region info stuff
-        if(!(brstmi->codec >= 0 && brstmi->codec < 3)) {
+        if(!(brstmi->codec < 3)) {
             if(debugLevel>=0) {std::cout << "Unsupported codec.\n";}
             return 220;
         }

@@ -94,7 +94,7 @@ struct Brstm {
     //Things you probably shouldn't touch
     //Block cache
     int16_t* PCM_blockbuffer[16];
-    int PCM_blockbuffer_currentBlock = -1;
+    unsigned long PCM_blockbuffer_currentBlock = -1;
     bool getbuffer_useBuffer = true;
     //Audio stream format,
     //0 for normal block data in BRSTM and similar files
@@ -153,21 +153,21 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
         }
         case 1: {
             //BRSTM
-            if(num >= 0 && num < 3) {
+            if(num < 3) {
                 return num;
             }
             return -1;
         }
         case 2: {
             //BCSTM
-            if(num >= 0 && num < 4) {
+            if(num < 4) {
                 return num;
             }
             return -1;
         }
         case 3: {
             //BFSTM
-            if(num >= 0 && num < 4) {
+            if(num < 4) {
                 return num;
             }
             return -1;

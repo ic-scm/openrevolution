@@ -8,26 +8,34 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
         if(debugLevel>=0) std::cout << "Invalid RIFF header.\n";
         return 255;
     }
-    unsigned long wavFileSize = brstm_getSliceAsNumber(fileData,4,4,0) + 8;
+    
+    //unsigned long wavFileSize = brstm_getSliceAsNumber(fileData,4,4,0) + 8;
+    
     if(strcmp("WAVEfmt ",brstm_getSliceAsString(fileData,8,8)) != 0) {
         if(debugLevel>=0) std::cout << "Invalid WAVE header.\n";
         return 255;
     }
+    
     unsigned long wavFmtSize = brstm_getSliceAsNumber(fileData,16,4,0);
+    
     if(wavFmtSize != 16 || brstm_getSliceAsNumber(fileData,20,2,0) != 1) {
         if(debugLevel>=0) std::cout << "Only PCM WAVs are supported.\n";
         return 220;
     }
+    
     brstmi->num_channels = brstm_getSliceAsNumber(fileData,22,2,0);
     if(brstmi->num_channels > 16) {
         if(debugLevel>=0) std::cout << "Too many channels, max supported is 16.\n";
         return 249;
     }
+    
     brstmi->sample_rate = brstm_getSliceAsNumber(fileData,24,4,0);
+    
     if(brstm_getSliceAsNumber(fileData,34,2,0) != 16) {
         if(debugLevel>=0) std::cout << "Only 16-bit PCM WAVs are supported.\n";
         return 220;
     }
+    
     unsigned long wavAudioOffset = 36;
     for(;strcmp("data",brstm_getSliceAsString(fileData,wavAudioOffset,4)) != 0 ;wavAudioOffset++) {}
     brstmi->total_samples = brstm_getSliceAsNumber(fileData,wavAudioOffset+4,4,0) / brstmi->num_channels / 2;
