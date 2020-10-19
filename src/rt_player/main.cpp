@@ -72,8 +72,16 @@ char getch(void) {
     return buf;
 }
 
+//Console output options
+//Quiet output (no player UI)
 bool quietOutput = 0;
+//Verbose mode
 bool verb=0;
+//Classic player UI
+bool classic_noflush = 0;
+//UI refresh timer
+uint16_t ui_counter = 0;
+uint16_t ui_counter_l = 0;
 
 //Track switching and mixing
 bool track_mixing_enabled = 0;
@@ -102,31 +110,42 @@ signed char memoryMode = -1;
 //Player UI
 void drawPlayerUI() {
     playback_seconds=playback_current_sample/brstm->sample_rate;
+    
     if(!quietOutput) {
-        std::cout << '\r'
-        // Pause
-        << (paused ? "Paused " : "")
-        // Time
-        << "(" << secondsToMString(playback_seconds) << "/" << total_seconds_string;
-        // Tracks
-        if(!track_mixing_enabled) {
-            std::cout << " Track: " << current_track+1;
-        } else {
-            std::cout << " Tracks:";
-            for(unsigned int t=0; t<brstm->num_tracks; t++) {
-                std::cout << ' ' << t+1 << '[' << (tracks_enabled[t] ? 'X' : ' ') << ']';
+        
+        if(classic_noflush || (ui_counter_l <= ui_counter) ) {
+            ui_counter = 0;
+            
+            std::cout << '\r'
+            // Pause
+            << (paused ? "Paused " : "")
+            // Time
+            << "(" << secondsToMString(playback_seconds) << "/" << total_seconds_string;
+            // Tracks
+            if(!track_mixing_enabled) {
+                std::cout << " Track: " << current_track+1;
+            } else {
+                std::cout << " Tracks:";
+                for(unsigned int t=0; t<brstm->num_tracks; t++) {
+                    std::cout << ' ' << t+1 << '[' << (tracks_enabled[t] ? 'X' : ' ') << ']';
+                }
             }
+            // Controls guide
+            std::cout << ") (< >:Seek ";
+            if(track_mixing_enabled) {
+                std::cout << "1-" << brstm->num_tracks << ":Toggle tracks";
+            } else {
+                std::cout << "/\\ \\/:Switch track";
+            }
+            std::cout << "):\033[0m        "
+            // End
+            << (!paused ? "       " : "") << "\r";
+            
+            //Flush
+            if(!classic_noflush) fflush(stdout);
         }
-        // Controls guide
-        std::cout << ") (< >:Seek ";
-        if(track_mixing_enabled) {
-            std::cout << "1-" << brstm->num_tracks << ":Toggle tracks";
-        } else {
-            std::cout << "/\\ \\/:Switch track";
-        }
-        std::cout << "):\033[0m        "
-        // End
-        << (!paused ? "       " : "") << "\r";
+        
+        ui_counter++;
     }
 }
 
@@ -247,11 +266,11 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 //-------------------######### STRINGS
 
 const char* helpString0 = "BRSTM player\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
+const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n--classic-ui - Classic brstm_rt appearance\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
-const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer"};
-const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer"};
-const unsigned int optcount = 7;
+const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer","-classic-ui"};
+const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer","--classic-ui"};
+const unsigned int optcount = 8;
 const bool optrequiredarg[optcount] = {0,0,0,0,1,0,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
@@ -303,6 +322,7 @@ int main(int argc, char** args) {
     if(optused[4]) forcedSampleRate = atoi(optargstr[4]);
     if(optused[5]) quietOutput=1;
     if(optused[6]) track_mixing_enabled=1;
+    if(optused[7]) classic_noflush=1;
     
     //BRSTM file memblock and openrevolution lib struct
     unsigned char* memblock;
@@ -399,6 +419,9 @@ int main(int argc, char** args) {
         printf("%s | %s | %uHz | %uch/%utr | %s\n", brstm_getShortFormatString(brstm), brstm_getCodecString(brstm), brstm->sample_rate, brstm->num_channels, brstm->num_tracks, loopstr);
     }
     
+    //Calculate UI refresh rate
+    ui_counter_l = (brstm->sample_rate / 8) / OUTPUT_BUFSIZE;
+    
     //Initialize RtAudio
     RtAudio dac;
     if (dac.getDeviceCount()<1) {
@@ -426,6 +449,10 @@ int main(int argc, char** args) {
     char input;
     while(stop_playing==0) {
         input = getch();
+        
+        //Force display refresh to be more responsive to user input.
+        ui_counter = -1;
+        
         if(input == '\033') {
             getch();
             input=getch();
