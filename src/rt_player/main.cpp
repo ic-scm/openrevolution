@@ -265,8 +265,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "BRSTM player\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n--classic-ui - Classic brstm_rt appearance\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
+const char* helpString = "OpenRevolution audio player\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_rt [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n--classic-ui - Classic brstm_rt appearance\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
 const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer","-classic-ui"};
 const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer","--classic-ui"};
@@ -277,8 +276,8 @@ char* optargstr[optcount];
 //____________________________________
 
 int main(int argc, char** args) {
-    if(argc<2) {
-        std::cout << helpString0 << args[0] << helpString1;
+    if(argc<2 || strcmp(args[1],"--help") == 0) {
+        std::cout << helpString;
         return 0;
     }
     
@@ -379,14 +378,14 @@ int main(int argc, char** args) {
         //The file data will not be needed anymore in full decoding mode
         if(memoryMode == 2) {delete[] memblock;}
         if(result>127) {
-            std::cout << "File read error " << (int)result << ".\n";
+            std::cout << "File read error. (" << (int)result << ")\n";
             return result;
         }
     } else {
         //Disk streaming mode
         unsigned char result = brstm_fstream_read(brstm,file,verb);
         if(result>127) {
-            std::cout << "File read error " << (int)result << ".\n";
+            std::cout << "File read error. (" << (int)result << ")\n";
             return result;
         }
     }

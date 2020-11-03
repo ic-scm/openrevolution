@@ -14,8 +14,7 @@
 
 //-------------------######### STRINGS
 
-const char* helpString0 = "BRSTM/WAV/other converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\n";
-const char* helpString1 = " [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
+const char* helpString = "OpenRevolution file converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
 
 //------------------ Command line arguments
 
@@ -329,8 +328,8 @@ void delete_ffmpeg_files() {
 }
 
 int main(int argc, char** args) {
-    if(argc<2) {
-        std::cout << helpString0 << args[0] << helpString1;
+    if(argc<2 || strcmp(args[1],"--help") == 0) {
+        std::cout << helpString;
         return 0;
     }
     if(strcmp(args[1],"--version") == 0) {
@@ -437,9 +436,18 @@ int main(int argc, char** args) {
     std::ifstream ifile;
     std::ofstream ofile;
     std::streampos ifsize;
+    
+    //Check if output file can be opened for writing
+    if(saveFile) {
+        ofile.open(outputFileName, std::ios::out|std::ios::binary|std::ios::app);
+        if(!ofile.is_open()) {perror(outputFileName); exit(255);}
+        ofile.close();
+    }
+    
+    //Open and read input file
     ifile.open(inputFileName,std::ios::in|std::ios::binary|std::ios::ate);
     if(!ifile.is_open()) {
-        perror("Unable to open input file");
+        perror(inputFileName);
         exit(255);
     }
     ifsize = ifile.tellg();
@@ -449,7 +457,7 @@ int main(int argc, char** args) {
     if(inputFileExt > 0) {
         unsigned char res = brstm_fstream_getBaseInformation(brstm,ifile,0);
         if(res>127) {
-            std::cout << "Input file error.\n";
+            std::cout << "Input file error. (" << (int)res << ")\n";
             exit(res);
         }
         //Change from rebuilding to reencoding if the codec is not ADPCM
@@ -475,7 +483,7 @@ int main(int argc, char** args) {
         //Read the BRSTM
         unsigned char result = brstm_read(brstm,memblock,verb,true);
         if(result>127) {
-            std::cout << "BRSTM read error " << (int)result << ".\n";
+            std::cout << "File read error. (" << (int)result << ")\n";
             return result;
         }
         delete[] memblock;
@@ -490,7 +498,7 @@ int main(int argc, char** args) {
             }
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
-            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
+            if(!ofile.is_open()) {perror(outputFileName); exit(255);}
             //Write output WAV file
             writeWAV(brstm,ofile);
             std::cout << "Saved file to " << outputFileName << '\n';
@@ -553,20 +561,22 @@ int main(int argc, char** args) {
                 << "\nLoop point: " << brstm->loop_start
                 << "\nTracks: " << brstm->num_tracks << "\n";
             
-            //Open output file
-            ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
-            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Encode
             unsigned char res;
             //Use default byte order
             if(userEndian == -1) res = brstm_encode(brstm,1,1);
             //Use custom byte order
             else res = brstm_encode(brstm,1,1,userEndian);
+            
             if(res>127) {
-                std::cout << "BRSTM encode error " << (int)res << ".\n";
+                std::cout << "Encoding error. (" << (int)res << ")\n";
                 exit(res);
+            } else {
+                //Write output file
+                ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+                if(!ofile.is_open()) {perror(outputFileName); exit(255);}
+                ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
             }
-            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
         }
     }
     
@@ -585,7 +595,7 @@ int main(int argc, char** args) {
         //Read the BRSTM
         unsigned char result=brstm_read(brstm,memblock,verb,2);
         if(result>127) {
-            std::cout << "BRSTM read error " << (int)result << ".\n";
+            std::cout << "File read error. (" << (int)result << ")\n";
             return result;
         }
         delete[] memblock;
@@ -629,20 +639,22 @@ int main(int argc, char** args) {
                 << "\n  Tracks: " << brstm->num_tracks
                 << "\n";
             
-            //Open output file
-            ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
-            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Build new file
             unsigned char res;
             //Use default byte order
             if(userEndian == -1) res = brstm_encode(brstm,1,0);
             //Use custom byte order
             else res = brstm_encode(brstm,1,0,userEndian);
+            
             if(res>127) {
-                std::cout << "BRSTM encode error " << (int)res << ".\n";
+                std::cout << "Encoding error. (" << (int)res << ")\n";
                 exit(res);
+            } else {
+                //Write output file
+                ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+                if(!ofile.is_open()) {perror(outputFileName); exit(255);}
+                ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
             }
-            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
         }
     }
     
@@ -658,7 +670,7 @@ int main(int argc, char** args) {
         //Read the BRSTM
         unsigned char result=brstm_read(brstm,memblock,verb,true);
         if(result>127) {
-            std::cout << "BRSTM read error " << (int)result << ".\n";
+            std::cout << "File read error. (" << (int)result << ")\n";
             return result;
         }
         delete[] memblock;
@@ -800,20 +812,22 @@ int main(int argc, char** args) {
                 << "\n  Tracks: " << brstm->num_tracks
                 << "\n";
             
-            //Open output file
-            ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
-            if(!ofile.is_open()) {perror("Unable to open output file"); exit(255);}
             //Encode new file
             unsigned char res;
             //Use default byte order
             if(userEndian == -1) res = brstm_encode(brstm,1,1);
             //Use custom byte order
             else res = brstm_encode(brstm,1,1,userEndian);
+            
             if(res>127) {
-                std::cout << "BRSTM encode error " << (int)res << ".\n";
+                std::cout << "Encoding error. (" << (int)res << ")\n";
                 exit(res);
+            } else {
+                //Write output file
+                ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
+                if(!ofile.is_open()) {perror(outputFileName); exit(255);}
+                ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
             }
-            ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
         }
     }
     
