@@ -4,6 +4,14 @@
 
 //This file requires brstm.h to be included too
 
+//History sample data struct used internally in encoding.
+struct brstm_HSData_t {
+    int16_t  LoopHS1[16];
+    int16_t  LoopHS2[16];
+    int16_t* HS1[16];
+    int16_t* HS2[16];
+};
+
 #include <math.h>
 #include "utils.h"
 #include "audio_encoder.h"

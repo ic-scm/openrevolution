@@ -109,104 +109,19 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     
     
     if(debugLevel>0) std::cout << "\r" << brstm_encoder_nextspinner(spinner) << " Calculating blocks and history samples...       " << std::flush;
+    
     //Calculate blocks
-    brstmi->blocks_samples = (brstmi->codec == 2 ? 14336 : brstmi->codec == 1 ? 4096 : 8192);
-    brstmi->blocks_size = 8192;
-    brstmi->total_blocks = brstmi->total_samples / brstmi->blocks_samples;
-    if(brstmi->total_samples % brstmi->blocks_samples != 0) brstmi->total_blocks++;
-    //Final block
-    brstmi->final_block_samples = brstmi->total_samples % brstmi->blocks_samples;
-    if(brstmi->final_block_samples == 0) brstmi->final_block_samples = brstmi->blocks_samples;
-    brstmi->final_block_size = (
-        brstmi->codec == 2 ? brstm_getBytesForAdpcmSamples(brstmi->final_block_samples)
-        : brstmi->codec == 1 ? brstmi->final_block_samples * 2
-        : brstmi->final_block_samples
-    );
-    brstmi->final_block_size_p = brstmi->final_block_size;
-    while(brstmi->final_block_size_p % 0x20 != 0) {brstmi->final_block_size_p++;}
+    brstm_encoder_calculateStandardBlockInfo(brstmi);
     
     //Calculate history samples
-    //TODO this is copied code, split this into a separate utils function?
-    int16_t LoopHS1[brstmi->num_channels];
-    int16_t LoopHS2[brstmi->num_channels];
-    int16_t HS1[brstmi->num_channels][brstmi->total_blocks];
-    int16_t HS2[brstmi->num_channels][brstmi->total_blocks];
+    brstm_HSData_t HSData;
+    //Allocate HS storage
+    for(unsigned int ch=0; ch<brstmi->num_channels; ch++) {
+        HSData.HS1[ch] = new int16_t[brstmi->total_blocks];
+        HSData.HS2[ch] = new int16_t[brstmi->total_blocks];
+    }
     if(brstmi->codec == 2) {
-        if(encodeADPCM) {
-            //Get history samples
-            for(unsigned char c=0;c<brstmi->num_channels;c++) {
-                LoopHS1[c] = brstmi->loop_start > 0 ? brstmi->PCM_samples[c][brstmi->loop_start-1] : 0;
-                LoopHS2[c] = brstmi->loop_start > 1 ? brstmi->PCM_samples[c][brstmi->loop_start-2] : 0;
-                for(unsigned long b=0;b<brstmi->total_blocks;b++) {
-                    if(b==0) {
-                        //First block history samples are always zero
-                        HS1[c][b] = 0;
-                        HS2[c][b] = 0;
-                        continue;
-                    }
-                    HS1[c][b] = brstmi->PCM_samples[c][(b*brstmi->blocks_samples)-1];
-                    HS2[c][b] = brstmi->PCM_samples[c][(b*brstmi->blocks_samples)-2];
-                }
-                //Calculate ADPCM coefs for channel
-                DSPCorrelateCoefs(brstmi->PCM_samples[c],brstmi->total_samples,brstmi->ADPCM_coefs[c]);
-            }
-        } else {
-            for(unsigned char c=0;c<brstmi->num_channels;c++) {
-                //Decode 4 bit ADPCM
-                unsigned char* blockData = brstmi->ADPCM_data[c];
-                unsigned long currentBlockSamples = brstmi->total_samples;
-                unsigned long b = 0;
-                unsigned long currentSample = 0;
-                
-                //Magic adapted from brawllib's ADPCMState.cs
-                signed int 
-                cps = blockData[0],
-                cyn1 = 0,
-                cyn2 = 0;
-                unsigned long dataIndex = 0;
-                
-                int16_t* coefs = brstmi->ADPCM_coefs[c];
-                
-                for (unsigned long sampleIndex=0;sampleIndex<currentBlockSamples;) {
-                    long outSample = 0;
-                    if (sampleIndex % 14 == 0) {
-                        cps = blockData[dataIndex++];
-                    }
-                    if ((sampleIndex++ & 1) == 0) {
-                        outSample = blockData[dataIndex] >> 4;
-                    } else {
-                        outSample = blockData[dataIndex++] & 0x0f;
-                    }
-                    if (outSample >= 8) {
-                        outSample -= 16;
-                    }
-                    const long scale = 1 << (cps & 0x0f);
-                    const long cIndex = (cps >> 4) << 1;
-                    
-                    outSample = (0x400 + ((scale * outSample) << 11) + coefs[brstm_clamp(cIndex, 0, 15)] * cyn1 + coefs[brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
-                    
-                    if(currentSample % brstmi->blocks_samples == 0) {
-                        if(b == 0) {
-                            HS1[c][b] = 0;
-                            HS2[c][b] = 0;
-                        } else {
-                            HS1[c][b] = cyn1;
-                            HS2[c][b] = cyn2;
-                        }
-                        b++;
-                    }
-                    if(currentSample == brstmi->loop_start) {
-                        if(currentSample > 0) {LoopHS1[c] = cyn1;} else {LoopHS1[c] = 0;}
-                        if(currentSample > 1) {LoopHS2[c] = cyn2;} else {LoopHS2[c] = 0;}
-                    }
-                    
-                    cyn2 = cyn1;
-                    cyn1 = brstm_clamp(outSample, -32768, 32767);
-                    
-                    currentSample++;
-                }
-            }
-        }
+        brstm_encoder_adpcm_calculateAdpcmData(brstmi, encodeADPCM, &HSData);
     }
     
     
@@ -397,8 +312,8 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
             brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //HS2, always zero
             chinfo_lps_offsets[c] = bufpos;
             brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Loop predictor scale, will be written later
-            brstm_encoder_writebytes  (buffer,brstm_encoder_getByteInt16(LoopHS1[c],BOM),2,bufpos); //Loop HS1
-            brstm_encoder_writebytes  (buffer,brstm_encoder_getByteInt16(LoopHS2[c],BOM),2,bufpos); //Loop HS2
+            brstm_encoder_writebytes  (buffer,brstm_encoder_getByteInt16(HSData.LoopHS1[c],BOM),2,bufpos); //Loop HS1
+            brstm_encoder_writebytes  (buffer,brstm_encoder_getByteInt16(HSData.LoopHS2[c],BOM),2,bufpos); //Loop HS2
             brstm_encoder_writebytes_i(buffer,new unsigned char[2]{0x00,0x00},2,bufpos); //Padding
         }
     }
@@ -433,8 +348,8 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
         //Write history sample data
         for(unsigned long b=0;b<brstmi->total_blocks;b++) {
             for(unsigned char c=0;c<brstmi->num_channels;c++) {
-                brstm_encoder_writebytes(buffer,brstm_encoder_getByteInt16(HS1[c][b],BOM),2,bufpos); //HS1
-                brstm_encoder_writebytes(buffer,brstm_encoder_getByteInt16(HS2[c][b],BOM),2,bufpos); //HS2
+                brstm_encoder_writebytes(buffer,brstm_encoder_getByteInt16(HSData.HS1[c][b],BOM),2,bufpos); //HS1
+                brstm_encoder_writebytes(buffer,brstm_encoder_getByteInt16(HSData.HS2[c][b],BOM),2,bufpos); //HS2
             }
         }
         
@@ -582,6 +497,12 @@ unsigned char brstm_formats_multi_encode_bcstm_bfstm(Brstm* brstmi, signed int d
     memcpy(brstmi->encoded_file,buffer,bufpos);
     delete[] buffer;
     brstmi->encoded_file_size = bufpos;
+    
+    //Free HS storage
+    for(unsigned int ch=0; ch<brstmi->num_channels; ch++) {
+        delete[] HSData.HS1[ch];
+        delete[] HSData.HS2[ch];
+    }
     
     if(debugLevel>0) std::cout << "\r" << eformat_s[eformat] << " encoding done                                                     \n" << std::flush;
     

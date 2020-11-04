@@ -138,3 +138,25 @@ char brstm_encoder_nextspinner(char& spinner) {
     return spinner;
 }
 
+//Calculates block sizes and sample counts
+void brstm_encoder_calculateStandardBlockInfo(Brstm* brstmi) {
+    brstmi->blocks_samples = (brstmi->codec == 2 ? 14336 : brstmi->codec == 1 ? 4096 : 8192);
+    brstmi->blocks_size = 8192;
+    
+    brstmi->total_blocks = brstmi->total_samples / brstmi->blocks_samples;
+    if(brstmi->total_samples % brstmi->blocks_samples != 0) brstmi->total_blocks++;
+    
+    //Final block
+    brstmi->final_block_samples = brstmi->total_samples % brstmi->blocks_samples;
+    if(brstmi->final_block_samples == 0) brstmi->final_block_samples = brstmi->blocks_samples;
+    brstmi->final_block_size = (
+        brstmi->codec == 2 ? brstm_getBytesForAdpcmSamples(brstmi->final_block_samples)
+        : brstmi->codec == 1 ? brstmi->final_block_samples * 2
+        : brstmi->final_block_samples
+    );
+    
+    //Padded final block size
+    brstmi->final_block_size_p = brstmi->final_block_size;
+    while(brstmi->final_block_size_p % 0x20 != 0) {brstmi->final_block_size_p++;}
+}
+
