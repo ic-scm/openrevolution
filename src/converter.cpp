@@ -14,14 +14,14 @@
 
 //-------------------######### STRINGS
 
-const char* helpString = "OpenRevolution file converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\n--mix-tracks [0/1 for all tracks] - Mix the specified tracks from the input file into a single stereo track\n(example: --mix-tracks 1010 will mix the first and third track from a 4-track file)\nIf necessary, this option can also be used to duplicate a single mono track.\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
+const char* helpString = "OpenRevolution file converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\n--mix-tracks [0/1 for all tracks] - Mix the specified tracks from the input file into a single stereo track\n(example: --mix-tracks 1010 will mix the first and third track from a 4-track file)\nIf necessary, this option can also be used to duplicate a single mono track.\n\n--mix-tracks-mono - Use together with --mix-tracks to mix into a single mono track\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","-ffmpeg","-reencode","-extend","-oCodec","-kc","-oEndian","-mix-tracks"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels","--oEndian","--mix-tracks"};
-const unsigned int optcount = 11;
-const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1,1,1};
+const char* opts[] = {"-v","-o","-l","-c","-ffmpeg","-reencode","-extend","-oCodec","-kc","-oEndian","-mix-tracks","-mix-tracks-mono"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels","--oEndian","--mix-tracks","--mix-tracks-mono"};
+const unsigned int optcount = 12;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1,1,1,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -46,6 +46,7 @@ bool keepChannels[16] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
 
 //Track mixing
 bool userTrackMixing = 0;
+bool userTrackMixingMono = 0;
 bool userTracksToMix[8] = {0,0,0,0,0,0,0,0};
 
 bool reencode = 0;
@@ -252,22 +253,37 @@ void mixTracks (Brstm* brstm) {
         }
     }
     
+    if(userTrackMixingMono) {
+        //Mix final mix into a single mono channel
+        int32_t mixsample;
+        for(unsigned long s=0; s<brstm->total_samples; s++) {
+            mixsample = mixbuffer0[s];
+            mixsample += mixbuffer1[s];
+            mixsample /= 2;
+            mixbuffer0[s] = mixsample;
+        }
+    }
+    
     //Replace audio data in BRSTM struct with mixed track
     //Free old audio data
     for(unsigned int c=0; c<brstm->num_channels; c++) {
         delete[] brstm->PCM_samples[c];
         brstm->PCM_samples[c] = nullptr;
     }
+    
     //Write new mixed audio data
-    brstm->num_channels = 2;
+    brstm->num_channels = (userTrackMixingMono ? 1 : 2);
     brstm->PCM_samples[0] = mixbuffer0;
-    brstm->PCM_samples[1] = mixbuffer1;
+    if(!userTrackMixingMono) brstm->PCM_samples[1] = mixbuffer1;
+    //Free right channel buffer if mixing to mono
+    if(userTrackMixingMono) delete[] mixbuffer1;
+    
     //Write track information
     brstm->num_tracks = 1;
     brstm->track_desc_type = 0;
-    brstm->track_num_channels[0] = 2;
+    brstm->track_num_channels[0] = brstm->num_channels;
     brstm->track_lchannel_id [0] = 0;
-    brstm->track_rchannel_id [0] = 1;
+    brstm->track_rchannel_id [0] = (userTrackMixingMono ? 0 : 1);
     brstm->track_volume      [0] = 0;
     brstm->track_panning     [0] = 0;
 }
@@ -418,6 +434,10 @@ int main(int argc, char** args) {
         std::cout << "--mix-tracks cannot be used together with -c (--track-channels) or -kc (--keep-channels).\n";
         exit(255);
     }
+    if(optused[11] && !optused[10]) {
+        std::cout << "--mix-tracks-mono can only be used together with --mix-tracks.\n";
+        exit(255);
+    }
     
     //Apply the options
     //Input file
@@ -475,6 +495,10 @@ int main(int argc, char** args) {
         }
         //Track mixing is done on PCM
         reencode = 1;
+    }
+    //Mono track mixing
+    if(optused[11]) {
+        userTrackMixingMono = 1;
     }
     
     
