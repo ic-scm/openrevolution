@@ -14,14 +14,14 @@
 
 //-------------------######### STRINGS
 
-const char* helpString = "OpenRevolution file converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
+const char* helpString = "OpenRevolution file converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\n--mix-tracks [0/1 for all tracks] - Mix the specified tracks from the input file into a single stereo track\n(example: --mix-tracks 1010 will mix the first and third track from a 4-track file)\nIf necessary, this option can also be used to duplicate a single mono track.\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","-ffmpeg","-reencode","-extend","-oCodec","-kc","-oEndian"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels","--oEndian"};
-const unsigned int optcount = 10;
-const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1,1};
+const char* opts[] = {"-v","-o","-l","-c","-ffmpeg","-reencode","-extend","-oCodec","-kc","-oEndian","-mix-tracks"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels","--oEndian","--mix-tracks"};
+const unsigned int optcount = 11;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1,1,1};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -43,6 +43,10 @@ unsigned char userTrackChannels = 0;
 
 //keep channels
 bool keepChannels[16] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+
+//Track mixing
+bool userTrackMixing = 0;
+bool userTracksToMix[8] = {0,0,0,0,0,0,0,0};
 
 bool reencode = 0;
 bool useFFMPEG = 0;
@@ -223,6 +227,51 @@ void removeChannels(Brstm* brstm,bool mode) {
     brstm->num_channels = newChannelCount;
 }
 
+void mixTracks (Brstm* brstm) {
+    //Allocate mixing buffer
+    int16_t* mixbuffer0;
+    int16_t* mixbuffer1;
+    mixbuffer0 = new int16_t[brstm->total_samples];
+    mixbuffer1 = new int16_t[brstm->total_samples];
+    
+    //Clear out the mixing buffer
+    for(unsigned long s=0; s<brstm->total_samples; s++) {
+        mixbuffer0[s] = 0;
+        mixbuffer1[s] = 0;
+    }
+    
+    //Mixer
+    for(unsigned int t=0; t<brstm->num_tracks; t++) {
+        if(!userTracksToMix[t]) continue;
+        unsigned char ch1id = brstm->track_lchannel_id [t];
+        unsigned char ch2id = brstm->track_num_channels[t] == 2 ? brstm->track_rchannel_id[t] : ch1id;
+        double track_volume = (brstm->track_desc_type == 0 ? 1 : (double)brstm->track_volume[t]/127);
+        for(unsigned long s=0; s<brstm->total_samples; s++) {
+            mixbuffer0[s] = brstm_clamp( ((int32_t)mixbuffer0[s] + brstm->PCM_samples[ch1id][s]*track_volume), -32768, 32767);
+            mixbuffer1[s] = brstm_clamp( ((int32_t)mixbuffer1[s] + brstm->PCM_samples[ch2id][s]*track_volume), -32768, 32767);
+        }
+    }
+    
+    //Replace audio data in BRSTM struct with mixed track
+    //Free old audio data
+    for(unsigned int c=0; c<brstm->num_channels; c++) {
+        delete[] brstm->PCM_samples[c];
+        brstm->PCM_samples[c] = nullptr;
+    }
+    //Write new mixed audio data
+    brstm->num_channels = 2;
+    brstm->PCM_samples[0] = mixbuffer0;
+    brstm->PCM_samples[1] = mixbuffer1;
+    //Write track information
+    brstm->num_tracks = 1;
+    brstm->track_desc_type = 0;
+    brstm->track_num_channels[0] = 2;
+    brstm->track_lchannel_id [0] = 0;
+    brstm->track_rchannel_id [0] = 1;
+    brstm->track_volume      [0] = 0;
+    brstm->track_panning     [0] = 0;
+}
+
 void readWAV(Brstm* brstm,std::ifstream& stream,std::streampos fsize) {
     //Read file
     stream.seekg(0);
@@ -332,10 +381,12 @@ int main(int argc, char** args) {
         std::cout << helpString;
         return 0;
     }
+    
     if(strcmp(args[1],"--version") == 0) {
         std::cout << brstm_getVersionString() << '\n';
         exit(0);
     }
+    
     //Parse command line args
     for(unsigned int a=2;a<argc;a++) {
         int vOpt = -1;
@@ -361,14 +412,21 @@ int main(int argc, char** args) {
             }
         }
     }
+    
+    //Check for conflicting options
+    if(optused[10] && (optused[3] || optused[8])) {
+        std::cout << "--mix-tracks cannot be used together with -c (--track-channels) or -kc (--keep-channels).\n";
+        exit(255);
+    }
+    
     //Apply the options
-    //Input
+    //Input file
     inputFileName = args[1];
-    //Verbose
+    //Verbose mode
     if(optused[0]) verb=2;
-    //Output
+    //Output file
     if(optused[1]) {outputFileName=optargstr[1]; saveFile=1;}
-    //Loop
+    //Loop point
     if(optused[2]) {
         unsigned long lp = atoi(optargstr[2]);
         if(lp == (unsigned long)(-1)) {
@@ -381,7 +439,7 @@ int main(int argc, char** args) {
             userLoopPoint = lp;
         }
     }
-    //Track channels
+    //Track channel count
     if(optused[3]) {
         unsigned int tc = atoi(optargstr[3]);
         if(!(tc >= 1 && tc <= 2)) {std::cout << "Track channel count must be 1 or 2.\n"; exit(255);}
@@ -391,13 +449,14 @@ int main(int argc, char** args) {
     if(optused[4]) {ffmpegArgs=optargstr[4]; useFFMPEG=1; reencode = 1;}
     //Reencode
     if(optused[5]) reencode = 1;
-    //Extend
+    //Extend / cut
     if(optused[6]) {extendSampleCount = atoi(optargstr[6]);}
-    //Output codec
+    //Output file codec
     if(optused[7]) {userCodec = atoi(optargstr[7]);}
     //Keep channels
     if(optused[8]) {
         unsigned char len = strlen(optargstr[8]);
+        if(len > 16) len = 16;
         for(unsigned char i=0;i<len;i++) {
             if(optargstr[8][i] == '0') keepChannels[i] = 0;
         }
@@ -406,6 +465,18 @@ int main(int argc, char** args) {
     if(optused[9]) {
         userEndian = (bool)atoi(optargstr[9]);
     }
+    //Track mixer
+    if(optused[10]) {
+        userTrackMixing = 1;
+        unsigned char len = strlen(optargstr[10]);
+        if(len > 8) len = 8;
+        for(unsigned char i=0;i<len;i++) {
+            if(optargstr[10][i] == '1') userTracksToMix[i] = 1;
+        }
+        //Track mixing is done on PCM
+        reencode = 1;
+    }
+    
     
     //Safety
     if(extendSampleCount > 80000000) {
@@ -480,27 +551,40 @@ int main(int argc, char** args) {
         unsigned char * memblock = new unsigned char[ifsize];
         ifile.read((char*)memblock,ifsize);
         if(verb) {std::cout << "Read file " << inputFileName << ", size " << ifsize << '\n';}
+        
         //Read the BRSTM
         unsigned char result = brstm_read(brstm,memblock,verb,true);
         if(result>127) {
             std::cout << "File read error. (" << (int)result << ")\n";
             return result;
         }
+        
         delete[] memblock;
+        
         if(saveFile) {
             //Remove channels
             removeChannels(brstm,0);
+            
+            //Mix tracks
+            if(userTrackMixing) {
+                if(verb) std::cout << "Mixing tracks...\n";
+                mixTracks(brstm);
+            }
+            
             //Extender / cutter
             if(extendSampleCount) {
                 if(verb) std::cout << (brstm->total_samples >= extendSampleCount ? "Cutting" : "Extending")
                     << " from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
                 extendPCMSamples(brstm,extendSampleCount);
             }
+            
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ofile.is_open()) {perror(outputFileName); exit(255);}
+            
             //Write output WAV file
             writeWAV(brstm,ofile);
+            
             std::cout << "Saved file to " << outputFileName << '\n';
         }
     }
@@ -509,6 +593,7 @@ int main(int argc, char** args) {
     else if(inputFileExt == 0 && outputFileExt > 0) {
         //check for unsupported opts
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in encoding mode.\n"; exit(255);}
+        if(userTrackMixing) {std::cout << "Track mixing cannot be done on WAV files.\n"; exit(255);};
         //print conversion details
         if(saveFile) printConversionDetails();
         
@@ -585,6 +670,7 @@ int main(int argc, char** args) {
         //check for unsupported opts
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in rebuilder mode.\n"; exit(255);}
         if(userCodec != -1) {std::cout << "You cannot use the output codec option in rebuilder mode.\n"; exit(255);}
+        if(userTrackMixing) {std::cout << "You cannot mix tracks when losslessly converting files.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
         
@@ -608,8 +694,10 @@ int main(int argc, char** args) {
                 brstm->loop_flag = userLoopFlag;
                 brstm->loop_start = userLoopPoint;
             }
+            
             //Remove channels
             removeChannels(brstm,1);
+            
             //Apply new track settings
             if(userTrackChannels != 0) {
                 brstmStereoTracks = userTrackChannels - 1;
@@ -632,6 +720,7 @@ int main(int argc, char** args) {
                     brstm->track_panning     [t] = 0x40;
                 }
             }
+            
             if(verb) std::cout
                 << "Output:"
                 << "\n  Looping BRSTM: " << brstm->loop_flag
@@ -677,6 +766,12 @@ int main(int argc, char** args) {
         
         //Remove channels
         removeChannels(brstm,0);
+        
+        //Mix tracks
+        if(userTrackMixing) {
+            if(verb) std::cout << "Mixing tracks...\n";
+            mixTracks(brstm);
+        }
         
         //FFMPEG: save audio to WAV file, run ffmpeg on it, and read the output
         if(useFFMPEG) {
@@ -777,6 +872,7 @@ int main(int argc, char** args) {
                 brstm->loop_flag = userLoopFlag;
                 brstm->loop_start = userLoopPoint;
             }
+            
             //Apply new track settings
             if(userTrackChannels != 0) {
                 brstmStereoTracks = userTrackChannels - 1;
@@ -799,12 +895,14 @@ int main(int argc, char** args) {
                     brstm->track_panning     [t] = 0x40;
                 }
             }
+            
             //Extender / cutter
             if(extendSampleCount) {
                 if(verb) std::cout << (brstm->total_samples >= extendSampleCount ? "Cutting" : "Extending")
                     << " from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
                 extendPCMSamples(brstm,extendSampleCount);
             }
+            
             if(verb) std::cout
                 << "Output:"
                 << "\n  Looping BRSTM: " << brstm->loop_flag
