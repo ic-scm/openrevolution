@@ -160,6 +160,16 @@ Similar to brstm_fstream_read but it doesn't call the full brstm_read function
 
 
 ```cpp
+unsigned char brstm_getBaseInformation(Brstm*, unsigned char* data, unsigned long dataSize ,signed int debugLevel)
+```
+Get base file information (like brstm_fstream_getBaseInformation), but using a part of a file from memory instead.
+
+data: Pointer to the beginning of file data
+
+dataSize: Bytes of available data in the data pointer
+
+
+```cpp
 const char* brstm_getErrorString(unsigned char code)
 ```
 Returns error string from error code
@@ -186,7 +196,7 @@ Returns codec string
 ```cpp
 const char* brstm_getVersionString()
 ```
-Returns version string
+Returns library version string
 
 
 ### Encoder
