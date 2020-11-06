@@ -177,18 +177,21 @@ Returns error string from error code
 
 ```cpp
 const char* brstm_getShortFormatString(Brstm*)
+const char* brstm_getShortFormatString(unsigned int format)
 ```
 Returns short file format string
 
 
 ```cpp
 const char* brstm_getLongFormatString(Brstm*)
+const char* brstm_getLongFormatString(unsigned int format)
 ```
 Returns long file format string
 
 
 ```cpp
 const char* brstm_getCodecString(Brstm*)
+const char* brstm_getCodecString(unsigned int codec)
 ```
 Returns codec string
 

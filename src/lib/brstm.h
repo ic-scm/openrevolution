@@ -111,20 +111,25 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
 #include "d_formats/all.h"
 
 //Get short file format string
-const char* brstm_getShortFormatString(Brstm* brstmi) {
-    if(brstmi->file_format >= BRSTM_formats_count) return "";
-    else return BRSTM_formats_short_usr_str[brstmi->file_format];
+const char* brstm_getShortFormatString(unsigned int format) {
+    if(format >= BRSTM_formats_count) return "Unknown format";
+    else return BRSTM_formats_short_usr_str[format];
 }
 //Get long file format string
-const char* brstm_getLongFormatString(Brstm* brstmi) {
-    if(brstmi->file_format >= BRSTM_formats_count) return "";
-    else return BRSTM_formats_long_usr_str[brstmi->file_format];
+const char* brstm_getLongFormatString(unsigned int format) {
+    if(format >= BRSTM_formats_count) return "Unknown format";
+    else return BRSTM_formats_long_usr_str[format];
 }
 //Get codec string
-const char* brstm_getCodecString(Brstm* brstmi) {
-    if(brstmi->codec >= BRSTM_codecs_count) return "";
-    else return BRSTM_codecs_usr_str[brstmi->codec];
+const char* brstm_getCodecString(unsigned int codec) {
+    if(codec >= BRSTM_codecs_count) return "Unknown codec";
+    else return BRSTM_codecs_usr_str[codec];
 }
+
+const char* brstm_getShortFormatString(Brstm* brstmi) { return brstm_getShortFormatString(brstmi->file_format); }
+const char* brstm_getLongFormatString(Brstm* brstmi) { return brstm_getLongFormatString(brstmi->file_format); }
+const char* brstm_getCodecString(Brstm* brstmi) { return brstm_getCodecString(brstmi->codec); }
+
 //Get error string from code
 const char* brstm_getErrorString(unsigned char code) {
     const char* invalidfile = "Invalid file";
