@@ -15,7 +15,7 @@
 
 #include "../lib/brstm.h"
 
-#define OUTPUT_BUFSIZE 512
+#define OUTPUT_BUFSIZE 256
 
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);
@@ -108,6 +108,7 @@ signed char memoryMode = -1;
 // 2 - Decode all audio data into memory before playing
 
 //Player UI
+//TODO: Printing output seems to cause small playback issues sometimes, move ui to another thread?
 void drawPlayerUI() {
     playback_seconds=playback_current_sample/brstm->sample_rate;
     

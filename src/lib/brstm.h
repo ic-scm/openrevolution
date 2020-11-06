@@ -685,8 +685,16 @@ void brstm_close(Brstm * brstmi) {
         delete[] brstmi->PCM_blockbuffer[i];
         delete[] brstmi->ADPCM_data[i];
         delete[] brstmi->ADPCM_buffer[i];
+        brstmi->ADPCM_hsamples_1[i] = nullptr;
+        brstmi->ADPCM_hsamples_2[i] = nullptr;
+        brstmi->PCM_samples[i] = nullptr;
+        brstmi->PCM_buffer[i] = nullptr;
+        brstmi->PCM_blockbuffer[i] = nullptr;
+        brstmi->ADPCM_data[i] = nullptr;
+        brstmi->ADPCM_buffer[i] = nullptr;
     }
     delete[] brstmi->encoded_file;
+    brstmi->encoded_file = nullptr;
     
     brstmi->file_format = 0;
     brstmi->codec = 0;
