@@ -274,6 +274,9 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     } else if(brstmi->file_format == 5) {
         //ORSTM
         readres = brstm_formats_read_orstm(brstmi,fileData,debugLevel,decodeAudio);
+    } else {
+        if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
+        return 210;
     }
     
     //Return now if a read error occurred
@@ -334,8 +337,34 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     
     //Fail on unsupported codecs
     if(brstmi->codec > 2) {
-        if(debugLevel >= 0) {std::cout << brstm_getCodecString(brstmi) << " codec is not supported.\n";}
+        if(debugLevel >= 0) std::cout << brstm_getCodecString(brstmi) << " codec is not supported.\n";
         return 220;
+    }
+    
+    //Check if track information is valid
+    bool trackinfo_fail = 0;
+    
+    if(brstmi->track_desc_type > 1) trackinfo_fail = 1;
+    
+    for(unsigned int t=0; t<brstmi->num_tracks; t++) {
+        if(brstmi->track_num_channels[t] < 1 || brstmi->track_num_channels[t] > 2) trackinfo_fail = 1;
+        if(brstmi->track_lchannel_id[t] >= brstmi->num_channels) trackinfo_fail = 1;
+        if(brstmi->track_num_channels[t] == 2 && brstmi->track_rchannel_id[t] >= brstmi->num_channels) trackinfo_fail = 1;
+        switch(brstmi->track_desc_type) {
+            case 0: {
+                if(brstmi->track_volume[t] != 0 || brstmi->track_panning[t] != 0) trackinfo_fail = 1;
+                break;
+            }
+            case 1: {
+                if(brstmi->track_volume[t] > 0x7F || brstmi->track_panning[t] > 0x7F) trackinfo_fail = 1;
+                break;
+            }
+        }
+    }
+    
+    if(trackinfo_fail) {
+        if(debugLevel >= 0) std::cout << "Invalid track information.\n";
+        return 244;
     }
     
     return readres;
