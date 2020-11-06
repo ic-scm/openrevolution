@@ -1,4 +1,4 @@
-//OpenRevolution audio decoder
+//OpenRevolution audio decoders
 //Copyright (C) 2020 IC
 
 #pragma once
@@ -126,4 +126,62 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,const unsigned char* fileD
         brstm_decode_block(brstmi,b,c,fileData,dataType,brstmi->PCM_blockbuffer,0);
     }
     brstmi->PCM_blockbuffer_currentBlock = b;
+}
+
+//Standard full audio decoding/writing for readers.
+unsigned char brstm_doStandardAudioWrite(Brstm* brstmi, const unsigned char* fileData, signed int debugLevel, uint8_t decodeAudio) {
+    if(decodeAudio == 0) return 0;
+    if(decodeAudio == 2 && brstmi->codec != 2) {
+        if(debugLevel >= 0) std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
+        return 222;
+    }
+    
+    unsigned long posOffset = 0;
+    unsigned long chdatabytes = (brstmi->total_blocks-1) * brstmi->blocks_size + brstmi->final_block_size;
+    
+    for(unsigned int c=0; c<brstmi->num_channels; c++) {
+        //Create new array of samples for the current channel
+        switch(decodeAudio) {
+            case 1: brstmi->PCM_samples[c] = new int16_t[brstmi->total_samples]; break;
+            case 2: brstmi->ADPCM_data [c] = new unsigned char[chdatabytes]; break;
+        }
+        
+        posOffset = 0 + (brstmi->blocks_size*c);
+        unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
+        
+        for(unsigned long b=0; b<brstmi->total_blocks; b++) {
+            //Read every block
+            unsigned int currentBlockSize = brstmi->blocks_size;
+            
+            //Final block
+            if(b == brstmi->total_blocks-1) {
+                currentBlockSize = brstmi->final_block_size;
+            }
+            if(b >= brstmi->total_blocks-1 && c > 0) {
+                //Go back to the previous position
+                posOffset -= brstmi->blocks_size * brstmi->num_channels;
+                //Go to the next block in position of first channel
+                posOffset += brstmi->blocks_size * (brstmi->num_channels-c);
+                //Jump to the correct channel in the final block
+                posOffset += brstmi->final_block_size_p * c;
+            }
+            
+            if(decodeAudio == 1) {
+                //Decode audio normally
+                brstm_decode_block(brstmi, b, c, fileData, 0, brstmi->PCM_samples, b*brstmi->blocks_samples);
+            }
+            
+            else if(decodeAudio == 2) {
+                //Write raw ADPCM data to ADPCM_data
+                //Get data from just the current block
+                unsigned char* blockData = brstm_getSlice(fileData, brstmi->audio_offset + posOffset, currentBlockSize);
+                for(unsigned int i=0; i<currentBlockSize; i++) {
+                    brstmi->ADPCM_data[c][outputPos++] = blockData[i];
+                }
+            }
+            posOffset += brstmi->blocks_size * brstmi->num_channels;
+        }
+    }
+    
+    return 0;
 }

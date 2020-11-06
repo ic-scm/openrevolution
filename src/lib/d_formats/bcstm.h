@@ -273,56 +273,8 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
     }
     
     if(decodeAudio) {
-        unsigned long posOffset=0;
-        
-        for(unsigned int c=0;c<brstmi->num_channels;c++) {
-            //Create new array of samples for the current channel
-            switch(decodeAudio) {
-                case 1: brstmi->PCM_samples[c] = new int16_t[brstmi->total_samples]; break;
-                //Adding 1024 bytes of safe space because Nintendo sometimes can't make proper files in their own formats.
-                case 2: brstmi->ADPCM_data [c] = new unsigned char[brstm_getBytesForAdpcmSamples(brstmi->total_samples)+1024]; break;
-            }
-            
-            posOffset=0+(brstmi->blocks_size*c);
-            unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
-            for(unsigned long b=0;b<brstmi->total_blocks;b++) {
-                //Read every block
-                unsigned int currentBlockSize    = brstmi->blocks_size;
-                //Final block
-                if(b==brstmi->total_blocks-1) {
-                    currentBlockSize    = brstmi->final_block_size;
-                }
-                if(b>=brstmi->total_blocks-1 && c>0) {
-                    //Go back to the previous position
-                    posOffset-=brstmi->blocks_size*brstmi->num_channels;
-                    //Go to the next block in position of first channel
-                    posOffset+=brstmi->blocks_size*(brstmi->num_channels-c);
-                    //Jump to the correct channel in the final block
-                    posOffset+=brstmi->final_block_size_p*c;
-                }
-                
-                
-                if(decodeAudio == 1) {
-                    //Decode audio normally
-                    brstm_decode_block(brstmi,b,c,fileData,0,brstmi->PCM_samples,b*brstmi->blocks_samples);
-                } else {
-                    //Write raw data to ADPCM_data
-                    if(brstmi->codec!=2) {
-                        if(debugLevel>=0) {
-                            std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
-                        }
-                        return 222;
-                    }
-                    //Get data from just the current block
-                    unsigned char* blockData = brstm_getSlice(fileData,brstmi->audio_offset+posOffset,currentBlockSize);
-                    for(unsigned int i=0; i<currentBlockSize; i++) {
-                        brstmi->ADPCM_data[c][outputPos++] = blockData[i];
-                    }
-                }
-                
-                posOffset+=brstmi->blocks_size*brstmi->num_channels;
-            }
-        }
+        unsigned char awrite_res = brstm_doStandardAudioWrite(brstmi, fileData, debugLevel, decodeAudio);
+        if(awrite_res > 128) return awrite_res;
     }
     
     return 0;

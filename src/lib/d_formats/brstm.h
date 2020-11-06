@@ -305,59 +305,8 @@ unsigned char brstm_formats_read_brstm(Brstm* brstmi,const unsigned char* fileDa
                 if(debugLevel>1) {std::cout << "DATA length: " << DATA_total_length << '\n';}
                 
                 if(decodeAudio) {
-                    unsigned long decoded_samples=0;
-                    
-                    unsigned long posOffset=0;
-                    
-                    for(unsigned int c=0;c<HEAD3_num_channels;c++) {
-                        //Create new array of samples for the current channel
-                        switch(decodeAudio) {
-                            case 1: PCM_samples[c] = new int16_t[HEAD1_total_samples]; break;
-                            case 2: ADPCM_data [c] = new unsigned char[((DATA_total_length-32))/HEAD3_num_channels]; break;
-                        }
-                        
-                        posOffset=0+(HEAD1_blocks_size*c);
-                        unsigned long outputPos = 0; //position in PCM samples or ADPCM data output array
-                        for(unsigned long b=0;b<HEAD1_total_blocks;b++) {
-                            //Read every block
-                            unsigned int currentBlockSize    = HEAD1_blocks_size;
-                            unsigned int currentBlockSamples = HEAD1_blocks_samples;
-                            //Final block
-                            if(b==HEAD1_total_blocks-1) {
-                                currentBlockSize    = HEAD1_final_block_size;
-                                currentBlockSamples = HEAD1_final_block_samples;
-                            }
-                            if(b>=HEAD1_total_blocks-1 && c>0) {
-                                //Go back to the previous position
-                                posOffset-=HEAD1_blocks_size*HEAD3_num_channels;
-                                //Go to the next block in position of first channel
-                                posOffset+=HEAD1_blocks_size*(HEAD3_num_channels-c);
-                                //Jump to the correct channel in the final block
-                                posOffset+=HEAD1_final_block_size_p*c;
-                            }
-                            
-                            
-                            if(decodeAudio == 1) {
-                                //Decode audio normally
-                                brstm_decode_block(brstmi,b,c,fileData,0,brstmi->PCM_samples,b*brstmi->blocks_samples);
-                            } else {
-                                //Write raw data to ADPCM_data
-                                if(HEAD1_codec!=2) {
-                                    if(debugLevel>=0) {
-                                        std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
-                                    }
-                                    return 222;
-                                }
-                                //Get data from just the current block
-                                unsigned char* blockData = brstm_getSlice(fileData,HEAD1_ADPCM_offset+posOffset,currentBlockSize);
-                                for(unsigned int i=0; i<currentBlockSize; i++) {
-                                    ADPCM_data[c][outputPos++] = blockData[i];
-                                }
-                            }
-                            
-                            posOffset+=HEAD1_blocks_size*HEAD3_num_channels;
-                        }
-                    }
+                    unsigned char awrite_res = brstm_doStandardAudioWrite(brstmi, fileData, debugLevel, decodeAudio);
+                    if(awrite_res > 128) return awrite_res;
                 }
                 
                 //History sample check when fully decoding ADPCM files.

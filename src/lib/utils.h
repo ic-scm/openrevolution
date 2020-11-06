@@ -6,6 +6,7 @@
 #pragma once
 #include <math.h>
 
+//TODO: Do not use global variables for slicing function results
 unsigned char* brstm_slice;
 char* brstm_slicestring;
 
@@ -106,6 +107,9 @@ void brstm_encoder_writebyte(unsigned char* buf,const unsigned char data,unsigne
 }
 
 //Returns integer as big endian bytes
+//TODO: Improve the speed of this function and brstm_encoder_getByteInt16
+//      while keeping compatibility with both Little-endian and Big-endian machines
+//TODO: Do not use a global variable for storing the result
 unsigned char* brstm_encoder_ByteInt;
 unsigned char* brstm_encoder_getByteUint(uint64_t num,uint8_t bytes,bool BOM) {
     delete[] brstm_encoder_ByteInt;
