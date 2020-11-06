@@ -81,9 +81,28 @@ unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeA
             }
             return 244;
         }
+        
         //Invalid channel
         if(brstmi->track_lchannel_id[t] >= brstmi->num_channels || brstmi->track_rchannel_id[t] >= brstmi->num_channels) {
             if(debugLevel>=0) std::cout << "Invalid channel ID in track " << t << ".\n";
+            return 244;
+        }
+        
+        //Invalid volume and pan values
+        bool trackinfo_fail = 0;
+        switch(brstmi->track_desc_type) {
+            case 0: {
+                if(brstmi->track_volume[t] != 0 || brstmi->track_panning[t] != 0) trackinfo_fail = 1;
+                break;
+            }
+            case 1: {
+                if(brstmi->track_volume[t] > 0x7F || brstmi->track_panning[t] > 0x7F) trackinfo_fail = 1;
+                break;
+            }
+        }
+        
+        if(trackinfo_fail) {
+            if(debugLevel >= 0) std::cout << "Invalid volume/pan values in track " << t << ".\n";
             return 244;
         }
     }
