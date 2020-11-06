@@ -15,7 +15,7 @@
 
 #include "../lib/brstm.h"
 
-#define OUTPUT_BUFSIZE 256
+#define OUTPUT_BUFSIZE 512
 
 void itoa(int n, char* s) {
     std::string ss = std::to_string(n);
