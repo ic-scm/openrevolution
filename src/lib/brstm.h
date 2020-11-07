@@ -18,6 +18,7 @@ const unsigned int BRSTM_formats_count = 6;
 const char* BRSTM_formats_str[BRSTM_formats_count] = {"RIFF","RSTM","CSTM","FSTM","BWAV","OSTM"};
 //Offset to the audio offset information in each format (32 bit integer)
 //(doesn't have to be accurate, just enough to fit the entire file header before it)
+//Can be set to 0, a default offset (0x2000) will be used in that case.
 const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70,0x30,0x30,0x40,0x10};
 //Offset to the codec information and their sizes in each format
 const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14,0x60,0x60,0x60,0x10,0x00};
@@ -145,6 +146,8 @@ const char* brstm_getErrorString(unsigned char code) {
         case 222: return "Cannot write raw ADPCM data because the codec is not ADPCM";
         case 220: return "Unsupported audio codec";
         case 210: return "Unsupported file format or invalid file";
+        case 205: return "Invalid encoder input data";
+        case 182: return "Corrupted file or not enough data was given";
         case 181: return "Invalid file handle";
         case 180: return "Not enough data was given";
         
@@ -341,9 +344,14 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
         return 220;
     }
     
+    //Check if loop point is valid
+    if(brstmi->loop_start >= brstmi->total_samples) {
+        brstmi->loop_start = 0;
+        if(debugLevel >= 0) std::cout << "Warning: This file has an invalid loop point and it was removed.\n";
+    }
+    
     //Check if track information is valid
     bool trackinfo_fail = 0;
-    
     if(brstmi->track_desc_type > 1) trackinfo_fail = 1;
     
     for(unsigned int t=0; t<brstmi->num_tracks; t++) {

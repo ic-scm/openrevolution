@@ -41,34 +41,45 @@ struct brstm_HSData_t {
  *      222 = Cannot write raw ADPCM data because the codec is not ADPCM
  *      220 = Unsupported or unknown audio codec
  *      210 = Invalid or unsupported file format
- *      200 = Unknown error (this should never happen)
+ *      205 = Other invalid input data
  * 
  * Write your audio data in PCM_samples and other BRSTM header information in the brstm.h variables, more info in README
  * The created file will be in brstm_encoded_data with size brstm_encoded_data_size.
  */
 unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool endian) {
     brstmi->BOM = endian;
-    //Check for invalid requests
+    
+    //Check for invalid input data
     //Too many tracks
     if(brstmi->num_tracks > 8) {
         if(debugLevel>=0) std::cout << "Too many tracks, max supported is 8.\n";
         return 248;
     }
+    
     //Too many channels
     if(brstmi->num_channels > 16) {
         if(debugLevel>=0) std::cout << "Too many channels, max supported is 16.\n";
         return 249;
     }
+    
     //Unsupported track description type
     if(!(brstmi->track_desc_type >= 0 && brstmi->track_desc_type <= 1)) {
         if(debugLevel>=0) std::cout << "Invalid track description type.\n";
         return 244;
     }
+    
     //Trying to write ADPCM data when codec is not ADPCM
     if(encodeADPCM == 0 && brstmi->codec != 2) {
         if(debugLevel>=0) std::cout << "Cannot write raw ADPCM data because the codec is not ADPCM.\n";
         return 222;
     }
+    
+    //Check loop point
+    if((brstmi->loop_start >= brstmi->total_samples) || (brstmi->loop_start > 0 && brstmi->loop_flag == 0)) {
+        if(debugLevel>=0) std::cout << "Invalid loop point.\n";
+        return 205;
+    }
+    
     //Validate track information
     for(unsigned int t=0; t<brstmi->num_tracks; t++) {
         //Invalid channel count
