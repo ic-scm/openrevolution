@@ -46,6 +46,7 @@ struct brstm_HSData_t {
  * Write your audio data in PCM_samples and other BRSTM header information in the brstm.h variables, more info in README
  * The created file will be in brstm_encoded_data with size brstm_encoded_data_size.
  */
+__attribute__((warn_unused_result))
 unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool endian) {
     brstmi->BOM = endian;
     
@@ -145,6 +146,7 @@ unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeA
 }
 
 //No optional byte order argument, and backwards compatibility
+__attribute__((warn_unused_result))
 unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM) {
     //Check for valid file format variable
     if(brstmi->file_format >= BRSTM_formats_count) {

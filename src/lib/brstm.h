@@ -228,6 +228,7 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
  *      220 = Unsupported or unknown audio codec
  *      210 = Unsupported file format
  */
+__attribute__((warn_unused_result))
 unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
     //Initialize struct
     for(unsigned int c=0;c<16;c++) {
@@ -580,6 +581,7 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
  * stream: std::ifstream with an open BRSTM file
  * debugLevel: console debug level, same as brstm_read
  */
+__attribute__((warn_unused_result))
 unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
     return brstm_fstream_read_header(brstmi,stream,debugLevel,true);
 }
@@ -588,6 +590,7 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
  * Get base file information (file format, codec, offset to audio) so you can decide how to read the file
  * This function is like brstm_fstream_read but it doesn't call the full brstm_read function
  */
+__attribute__((warn_unused_result))
 unsigned char brstm_fstream_getBaseInformation(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
     return brstm_fstream_read_header(brstmi,stream,debugLevel,false);
 }
@@ -601,6 +604,7 @@ unsigned char brstm_fstream_getBaseInformation(Brstm * brstmi,std::ifstream& str
  * dataSize: Bytes in the data pointer
  * debugLevel: Console debug level, same as brstm_read
  */
+__attribute__((warn_unused_result))
 unsigned char brstm_getBaseInformation(Brstm* brstmi, unsigned char* data, unsigned long dataSize, signed int debugLevel) {
     bool &BOM = brstmi->BOM;
     
