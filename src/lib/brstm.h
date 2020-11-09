@@ -348,6 +348,7 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     //Check if loop point is valid
     if(brstmi->loop_start >= brstmi->total_samples) {
         brstmi->loop_start = 0;
+        brstmi->loop_flag = 0;
         if(debugLevel >= 0) std::cout << "Warning: This file has an invalid loop point and it was removed.\n";
     }
     
