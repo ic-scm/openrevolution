@@ -275,7 +275,6 @@ int main(int argc, char** args) {
             player_state->memblock = new unsigned char [fsize];
             player_state->file.seekg(0);
             player_state->file.read ((char*)player_state->memblock, fsize);
-            if(verb) printf("Read %lu bytes from %s.\n", fsize, args[1]);
             player_state->file.close();
         }
     } else {
