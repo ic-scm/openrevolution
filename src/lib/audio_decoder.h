@@ -100,7 +100,7 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
             outSample = (0x400 + ((scale * outSample) << 11) + coefs[brstm_clamp(cIndex, 0, 15)] * cyn1 + coefs[brstm_clamp(cIndex + 1, 0, 15)] * cyn2) >> 11;
             
             cyn2 = cyn1;
-            cyn1 = brstm_clamp(outSample, -32768, 32767);
+            cyn1 = brstm_clamp16(outSample);
             
             decodeDest[c][decodeDestOff+(outputPos++)] = cyn1;
             c_writtensamples++;

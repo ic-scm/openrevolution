@@ -14,6 +14,10 @@ long brstm_clamp(long value, long min, long max) {
   return value <= min ? min : value >= max ? max : value;
 }
 
+long brstm_clamp16(long value) {
+  return value <= -32768 ? -32768 : value >= 32767 ? 32767 : value;
+}
+
 //Get slice of data
 unsigned char* brstm_getSlice(const unsigned char* data,unsigned long start,unsigned long length) {
     delete[] brstm_slice;

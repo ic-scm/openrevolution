@@ -248,8 +248,8 @@ void mixTracks (Brstm* brstm) {
         unsigned char ch2id = brstm->track_num_channels[t] == 2 ? brstm->track_rchannel_id[t] : ch1id;
         double track_volume = (brstm->track_desc_type == 0 ? 1 : (double)brstm->track_volume[t]/127);
         for(unsigned long s=0; s<brstm->total_samples; s++) {
-            mixbuffer0[s] = brstm_clamp( ((int32_t)mixbuffer0[s] + brstm->PCM_samples[ch1id][s]*track_volume), -32768, 32767);
-            mixbuffer1[s] = brstm_clamp( ((int32_t)mixbuffer1[s] + brstm->PCM_samples[ch2id][s]*track_volume), -32768, 32767);
+            mixbuffer0[s] = brstm_clamp16( ((int32_t)mixbuffer0[s] + brstm->PCM_samples[ch1id][s]*track_volume) );
+            mixbuffer1[s] = brstm_clamp16( ((int32_t)mixbuffer1[s] + brstm->PCM_samples[ch2id][s]*track_volume) );
         }
     }
     

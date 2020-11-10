@@ -75,7 +75,7 @@ void brstm_encoder_adpcm_calculateAdpcmData(Brstm* brstmi, uint8_t encodeADPCM, 
                 }
                 
                 cyn2 = cyn1;
-                cyn1 = brstm_clamp(outSample, -32768, 32767);
+                cyn1 = brstm_clamp16(outSample);
                 
                 currentSample++;
             }

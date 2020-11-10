@@ -95,8 +95,8 @@ void mixTracks(player_state_t* state, unsigned int bufferSize) {
         double track_volume = (brstm->track_desc_type == 0 ? 1 : (double)brstm->track_volume[t]/127);
         
         for(unsigned int s=0; s<bufferSize; s++) {
-            brstmbuffer[0][s] = brstm_clamp( ((int32_t)brstmbuffer[0][s] + brstm->PCM_buffer[ch1id][s]*track_volume), -32768, 32767);
-            brstmbuffer[1][s] = brstm_clamp( ((int32_t)brstmbuffer[1][s] + brstm->PCM_buffer[ch2id][s]*track_volume), -32768, 32767);
+            brstmbuffer[0][s] = brstm_clamp16( ((int32_t)brstmbuffer[0][s] + brstm->PCM_buffer[ch1id][s]*track_volume) );
+            brstmbuffer[1][s] = brstm_clamp16( ((int32_t)brstmbuffer[1][s] + brstm->PCM_buffer[ch2id][s]*track_volume) );
         }
     }
 }
