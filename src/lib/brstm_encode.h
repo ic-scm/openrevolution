@@ -42,6 +42,8 @@ struct brstm_HSData_t {
  *      220 = Unsupported or unknown audio codec
  *      210 = Invalid or unsupported file format
  *      205 = Other invalid input data
+ *      Errors other than listed here could be returned.
+ *      See the brstm_getErrorString function in brstm.h for the full list of error codes.
  * 
  * Write your audio data in PCM_samples and other BRSTM header information in the brstm.h variables, more info in README
  * The created file will be in brstm_encoded_data with size brstm_encoded_data_size.

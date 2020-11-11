@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <errno.h>
 
 //Bool endian: 0 = little endian, 1 = big endian
 
@@ -147,10 +148,11 @@ const char* brstm_getErrorString(unsigned char code) {
         case 220: return "Unsupported audio codec";
         case 210: return "Unsupported file format or invalid file";
         case 205: return "Invalid encoder input data";
+        case 185: return "File read error";
+        case 184: return "Corrupted file (Unexpected end of file)";
         case 182: return "Corrupted file or not enough data was given";
         case 181: return "Invalid file handle";
         case 180: return "Not enough data was given";
-        
     }
     return "Unknown error";
 }
@@ -227,6 +229,8 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
  *      222 = Cannot write raw ADPCM data because the codec is not ADPCM
  *      220 = Unsupported or unknown audio codec
  *      210 = Unsupported file format
+ *      Errors other than listed here could be returned.
+ *      See the brstm_getErrorString function for the full list of error codes.
  */
 __attribute__((warn_unused_result))
 unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int debugLevel,uint8_t decodeAudio) {
@@ -477,7 +481,7 @@ void brstm_getbuffer(Brstm * brstmi,const unsigned char* fileData,unsigned long 
 std::ifstream* brstm_ifstream;
 
 void brstm_fstream_getbuffer(Brstm * brstmi,std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples) {
-    if(!stream.is_open()) {perror("brstm_fstream_getbuffer: No file open in ifstream"); exit(255);}
+    if(!stream.is_open()) {perror("brstm_fstream_getbuffer: No file open in stream"); exit(255);}
     brstm_ifstream = &stream;
     brstm_getbuffer_main(brstmi,nullptr,1,sampleOffset,bufferSamples);
 }
@@ -498,12 +502,32 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
     }
 }
 
-//readAllData is 0 when called from brstm_fstream_getBaseInformation, 1 when called from brstm_fstream_read
-unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,signed int debugLevel, bool readAllData) {
+//File error handler for below function.
+unsigned char brstm_fstream_read_header_fstream_error_handler(std::ifstream& stream, signed int debugLevel) {
     if(!stream.is_open()) {
-        if(debugLevel>=0) {std::cout << "brstm_fstream_read: no file open in std::ifstream.\n";}
+        if(debugLevel>=0) std::cout << "brstm_fstream_read: no file open in stream.\n";
         return 181;
     }
+    if(stream.eof()) {
+        if(debugLevel>=0) std::cout << "brstm_fstream_read: Unexpected end of file.\n";
+        return 184;
+    }
+    if(stream.fail()) {
+        if(debugLevel>=0) {
+            std::cout << "brstm_fstream_read: " << (errno != 0 ? "File read error: " : "File handle error.") << (errno != 0 ? strerror(errno) : "") << "\n";
+        }
+        return 185;
+    }
+    
+    if(debugLevel>=0) std::cout << "brstm_fstream_read: Unknown file handle error.\n";
+    return 181;
+}
+
+//readAllData is 0 when called from brstm_fstream_getBaseInformation, 1 when called from brstm_fstream_read
+__attribute__((warn_unused_result))
+unsigned char brstm_fstream_read_header(Brstm * brstmi, std::ifstream& stream, signed int debugLevel, bool readAllData) {
+    if(!stream.is_open() || !stream.good()) return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
+    
     bool &BOM = brstmi->BOM;
     unsigned char res = 0;
     unsigned char* brstm_header;
@@ -522,7 +546,10 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
             brstmi->file_format = t;
             break;
         }
+        delete[] magicword;
     }
+    if(!stream.good())
+        return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
     if(brstmi->file_format >= BRSTM_formats_count) {
         if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
         return 210;
@@ -539,12 +566,16 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
         BOM = 0; //Little endian
     }
     
+    if(!stream.good()) return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
+    
     //get offset to audio data so we know how much data to read to get the full header
     if(BRSTM_formats_audio_off_off[brstmi->file_format] != 0) {
         stream.seekg(BRSTM_formats_audio_off_off[brstmi->file_format]);
         unsigned char audioOff[4];
         stream.read((char*)audioOff,4);
         brstmi->audio_offset = brstm_getSliceAsNumber(audioOff,0,4,BOM) + 64;
+        
+        if(!stream.good()) return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
     } else {
         //If the audio offset for this file in the library is set to 0 then use a default offset.
         brstmi->audio_offset = 8192;
@@ -558,20 +589,28 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
         brstm_getSliceAsNumber(codecBytes,0,BRSTM_formats_codec_bytes[brstmi->file_format],BOM)
     );
     
+    stream.seekg(0);
+    
+    if(!stream.good()) return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
+    
     if(readAllData) {
         if(debugLevel>1) std::cout << "Reading " << brstmi->audio_offset << " header bytes\n";
         
         //read header into memory
-        stream.seekg(0);
         brstm_header = new unsigned char[brstmi->audio_offset];
         stream.read((char*)brstm_header,brstmi->audio_offset);
+        stream.seekg(0);
+        
+        if(!stream.good()) {
+            delete[] brstm_header;
+            return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
+        }
         
         //call main brstm read function
         res = brstm_read(brstmi,brstm_header,debugLevel,false);
         delete[] brstm_header;
     }
     
-    stream.seekg(0);
     return res;
 }
 
@@ -583,8 +622,8 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi,std::ifstream& stream,sig
  * debugLevel: console debug level, same as brstm_read
  */
 __attribute__((warn_unused_result))
-unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
-    return brstm_fstream_read_header(brstmi,stream,debugLevel,true);
+unsigned char brstm_fstream_read(Brstm * brstmi, std::ifstream& stream, signed int debugLevel) {
+    return brstm_fstream_read_header(brstmi, stream, debugLevel, true);
 }
 
 /*
@@ -592,8 +631,8 @@ unsigned char brstm_fstream_read(Brstm * brstmi,std::ifstream& stream,signed int
  * This function is like brstm_fstream_read but it doesn't call the full brstm_read function
  */
 __attribute__((warn_unused_result))
-unsigned char brstm_fstream_getBaseInformation(Brstm * brstmi,std::ifstream& stream,signed int debugLevel) {
-    return brstm_fstream_read_header(brstmi,stream,debugLevel,false);
+unsigned char brstm_fstream_getBaseInformation(Brstm * brstmi, std::ifstream& stream, signed int debugLevel) {
+    return brstm_fstream_read_header(brstmi, stream, debugLevel, false);
 }
 
 
@@ -686,7 +725,7 @@ unsigned char brstm_getBaseInformation(Brstm* brstmi, unsigned char* data, unsig
 /* 
  * Close the BRSTM file (reset variables and free memory)
  */
-void brstm_close(Brstm * brstmi) {
+void brstm_close(Brstm* brstmi) {
     for(unsigned char i=0;i<16;i++) {
         for(unsigned char j=0;j<16;j++) {
             brstmi->ADPCM_coefs[i][j] = 0;
