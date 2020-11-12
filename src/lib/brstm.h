@@ -290,6 +290,98 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     //Return now if a read error occurred
     if(readres>127) return readres;
     
+    
+    //Check if track information is valid (and correct it if possible)
+    uint8_t trackinfo_fail = 0; // 1 = Correction warnings, 2 = Errors
+    if(brstmi->track_desc_type > 1) {
+        trackinfo_fail = 2;
+        //Set num tracks to 0 so the track information checking loop won't run.
+        brstmi->num_tracks = 0;
+    }
+    if(brstmi->num_tracks == 0 || brstmi->num_tracks > 8) {
+        trackinfo_fail = 2;
+        brstmi->num_tracks = 0;
+    }
+    
+    for(unsigned int t=0; t<brstmi->num_tracks; t++) {
+        //Bad channel count
+        if(brstmi->track_num_channels[t] < 1 || brstmi->track_num_channels[t] > 2) {
+            trackinfo_fail = 2;
+            break;
+        }
+        //Bad left channel ID
+        if(brstmi->track_lchannel_id[t] >= brstmi->num_channels) {
+            trackinfo_fail = 2;
+            break;
+        }
+        //Bad right channel ID
+        if(brstmi->track_num_channels[t] == 2 && brstmi->track_rchannel_id[t] >= brstmi->num_channels) {
+            trackinfo_fail = 2;
+            break;
+        }
+        
+        switch(brstmi->track_desc_type) {
+            case 0: {
+                if(brstmi->track_volume[t] != 0 || brstmi->track_panning[t] != 0) {
+                    trackinfo_fail = 1;
+                    brstmi->track_volume[t] = 0;
+                    brstmi->track_panning[t] = 0;
+                }
+                break;
+            }
+            case 1: {
+                if(brstmi->track_volume[t] > 0x7F) {
+                    trackinfo_fail = 1;
+                    brstmi->track_volume[t] = 0x7F;
+                }
+                if(brstmi->track_panning[t] > 0x7F) {
+                    trackinfo_fail = 1;
+                    brstmi->track_panning[t] = 0x40;
+                }
+                break;
+            }
+        }
+    }
+    
+    if(trackinfo_fail == 1) {
+        if(debugLevel >= 0) std::cout << "Warning: This file has invalid track information and it was corrected.\n";
+    }
+    else if(trackinfo_fail == 2) {
+        if(debugLevel >= 0) std::cout << "Warning: This file has invalid track information, track information is guessed.\n";
+        
+        //Erase current track information
+        brstmi->num_tracks = 0;
+        brstmi->track_desc_type = 0;
+        for(unsigned char i=0; i<8; i++) {
+            brstmi->track_num_channels[i] = 0;
+            brstmi->track_lchannel_id [i] = 0;
+            brstmi->track_rchannel_id [i] = 0;
+            brstmi->track_volume      [i] = 0;
+            brstmi->track_panning     [i] = 0;
+        }
+        
+        //Guess standard track information
+        brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
+        if(brstmi->num_tracks > 8) {
+            if(debugLevel>=0) {std::cout << "Too many tracks, max supported is 8.\n";}
+            return 248;
+        }
+        
+        unsigned char track_num_channels = brstmi->num_tracks*2 == brstmi->num_channels ? 2 : 1;
+        brstmi->track_desc_type = 0;
+        
+        for(unsigned char c=0; c<brstmi->num_channels; c++) {
+            brstmi->track_num_channels[c/track_num_channels] = track_num_channels;
+            if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
+            if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
+            else if(track_num_channels == 1) brstmi->track_rchannel_id[c/track_num_channels] = 0;
+            //Erase any previously written volume and panning because this is type 0
+            //brstmi->track_volume [c/track_num_channels] = 0;
+            //brstmi->track_panning[c/track_num_channels] = 0;
+        }
+    }
+    
+    
     //Log details
     //BRSTM reader has it's own logger
     if(brstmi->file_format != 1) {
@@ -354,31 +446,6 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
         brstmi->loop_start = 0;
         brstmi->loop_flag = 0;
         if(debugLevel >= 0) std::cout << "Warning: This file has an invalid loop point and it was removed.\n";
-    }
-    
-    //Check if track information is valid
-    bool trackinfo_fail = 0;
-    if(brstmi->track_desc_type > 1) trackinfo_fail = 1;
-    
-    for(unsigned int t=0; t<brstmi->num_tracks; t++) {
-        if(brstmi->track_num_channels[t] < 1 || brstmi->track_num_channels[t] > 2) trackinfo_fail = 1;
-        if(brstmi->track_lchannel_id[t] >= brstmi->num_channels) trackinfo_fail = 1;
-        if(brstmi->track_num_channels[t] == 2 && brstmi->track_rchannel_id[t] >= brstmi->num_channels) trackinfo_fail = 1;
-        switch(brstmi->track_desc_type) {
-            case 0: {
-                if(brstmi->track_volume[t] != 0 || brstmi->track_panning[t] != 0) trackinfo_fail = 1;
-                break;
-            }
-            case 1: {
-                if(brstmi->track_volume[t] > 0x7F || brstmi->track_panning[t] > 0x7F) trackinfo_fail = 1;
-                break;
-            }
-        }
-    }
-    
-    if(trackinfo_fail) {
-        if(debugLevel >= 0) std::cout << "Invalid track information.\n";
-        return 244;
     }
     
     return readres;
