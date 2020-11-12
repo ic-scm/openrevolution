@@ -103,8 +103,8 @@ void mixTracks(player_state_t* state, unsigned int bufferSize) {
 
 //RtAudio callback
 int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames, double streamTime, RtAudioStreamStatus status, void *userData) {
-    unsigned int i;
-    int ioffset=0;
+    unsigned int i = 0;
+    int ioffset = 0;
     int16_t *buffer = (int16_t*) outputBuffer;
     //if(status) std::cout << "Stream underflow detected!\n";
     
@@ -160,12 +160,15 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
                 } else {
                     state->paused = 1;
                     playback_current_sample = 0;
+                    //Break out to go to paused buffer code and fill the remaining buffer with silence.
+                    break;
                 }
             }
         }
-    } else {
+    }
+    if(state->paused) {
         //Player is paused
-        for(i=0;i<nBufferFrames;i+=1) {
+        for(;i<nBufferFrames;i+=1) {
             *buffer++ = 0;
             *buffer++ = 0;
         }
