@@ -18,7 +18,7 @@ struct brstm_HSData_t {
 #include "e_formats/all.h"
 
 /* 
- * Build a file and encode audio data
+ * Build a file and encode/write audio data
  * 
  * brstmi: Your BRSTM struct pointer
  * debugLevel:
@@ -26,8 +26,8 @@ struct brstm_HSData_t {
  *     0 = Only output errors/warnings
  *     1 = Log encoding progress
  * encodeADPCM:
- *     0 = Use ADPCM data from ADPCM_data
- *     1 = Encode PCM_samples to ADPCM
+ *     0 = Write ADPCM data from ADPCM_data
+ *     1 = Encode PCM_samples to ADPCM or another codec
  * endian (optional):
  *     Byte order to use for the file, if not used the default for the format will be used.
  *     0 = LE
@@ -41,6 +41,7 @@ struct brstm_HSData_t {
  *      222 = Cannot write raw ADPCM data because the codec is not ADPCM
  *      220 = Unsupported or unknown audio codec
  *      210 = Invalid or unsupported file format
+ *      206 = Unsupported sample rate
  *      205 = Other invalid input data
  *      Errors other than listed here could be returned.
  *      See the brstm_getErrorString function in brstm.h for the full list of error codes.
@@ -81,6 +82,26 @@ unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeA
     if((brstmi->loop_start >= brstmi->total_samples) || (brstmi->loop_start > 0 && brstmi->loop_flag == 0)) {
         if(debugLevel>=0) std::cout << "Invalid loop point.\n";
         return 205;
+    }
+    
+    if(brstmi->sample_rate == 0) {
+        if(debugLevel >= 0) std::cout << "Invalid sample rate.\n";
+        return 206;
+    }
+    
+    if(brstmi->total_samples == 0) {
+        if(debugLevel >= 0) std::cout << "Invalid sample count.\n";
+        return 205;
+    }
+    
+    if(brstmi->num_channels == 0) {
+        if(debugLevel >= 0) std::cout << "Invalid channel count.\n";
+        return 205;
+    }
+    
+    if(brstmi->num_tracks == 0) {
+        if(debugLevel >= 0) std::cout << "Invalid track count.\n";
+        return 244;
     }
     
     //Validate track information

@@ -10,6 +10,13 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
         if(debugLevel>=0) std::cout << "Unsupported codec.\n";
         return 220;
     }
+    
+    //Unsupported sample rate
+    if(brstmi->sample_rate > 65535) {
+        if(debugLevel>=0) std::cout << "Unsupported sample rate.\n";
+        return 206;
+    }
+    
     if(brstmi->codec != 2) {
         if(debugLevel>=0) std::cout << "Warning: PCM BRSTM files are untested\n";
     }

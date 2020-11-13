@@ -147,6 +147,7 @@ const char* brstm_getErrorString(unsigned char code) {
         case 222: return "Cannot write raw ADPCM data because the codec is not ADPCM";
         case 220: return "Unsupported audio codec";
         case 210: return "Unsupported file format or invalid file";
+        case 206: return "Unsupported sample rate";
         case 205: return "Invalid encoder input data";
         case 185: return "File read error";
         case 184: return "Corrupted file (Unexpected end of file)";
