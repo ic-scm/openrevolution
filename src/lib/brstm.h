@@ -291,6 +291,30 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     if(readres>127) return readres;
     
     
+    //Invalid data checks
+    if(brstmi->sample_rate == 0) {
+        if(debugLevel >= 0) std::cout << "Warning: This file has an invalid sample rate, defaulting to 44100Hz.\n";
+        brstmi->sample_rate = 44100;
+    }
+    
+    if(brstmi->total_samples == 0) {
+        if(debugLevel >= 0) std::cout << "Invalid sample count.\n";
+        return 255;
+    }
+    
+    if(brstmi->num_channels == 0) {
+        if(debugLevel >= 0) std::cout << "Invalid channel count.\n";
+        return 255;
+    }
+    
+    if(brstmi->total_blocks == 0 ||
+        (brstmi->total_blocks != 1 && (brstmi->blocks_size == 0 || brstmi->blocks_samples == 0)) ||
+        (brstmi->total_blocks == 1 && (brstmi->final_block_size == 0 || brstmi->final_block_samples == 0 || brstmi->final_block_size_p < brstmi->final_block_size))
+    ) {
+        if(debugLevel >= 0) std::cout << "Invalid block information.\n";
+        return 255;
+    }
+    
     //Check if track information is valid (and correct it if possible)
     uint8_t trackinfo_fail = 0; // 1 = Correction warnings, 2 = Errors
     if(brstmi->track_desc_type > 1) {
