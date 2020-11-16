@@ -54,26 +54,33 @@ struct player_state_t {
 void getBufferHelper(player_state_t* state, unsigned long sampleOffset, unsigned int bufferSize) {
     switch(state->memoryMode) {
         //Realtime decoding from memory
-        case 0:
-        brstm_getbuffer(state->brstm, state->memblock, sampleOffset, bufferSize);
-        return;
-        
-        //Streaming data from disk and realtime decoding
-        case 1:
-        brstm_fstream_getbuffer(state->brstm, state->file, sampleOffset, bufferSize);
-        return;
-        
-        //Full decoding
-        case 2:
-        Brstm* brstm = state->brstm;
-        for(unsigned int c=0;c<brstm->num_channels;c++) {
-            delete[] brstm->PCM_buffer[c];
-            brstm->PCM_buffer[c] = new int16_t[bufferSize];
-            for(unsigned int i=0;i<bufferSize;i++) {
-                brstm->PCM_buffer[c][i] = brstm->PCM_samples[c][sampleOffset+i];
-            }
+        case 0: {
+            brstm_getbuffer(state->brstm, state->memblock, sampleOffset, bufferSize);
+            return;
         }
-        return;
+        //Streaming data from disk and realtime decoding
+        case 1: {
+            unsigned char read_res = brstm_fstream_safe_getbuffer(state->brstm, state->file, sampleOffset, bufferSize);
+            if(read_res > 127) {
+                //File read error, we don't have a buffer, stop playback
+                state->paused = 1;
+                state->playback_current_sample = 0;
+                state->stop_playing = 1;
+            }
+            return;
+        }
+        //Full decoding
+        case 2: {
+            Brstm* brstm = state->brstm;
+            for(unsigned int c=0;c<brstm->num_channels;c++) {
+                delete[] brstm->PCM_buffer[c];
+                brstm->PCM_buffer[c] = new int16_t[bufferSize];
+                for(unsigned int i=0;i<bufferSize;i++) {
+                    brstm->PCM_buffer[c][i] = brstm->PCM_samples[c][sampleOffset+i];
+                }
+            }
+            return;
+        }
     }
 }
 
@@ -123,6 +130,9 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
         unsigned int samplesToGet = brstm->total_samples - playback_current_sample < nBufferFrames ? brstm->total_samples - playback_current_sample : nBufferFrames;
         getBufferHelper(state, playback_current_sample, samplesToGet);
         
+        //getBufferHelper will set pause on error, break out to paused code if an error occurred.
+        if(state->paused) goto pause_breakout;
+        
         //Channel IDs / track mixing
         unsigned char ch1id = 0, ch2id = 0;
         if(!state->track_mixing_enabled) {
@@ -161,11 +171,12 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
                     state->paused = 1;
                     playback_current_sample = 0;
                     //Break out to go to paused buffer code and fill the remaining buffer with silence.
-                    break;
+                    goto pause_breakout;
                 }
             }
         }
     }
+    pause_breakout:
     if(state->paused) {
         //Player is paused
         for(;i<nBufferFrames;i+=1) {
@@ -399,7 +410,15 @@ int main(int argc, char** args) {
         delete[] player_state->brstmbuffer[1];
     }
     
-    pthread_join(uiThread, NULL);
+    if(uinput_state->exit) {
+        pthread_join(uiThread, NULL);
+    } else {
+        pthread_cancel(uiThread);
+    }
+    
+    //If the program is exiting with an error and the getch function did not properly return,
+    //this has to be run to not mess up the terminal after exiting the program.
+    getch_clean();
     
     brstm_close(brstm);
     delete brstm;

@@ -36,9 +36,10 @@ void brstm_decode_block(Brstm* brstmi,unsigned long b,unsigned int c,const unsig
             posOffset+=brstmi->final_block_size_p*c;
         }
     }
+    
     //Get data from just the current block
     //This function exists in the including file (brstm.h)
-    unsigned char* blockData = brstm_getblock(fileData,dataType,brstmi->audio_offset+posOffset,currentBlockSize);
+    unsigned char* blockData = brstm_getblock(brstmi, fileData, dataType, brstmi->audio_offset+posOffset, currentBlockSize);
     
     //Decode the audio
     if(brstmi->codec == 0) {

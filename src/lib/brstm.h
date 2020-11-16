@@ -104,11 +104,16 @@ struct Brstm {
     //so the block size here can be made bigger and block reads
     //won't be made one by one for every sample
     unsigned int audio_stream_format = 0;
+    
+    //BRSTM file fstream object used to internally pass the file stream in brstm_fstream functions.
+    std::ifstream* file_ifstream;
 };
 
 #include "utils.h"
 //This function is used by brstm_decode_block
-unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsigned long start,unsigned long length);
+unsigned char* brstm_getblock(Brstm* brstmi, const unsigned char* fileData, bool dataType, unsigned long start, unsigned long length);
+//Internal fstream error handler for fstream functions.
+unsigned char brstm_fstream_read_header_fstream_error_handler(std::ifstream& stream, signed int debugLevel);
 #include "audio_decoder.h"
 #include "d_formats/all.h"
 
@@ -485,7 +490,7 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
  * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
  * 
  */
-void brstm_getbuffer(Brstm * brstmi,const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples);
+void brstm_getbuffer(Brstm* brstmi, const unsigned char* fileData, unsigned long sampleOffset, unsigned int bufferSamples);
 
 /*
  * Get a buffer of audio data (fstream mode)
@@ -494,16 +499,23 @@ void brstm_getbuffer(Brstm * brstmi,const unsigned char* fileData,unsigned long 
  * stream: std::ifstream with an open BRSTM file
  * sampleOffset: Offset to the first sample in the buffer
  * bufferSamples: Amount of samples in the buffer (don't make this more than the amount of samples per block!)
+ * debugLevel (optional): Debug level for error output, like brstm_read
+ * 
+ * Can return an error code on file stream errors (>127).
  * 
  */
-void brstm_fstream_getbuffer(Brstm * brstmi,std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples);
+__attribute__((warn_unused_result))
+unsigned char brstm_fstream_safe_getbuffer(Brstm* brstmi ,std::ifstream& stream, unsigned long sampleOffset, unsigned int bufferSamples, signed int debugLevel);
+__attribute__((warn_unused_result))
+unsigned char brstm_fstream_safe_getbuffer(Brstm* brstmi ,std::ifstream& stream, unsigned long sampleOffset, unsigned int bufferSamples);
+
 
 /*
  * Main function for both memory modes
  * dataType will be 1 for disk streaming mode (fileData will be null) so brstm_getblock
  * will know to do disk streaming stuff instead of just getting a slice of fileData
  */
-void brstm_getbuffer_main(Brstm * brstmi,const unsigned char* fileData,bool dataType,unsigned long sampleOffset,unsigned int bufferSamples) {
+void brstm_getbuffer_main(Brstm* brstmi, const unsigned char* fileData, bool dataType, unsigned long sampleOffset, unsigned int bufferSamples) {
     //safety
     if(sampleOffset>brstmi->total_samples) {
         for(unsigned int c=0;c<brstmi->num_channels;c++) {
@@ -565,21 +577,40 @@ void brstm_getbuffer_main(Brstm * brstmi,const unsigned char* fileData,bool data
     }
 }
 
-void brstm_getbuffer(Brstm * brstmi,const unsigned char* fileData,unsigned long sampleOffset,unsigned int bufferSamples) {
-    brstm_getbuffer_main(brstmi,fileData,0,sampleOffset,bufferSamples);
+void brstm_getbuffer(Brstm* brstmi, const unsigned char* fileData, unsigned long sampleOffset, unsigned int bufferSamples) {
+    brstm_getbuffer_main(brstmi, fileData, 0, sampleOffset, bufferSamples);
 }
 
-//BRSTM file fstream object to be passed to other functions because passing through void* never worked.
-std::ifstream* brstm_ifstream;
 
-void brstm_fstream_getbuffer(Brstm * brstmi,std::ifstream& stream,unsigned long sampleOffset,unsigned int bufferSamples) {
+__attribute__((warn_unused_result))
+unsigned char brstm_fstream_safe_getbuffer(Brstm* brstmi ,std::ifstream& stream, unsigned long sampleOffset, unsigned int bufferSamples, signed int debugLevel) {
+    if(!stream.is_open() || !stream.good()) return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
+    brstmi->file_ifstream = &stream;
+    
+    brstm_getbuffer_main(brstmi, nullptr, 1, sampleOffset, bufferSamples);
+    
+    if(!stream.good()) return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
+    
+    return 0;
+}
+
+//No debugLevel argument
+__attribute__((warn_unused_result))
+unsigned char brstm_fstream_safe_getbuffer(Brstm* brstmi ,std::ifstream& stream, unsigned long sampleOffset, unsigned int bufferSamples) {
+    return brstm_fstream_safe_getbuffer(brstmi, stream, sampleOffset, bufferSamples, 0);
+}
+
+//Old function without proper error handling, deprecated
+__attribute__((deprecated("Use brstm_fstream_safe_getbuffer instead")))
+void brstm_fstream_getbuffer(Brstm* brstmi, std::ifstream& stream, unsigned long sampleOffset, unsigned int bufferSamples) {
     if(!stream.is_open()) {perror("brstm_fstream_getbuffer: No file open in stream"); exit(255);}
-    brstm_ifstream = &stream;
-    brstm_getbuffer_main(brstmi,nullptr,1,sampleOffset,bufferSamples);
+    brstmi->file_ifstream = &stream;
+    brstm_getbuffer_main(brstmi, nullptr, 1, sampleOffset, bufferSamples);
 }
+
 
 //This function is used by brstm_getbuffer/brstm_decode_block
-unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsigned long start,unsigned long length) {
+unsigned char* brstm_getblock(Brstm* brstmi, const unsigned char* fileData, bool dataType, unsigned long start, unsigned long length) {
     if(dataType == 0) {
         return brstm_getSlice((const unsigned char*)fileData,start,length);
     } else {
@@ -587,12 +618,13 @@ unsigned char* brstm_getblock(const unsigned char* fileData,bool dataType,unsign
         delete[] brstm_slice;
         brstm_slice = new unsigned char[length];
         
-        brstm_ifstream->seekg(start);
+        brstmi->file_ifstream->seekg(start);
         
-        brstm_ifstream->read((char*)brstm_slice,length);
+        brstmi->file_ifstream->read((char*)brstm_slice,length);
         return brstm_slice;
     }
 }
+
 
 //File error handler for below function.
 unsigned char brstm_fstream_read_header_fstream_error_handler(std::ifstream& stream, signed int debugLevel) {

@@ -128,7 +128,7 @@ You can then read information about the BRSTM just like with brstm_read.
 
 Get buffer:
 ```
-brstm_fstream_getbuffer (
+brstm_fstream_safe_getbuffer (
 
 Your BRSTM struct pointer (Brstm*),
 
@@ -140,9 +140,13 @@ Amount of samples in the buffer
 (can't be bigger than the amount of samples per block (HEAD1_blocks_samples)!)
 (unsigned int)
 
+Debug level for error output (same as brstm_read) (signed int)
+
 )
 ```
-You can then read the requested buffer from PCM_buffer[channel][sample offset (from the sample offset passed to brstm_fstream_getbuffer)].
+Can return an error code for file stream errors. (unsigned char)
+
+You can then read the requested buffer from PCM_buffer[channel][sample offset (from the sample offset passed to the function)].
 
 Remember to close the file (free any buffers and allocated memory) with brstm_close(Brstm*) before deleting your struct!
 ```cpp
