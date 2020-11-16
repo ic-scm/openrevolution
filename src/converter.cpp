@@ -293,6 +293,10 @@ void readWAV(Brstm* brstm,std::ifstream& stream,std::streampos fsize) {
     stream.seekg(0);
     unsigned char* memblock = new unsigned char[fsize];
     stream.read((char*)memblock,fsize);
+    if(!stream.good()) {
+        perror("WAV file read error");
+        exit(255);
+    }
     
     //Read the WAV file data
     if(strcmp("RIFF",brstm_getSliceAsString(memblock,0,4)) != 0) {
@@ -375,6 +379,7 @@ void writeWAV(Brstm* brstm,std::ofstream& stream) {
     for(unsigned long s=0;s<brstm->total_samples;s++) {
         for(unsigned char c=0;c<brstm->num_channels;c++) {
             cSample = brstm->PCM_samples[c][s];
+            //TODO Does this actually work?
             #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
             cSample = __builtin_bswap16(cSample);
             #endif
@@ -382,6 +387,11 @@ void writeWAV(Brstm* brstm,std::ofstream& stream) {
             samplebytes[1] = (cSample>>8)&0xFF;
             stream.write((char*)samplebytes,2);
         }
+    }
+    
+    if(!stream.good()) {
+        perror("WAV file write error");
+        exit(255);
     }
 }
 
@@ -574,7 +584,10 @@ int main(int argc, char** args) {
         //Read file data
         unsigned char * memblock = new unsigned char[ifsize];
         ifile.read((char*)memblock,ifsize);
-        if(verb) {std::cout << "Read file " << inputFileName << ", size " << ifsize << '\n';}
+        if(!ifile.good()) {
+            perror(inputFileName);
+            exit(255);
+        }
         
         //Read the BRSTM
         unsigned char result = brstm_read(brstm,memblock,verb,true);
@@ -685,6 +698,7 @@ int main(int argc, char** args) {
                 ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
                 if(!ofile.is_open()) {perror(outputFileName); exit(255);}
                 ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
+                if(!ofile.good()) {perror(outputFileName); exit(255);}
             }
         }
     }
@@ -701,7 +715,11 @@ int main(int argc, char** args) {
         //Read file data
         unsigned char * memblock = new unsigned char[ifsize];
         ifile.read((char*)memblock,ifsize);
-        if(verb) {std::cout << "Read file " << inputFileName << ", size " << ifsize << '\n';}
+        if(!ifile.good()) {
+            perror(inputFileName);
+            exit(255);
+        }
+        
         //Read the BRSTM
         unsigned char result=brstm_read(brstm,memblock,verb,2);
         if(result>127) {
@@ -767,6 +785,7 @@ int main(int argc, char** args) {
                 ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
                 if(!ofile.is_open()) {perror(outputFileName); exit(255);}
                 ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
+                if(!ofile.good()) {perror(outputFileName); exit(255);}
             }
         }
     }
@@ -779,7 +798,11 @@ int main(int argc, char** args) {
         //Read file data
         unsigned char * memblock = new unsigned char[ifsize];
         ifile.read((char*)memblock,ifsize);
-        if(verb) {std::cout << "Read file " << inputFileName << ", size " << ifsize << '\n';}
+        if(!ifile.good()) {
+            perror(inputFileName);
+            exit(255);
+        }
+        
         //Read the BRSTM
         unsigned char result=brstm_read(brstm,memblock,verb,true);
         if(result>127) {
@@ -825,6 +848,10 @@ int main(int argc, char** args) {
                     memblock = new unsigned char [ffmpeg_fsize];
                     ffmpeg_ifile.seekg (0, std::ios::beg);
                     ffmpeg_ifile.read ((char*)memblock, ffmpeg_fsize);
+                    if(!ffmpeg_ifile.good()) {
+                        perror("FFMPEG output file read error");
+                        exit(255);
+                    }
                     ffmpeg_ifile.close();
                 } else {perror("Unable to open FFMPEG output file"); delete_ffmpeg_files(); exit(255);}
                 
@@ -949,6 +976,7 @@ int main(int argc, char** args) {
                 ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
                 if(!ofile.is_open()) {perror(outputFileName); exit(255);}
                 ofile.write((char*)brstm->encoded_file,brstm->encoded_file_size);
+                if(!ofile.good()) {perror(outputFileName); exit(255);}
             }
         }
     }

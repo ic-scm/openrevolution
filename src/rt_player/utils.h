@@ -71,6 +71,7 @@ char getch(void) {
 
 //Getch function without reading just to reset attributes.
 void getch_clean() {
+    char buf = 0;
     struct termios old = {0};
     fflush(stdout);
     if(tcgetattr(0, &old) < 0) {

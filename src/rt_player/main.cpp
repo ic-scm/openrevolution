@@ -289,6 +289,11 @@ int main(int argc, char** args) {
             player_state->memblock = new unsigned char [fsize];
             player_state->file.seekg(0);
             player_state->file.read ((char*)player_state->memblock, fsize);
+            if(!player_state->file.good()) {
+                //File read error
+                perror(args[1]);
+                exit(255);
+            }
             player_state->file.close();
         }
     } else {
