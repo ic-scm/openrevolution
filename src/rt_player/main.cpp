@@ -192,12 +192,12 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 
 //-------------------######### STRINGS
 
-const char* helpString = "OpenRevolution audio player\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_rt [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n--classic-ui - Classic brstm_rt appearance\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
+const char* helpString = "OpenRevolution audio player\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_rt [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n-l --loop - Always loop files with no loop\n--classic-ui - Classic brstm_rt appearance\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
-const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer","-classic-ui"};
-const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer","--classic-ui"};
-const unsigned int optcount = 8;
-const bool optrequiredarg[optcount] = {0,0,0,0,1,0,0,0};
+const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer","-classic-ui","-l"};
+const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer","--classic-ui","--loop"};
+const unsigned int optcount = 9;
+const bool optrequiredarg[optcount] = {0,0,0,0,1,0,0,0,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -249,15 +249,17 @@ int main(int argc, char** args) {
     
     //Apply the options
     bool verb=0;
+    bool loop_force = 0;
     unsigned long forcedSampleRate = 0;
     if(optused[0]) verb=1;
-    if(optused[1]) player_state->memoryMode=0;
-    if(optused[2]) player_state->memoryMode=1;
-    if(optused[3]) player_state->memoryMode=2;
+    if(optused[1]) player_state->memoryMode = 0;
+    if(optused[2]) player_state->memoryMode = 1;
+    if(optused[3]) player_state->memoryMode = 2;
     if(optused[4]) forcedSampleRate = atoi(optargstr[4]);
-    if(optused[5]) uoutput_state->quietOutput=1;
-    if(optused[6]) player_state->track_mixing_enabled=1;
-    if(optused[7]) uoutput_state->classic_noflush=1;
+    if(optused[5]) uoutput_state->quietOutput = 1;
+    if(optused[6]) player_state->track_mixing_enabled = 1;
+    if(optused[7]) uoutput_state->classic_noflush = 1;
+    if(optused[8]) loop_force = 1;
     
     //Allocate brstm struct
     Brstm* brstm = new Brstm;
@@ -345,9 +347,14 @@ int main(int argc, char** args) {
     }
     
     //Print basic file information in non-verbose mode
-    if(verb == 0 && uoutput_state->quietOutput == 0) {
-        const char* loopstr = (brstm->loop_flag ? (brstm->loop_start > 0 ? "Looping" : "E to S") : "No loop");
+    if(uoutput_state->quietOutput == 0) {
+        const char* loopstr = (brstm->loop_flag ? (brstm->loop_start > 0 ? "Looping" : "E to S") : (loop_force ? "No loop (playing E to S)" : "No loop"));
         printf("%s | %s | %luHz | %uch/%utr | %s\n", brstm_getShortFormatString(brstm), brstm_getCodecString(brstm), brstm->sample_rate, brstm->num_channels, brstm->num_tracks, loopstr);
+    }
+    
+    //Loop force setting
+    if(loop_force) {
+        brstm->loop_flag = 1;
     }
     
     //Initialize RtAudio
