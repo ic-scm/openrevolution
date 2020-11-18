@@ -177,15 +177,8 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
             }
             return -1;
         }
-        case 2: {
-            //BCSTM
-            if(num < 4) {
-                return num;
-            }
-            return -1;
-        }
-        case 3: {
-            //BFSTM
+        case 2: case 3: {
+            //BCSTM & BFSTM
             if(num < 4) {
                 return num;
             }
