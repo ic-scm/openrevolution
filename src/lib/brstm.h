@@ -24,6 +24,8 @@ const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70
 //Offset to the codec information and their sizes in each format
 const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14,0x60,0x60,0x60,0x10,0x00};
 const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1,1,1,1,2,1};
+//Flags for which formats have a standard byte order mark, getBaseInformation will use BRSTM_formats_default_endian if set to 0
+const bool BRSTM_formats_has_bom[BRSTM_formats_count] = {0,1,1,1,1,1};
 //Default byte order for formats (used in encoder)
 const bool BRSTM_formats_default_endian[BRSTM_formats_count] = {0,1,0,1,0,0};
 //Short human readable strings (equal to file extension)
@@ -673,14 +675,17 @@ unsigned char brstm_fstream_read_header(Brstm * brstmi, std::ifstream& stream, s
     }
     
     //Read Byte Order Mark
-    //WAV does not have a byte order mark but this will default to LE which is correct
-    unsigned char bomword[2];
-    stream.seekg(0x04);
-    stream.read((char*)bomword,2);
-    if(brstm_getSliceAsInt16Sample(bomword,0,1) == -257) {
-        BOM = 1; //Big endian
+    if(BRSTM_formats_has_bom[brstmi->file_format]) {
+        unsigned char bomword[2];
+        stream.seekg(0x04);
+        stream.read((char*)bomword,2);
+        if(brstm_getSliceAsInt16Sample(bomword,0,1) == -257) {
+            BOM = 1; //Big endian
+        } else {
+            BOM = 0; //Little endian
+        }
     } else {
-        BOM = 0; //Little endian
+        BOM = BRSTM_formats_default_endian[brstmi->file_format];
     }
     
     if(!stream.good()) return brstm_fstream_read_header_fstream_error_handler(stream, debugLevel);
@@ -815,11 +820,14 @@ unsigned char brstm_getBaseInformation(Brstm* brstmi, unsigned char* data, unsig
     }
     
     //Read Byte Order Mark
-    //WAV does not have a byte order mark but this will default to LE which is correct
-    if(brstm_getSliceAsInt16Sample(data,4,1) == -257) {
-        BOM = 1; //Big endian
+    if(BRSTM_formats_has_bom[brstmi->file_format]) {
+        if(brstm_getSliceAsInt16Sample(data,4,1) == -257) {
+            BOM = 1; //Big endian
+        } else {
+            BOM = 0; //Little endian
+        }
     } else {
-        BOM = 0; //Little endian
+        BOM = BRSTM_formats_default_endian[brstmi->file_format];
     }
     
     //Read offset to audio data
