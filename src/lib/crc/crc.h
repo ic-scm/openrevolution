@@ -1,3 +1,7 @@
+// CRC code from https://github.com/panzi/CRC-and-checksum-functions
+// Original code from http://c.snippets.org/snip_lister.php?fname=crc.h
+// Released freely
+
 /*
 **  CRC.H - header file for SNIPPETS CRC and checksum functions
 */
