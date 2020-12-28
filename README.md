@@ -15,17 +15,17 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 | BWAV         | Yes                 | Yes                 |
 
 ## Usage
-Compile everything by running build.sh or another compiler with the correct options
+Compile everything by running build.sh or using another compiler with the correct options.
 
 Dependencies for library:
 - None
 
 Dependencies for converter (brstm_converter)
-- ffmpeg (optional) - Audio manipulation with the optional --ffmpeg option
+- ffmpeg (optional) - Audio manipulation with the --ffmpeg option
 
 Dependencies for player (brstm_rt)
 - librtaudio - Audio output
-**NOTE:** The current latest version of RtAudio has an issue that prevents brstm_rt from playing files with unusual sampling rates on some systems. If you need to play files with sample rates like 32728Hz or 24000Hz, you can use this fork of RtAudio: https://github.com/ic-scm/rtaudio/releases/tag/5.1.0.icpatch
+**NOTE:** The current latest version of RtAudio has an issue that prevents brstm_rt from playing files with unusual sampling rates on some PulseAudio systems. If you need to play files with sample rates like 32728Hz or 24000Hz, you can use this fork of RtAudio: https://github.com/ic-scm/rtaudio/releases/tag/5.1.0.icpatch
 - unistd.h and termios.h
 - POSIX Threads
 

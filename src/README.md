@@ -6,7 +6,7 @@ Usage:
 
 The operation mode is automatically picked depending on your file types
 
-Run the program without any arguments to see all options.
+Run the program without any arguments to see full help and all options.
 
 Examples:
 

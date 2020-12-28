@@ -12,6 +12,8 @@ C++ RtAudio BRSTM player
 
 --enable-mixer - Enable track mixing for multi-track files
 
+-l - Always loop files with no loop
+
 **Memory modes**
 
 -m - Load the entire file into memory (default for <15MB files)
