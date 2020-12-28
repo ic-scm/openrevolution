@@ -17,10 +17,6 @@ unsigned char brstm_formats_encode_brstm(Brstm* brstmi,signed int debugLevel,uin
         return 206;
     }
     
-    if(brstmi->codec != 2) {
-        if(debugLevel>=0) std::cout << "Warning: PCM BRSTM files are untested\n";
-    }
-    
     bool &BOM = brstmi->BOM;
     char spinner = '/';
     
