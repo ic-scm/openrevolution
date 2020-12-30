@@ -24,12 +24,16 @@ struct player_state_t {
     //Toggles for which tracks are playing when using the track mixer.
     bool tracks_enabled[9] = {1,0,0,0,0,0,0,0,0};
     //Current track in normal track switching
-    unsigned int current_track=0;
+    unsigned int current_track = 0;
     
     //Playback
-    unsigned long playback_current_sample=0;
-    bool stop_playing=0;
-    bool paused=0;
+    unsigned long playback_current_sample = 0;
+    bool stop_playing = 0;
+    bool paused = 0;
+    //True when playback is paused and the entire buffer has been cleaned with silence.
+    bool buffer_clean = 0;
+    //Playback will be suspended when buffer is clean.
+    bool stream_suspended = 0;
     
     //File data and BRSTM struct
     unsigned char* memblock;
@@ -144,6 +148,9 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             mixTracks(state, samplesToGet);
         }
         
+        //Buffer will now be filled with audio data, it is no longer clean.
+        state->buffer_clean = 0;
+        
         for (i=0;i<nBufferFrames;i+=1) {
             *buffer++ = brstmbuffer[0][i+ioffset];
             *buffer++ = brstmbuffer[1][i+ioffset];
@@ -183,6 +190,8 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
             *buffer++ = 0;
             *buffer++ = 0;
         }
+        //Buffer is now clean
+        state->buffer_clean = 1;
     }
     
     state->lock = 0;
@@ -404,17 +413,48 @@ int main(int argc, char** args) {
     while(player_state->stop_playing == 0) {
         drawPlayerUI(uoutput_state);
         usleep(10000);
+        
+        //Stop RtAudio when playback is paused and buffer is clean.
+        if(player_state->paused && player_state->buffer_clean && !player_state->stream_suspended) {
+            //Stop RtAudio
+            try {
+                dac.stopStream();
+                dac.closeStream();
+            } catch(RtAudioError& e) {
+                e.printMessage();
+                break;
+            }
+            
+            player_state->stream_suspended = 1;
+        }
+        else if(player_state->stream_suspended && !player_state->paused) {
+            //Restart RtAudio
+            try {
+                dac.openStream(&parameters, NULL, RTAUDIO_SINT16, sampleRate, &bufferFrames, &RtAudioCb, (void*)player_state, &options);
+                dac.startStream();
+            } catch(RtAudioError& e) {
+                e.printMessage();
+                break;
+            }
+            
+            player_state->stream_suspended = 0;
+        }
     }
     
     std::cout << '\n';
     
-    try {
-        //Stop the stream
-        dac.stopStream();
-    } catch(RtAudioError& e) {
-        e.printMessage();
+    if(dac.isStreamOpen()) {
+        try {
+            if(!player_state->stream_suspended) {
+                //Stop the stream
+                dac.stopStream();
+            }
+        } catch(RtAudioError& e) {
+            e.printMessage();
+        }
+        
+        dac.closeStream();
     }
-    if(dac.isStreamOpen()) dac.closeStream();
     
     //Free mixing buffer
     if(player_state->track_mixing_enabled) {
@@ -422,10 +462,14 @@ int main(int argc, char** args) {
         delete[] player_state->brstmbuffer[1];
     }
     
+    int ret_code = 0;
+    
     if(uinput_state->exit) {
         pthread_join(uiThread, NULL);
     } else {
+        //Exiting with error.
         pthread_cancel(uiThread);
+        ret_code = 1;
     }
     
     //If the program is exiting with an error and the getch function did not properly return,
@@ -438,5 +482,5 @@ int main(int argc, char** args) {
     delete uinput_state;
     delete uoutput_state;
     
-    return 0;
+    return ret_code;
 }
