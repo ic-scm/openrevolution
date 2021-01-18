@@ -13,6 +13,9 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 | BCSTM        | Yes                 | Yes                 |
 | BFSTM        | Yes                 | Yes                 |
 | BWAV         | Yes                 | Yes                 |
+| BRWAV        | No                  | No                  |
+| BCWAV        | Yes                 | No                  |
+| BFWAV        | Yes                 | No                  |
 
 ## Usage
 Compile everything by running build.sh or using another compiler with the correct options.
@@ -40,7 +43,7 @@ Usage guides:
 - [kenrick95/nikku](https://github.com/kenrick95/nikku) and [BrawlLib](https://github.com/libertyernie/brawltools): DSPADPCM decoder reference
 - [jackoalan/gc-dspadpcm-encode](https://github.com/jackoalan/gc-dspadpcm-encode): DSPADPCM encoder
 - [gota7](https://gota7.github.io/Citric-Composer/specs/binaryWav.html): BWAV file structure reference
-- [mk8.tockdom.com](http://mk8.tockdom.com/wiki/BFSTM_\(File_Format\)) and [3dbrew.org](https://www.3dbrew.org/wiki/BCSTM): BCSTM/BFSTM file structure reference (the two formats are almost the same)
+- [mk8.tockdom.com](http://mk8.tockdom.com/wiki/Main_Page) ([\[1\]](http://mk8.tockdom.com/wiki/BFSTM_\(File_Format\))[\[2\]](http://mk8.tockdom.com/wiki/BFWAV_\(File_Format\))) and [3dbrew.org](https://www.3dbrew.org/wiki/Main_Page) ([\[1\]](https://www.3dbrew.org/wiki/BCSTM)[\[2\]](https://www.3dbrew.org/wiki/BCWAV)): BCSTM, BFSTM, BCWAV, BFWAV file structure references
 - [Gianmarco Gargiulo](https://gianmarco.ga/): Icon/Logo
 - [RtAudio](https://github.com/thestk/rtaudio): RtAudio library
 
