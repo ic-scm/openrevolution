@@ -285,8 +285,9 @@ int main(int argc, char** args) {
             //Get base file information
             unsigned char res = brstm_fstream_getBaseInformation(brstm, player_state->file, 0);
             if(res>127) exit(res);
-            if(brstm->file_format == 4) {
-                //Always use full decoding for BWAV
+            
+            if(brstm->file_format == 4 || brstm->file_format == 6 || brstm->file_format == 7 || brstm->file_format == 8) {
+                //Always use full decoding for non-streamed formats
                 player_state->memoryMode = 2;
             } else {
                 //Streaming for >15MB files
