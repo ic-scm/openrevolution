@@ -1,5 +1,5 @@
 //C++ BRSTM and other format reading tools
-//Copyright (C) 2020 IC
+//Copyright (C) 2021 IC
 //https://github.com/ic-scm/openrevolution
 
 #pragma once
@@ -14,22 +14,22 @@ const char* BRSTM_version_str = "v2.6.0";
 const char* brstm_getVersionString() {return BRSTM_version_str;}
 
 //Format information
-const unsigned int BRSTM_formats_count = 6;
+const unsigned int BRSTM_formats_count = 9;
 //File header magic words for each file format
-const char* BRSTM_formats_str[BRSTM_formats_count] = {"RIFF","RSTM","CSTM","FSTM","BWAV","OSTM"};
+const char* BRSTM_formats_str[BRSTM_formats_count] = {"RIFF", "RSTM", "CSTM", "FSTM", "BWAV", "OSTM", "RWAV", "CWAV", "FWAV"};
 //Offset to the audio offset information in each format (32 bit integer)
 //(doesn't have to be accurate, just enough to fit the entire file header before it)
 //Can be set to 0, a default offset (0x2000) will be used in that case.
-const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00,0x70,0x30,0x30,0x40,0x10};
+const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00, 0x70, 0x30, 0x30, 0x40, 0x10, 0x00, 0x24, 0x24};
 //Offset to the codec information and their sizes in each format
-const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14,0x60,0x60,0x60,0x10,0x00};
-const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1,1,1,1,2,1};
+const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14, 0x60, 0x60, 0x60, 0x10, 0x00, 0x00, 0x48, 0x48};
+const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1, 1, 1, 1, 2, 1, 1, 1, 1};
 //Flags for which formats have a standard byte order mark, getBaseInformation will use BRSTM_formats_default_endian if set to 0
-const bool BRSTM_formats_has_bom[BRSTM_formats_count] = {0,1,1,1,1,1};
+const bool BRSTM_formats_has_bom[BRSTM_formats_count] = {0, 1, 1, 1, 1, 1, 1, 1, 1};
 //Default byte order for formats (used in encoder)
-const bool BRSTM_formats_default_endian[BRSTM_formats_count] = {0,1,0,1,0,0};
+const bool BRSTM_formats_default_endian[BRSTM_formats_count] = {0, 1, 0, 1, 0, 0, 1, 0, 1};
 //Short human readable strings (equal to file extension)
-const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"WAV","BRSTM","BCSTM","BFSTM","BWAV","ORSTM"};
+const char* BRSTM_formats_short_usr_str[BRSTM_formats_count] = {"WAV", "BRSTM", "BCSTM", "BFSTM", "BWAV", "ORSTM", "BRWAV", "BCWAV", "BFWAV"};
 //Long human readable strings
 const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
 "Waveform Audio",
@@ -37,7 +37,10 @@ const char* BRSTM_formats_long_usr_str [BRSTM_formats_count] = {
 "Binary CTR Stream",
 "Binary Cafe Stream",
 "Nintendo BWAV",
-"Open Revolution Stream"
+"Open Revolution Stream",
+"Binary Revolution WAV",
+"Binary CTR WAV",
+"Binary Cafe WAV"
 };
 
 //Codec information
@@ -179,8 +182,8 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
             }
             return -1;
         }
-        case 2: case 3: {
-            //BCSTM & BFSTM
+        case 2: case 3: case 7: case 8: {
+            //BCSTM, BFSTM, BCWAV, BFWAV
             if(num < 4) {
                 return num;
             }
@@ -283,6 +286,15 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     } else if(brstmi->file_format == 5) {
         //ORSTM
         readres = brstm_formats_read_orstm(brstmi,fileData,debugLevel,decodeAudio);
+    } else if(brstmi->file_format == 6) {
+        //BRWAV
+        readres = brstm_formats_read_brwav(brstmi,fileData,debugLevel,decodeAudio);
+    } else if(brstmi->file_format == 7) {
+        //BCWAV
+        readres = brstm_formats_read_bcwav(brstmi,fileData,debugLevel,decodeAudio);
+    } else if(brstmi->file_format == 8) {
+        //BFWAV
+        readres = brstm_formats_read_bfwav(brstmi,fileData,debugLevel,decodeAudio);
     } else {
         if(debugLevel>=0) {std::cout << "Invalid or unsupported file format.\n";}
         return 210;
