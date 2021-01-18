@@ -530,7 +530,9 @@ int main(int argc, char** args) {
     
     //Check file extensions
     inputFileExt = getFileExt(inputFileName);
-    if(inputFileExt == -1) {std::cout << "Unsupported input file extension.\n"; exit(255);}
+    //Assume BRSTM if the input extension does not match any known formats
+    if(inputFileExt == -1) inputFileExt = 1;
+    
     if(saveFile) {
         outputFileExt = getFileExt(outputFileName);
         if(outputFileExt == -1) {std::cout << "Unsupported output file extension.\n"; exit(255);}
