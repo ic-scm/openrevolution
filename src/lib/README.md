@@ -49,6 +49,22 @@ struct Brstm {
     int PCM_blockbuffer_currentBlock = -1;
     bool getbuffer_useBuffer = true;
     unsigned int audio_stream_format = 0; //See full description in brstm.h
+    
+    //Read warning flags
+    //Invalid track information, guessed track information
+    bool warn_invalid_track_info = 0;
+    //Invalid sample rate, used default sample rate
+    bool warn_invalid_sample_rate = 0;
+    //Invalid loop, removed loop point and flag
+    bool warn_invalid_loop = 0;
+    //Unsupported file chunk
+    bool warn_unsupported_chunk = 0;
+    //Unsupported channels (more than 2 in a single track)
+    bool warn_unsupported_channels = 0;
+    //File doesn't include track information
+    bool warn_guessed_track_info = 0;
+    //File format does not support realtime decoding
+    bool warn_realtime_decoding = 0;
 };
 ```
 
