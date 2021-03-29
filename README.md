@@ -1,4 +1,4 @@
-# Open Revolution
+# OpenRevolution
 C++ BRSTM tools
 
 Decode, encode, play and convert BRSTM files and other Nintendo audio formats.
