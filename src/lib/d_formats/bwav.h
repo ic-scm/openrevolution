@@ -73,6 +73,7 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
         }
     }
     if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: BWAV track information is guessed\n";}
+    brstmi->warn_guessed_track_info = 1;
     
     //Audio
     //Allocate and read history samples
@@ -88,6 +89,7 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
         if(awrite_res > 128) return awrite_res;
     } else {
         if(debugLevel>=0) {std::cout << "Warning: Realtime decoding works like full decoding for this format\n";}
+        brstmi->warn_realtime_decoding = 1;
     }
     
     return 0;

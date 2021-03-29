@@ -65,12 +65,14 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
                     std::cout << "Warning: REGN chunk is not supported and will be ignored.\n";
                 }
                 REGN_offset = chunk_offset;
+                brstmi->warn_unsupported_chunk = 1;
                 break;
             }
             default: {
                 if(debugLevel>=0) {
                     std::cout << "Warning: Unrecognized chunk with code 0x" << std::hex << chunk_marker << std::dec << ".\n";
                 }
+                brstmi->warn_unsupported_chunk = 1;
                 break;
             }
         }
@@ -178,6 +180,7 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
         
         if(unsupported_track_flag) {
             if(debugLevel>=0) {std::cout << "Warning: This " << eformat_s[eformat] << " file has a track with more than 2 channels which is not currently supported.\n";}
+            brstmi->warn_unsupported_channels = 1;
         }
     }
     //Guess and write standard track information if the track information subchunk does not exist.
@@ -194,7 +197,9 @@ unsigned char brstm_formats_multi_read_bcstm_bfstm(Brstm* brstmi, const unsigned
             if(track_num_channels == 1 || c%2 == 0) brstmi->track_lchannel_id[c/track_num_channels] = c;
             if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
         }
+        
         if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: " << eformat_s[eformat] << " track information is guessed\n";}
+        brstmi->warn_guessed_track_info = 1;
     }
     
     //Channel info

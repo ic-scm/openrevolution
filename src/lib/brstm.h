@@ -112,6 +112,28 @@ struct Brstm {
     
     //BRSTM file fstream object used to internally pass the file stream in brstm_fstream functions.
     std::ifstream* file_ifstream;
+    
+    //Warning and error flags
+    
+    //Invalid file data warnings
+    //Invalid track information, guessed track information
+    bool warn_invalid_track_info = 0;
+    //Invalid sample rate, used default sample rate
+    bool warn_invalid_sample_rate = 0;
+    //Invalid loop, removed loop point and flag
+    bool warn_invalid_loop = 0;
+    
+    //Unsupported feature warnings
+    //Unsupported file chunk
+    bool warn_unsupported_chunk = 0;
+    //Unsupported channels (more than 2 in a single track)
+    bool warn_unsupported_channels = 0;
+    
+    //Other warnings
+    //File doesn't include track information
+    bool warn_guessed_track_info = 0;
+    //File format does not support realtime decoding
+    bool warn_realtime_decoding = 0;
 };
 
 #include "utils.h"
@@ -146,7 +168,17 @@ const char* brstm_getCodecString(Brstm* brstmi) { return brstm_getCodecString(br
 const char* brstm_getErrorString(unsigned char code) {
     const char* invalidfile = "Invalid file";
     switch(code) {
-        case 0: return "No error";
+        case 0: return "Success";
+        
+        //Warning codes
+        //Common library warnings
+        //(warn_unsupported_chunk, warn_unsupported_channels, warn_guessed_track_info, warn_realtime_decoding)
+        case 1: return "Warning";
+        //Invalid file data warnings, can also include the above warnings
+        //(warn_invalid_track_info, warn_invalid_sample_rate, warn_invalid_loop)
+        case 2: return "Invalid file data warning";
+            
+        //Errors
         case 255: return invalidfile;
         case 250: return invalidfile;
         case 249: return "Too many channels";
@@ -249,6 +281,14 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
         brstmi->PCM_blockbuffer  [c] = nullptr;
     }
     
+    //Clear warnings
+    brstmi->warn_invalid_track_info = 0;
+    brstmi->warn_invalid_sample_rate = 0;
+    brstmi->warn_invalid_loop = 0;
+    brstmi->warn_unsupported_chunk = 0;
+    brstmi->warn_unsupported_channels = 0;
+    brstmi->warn_guessed_track_info = 0;
+    brstmi->warn_realtime_decoding = 0;
     
     bool &BOM = brstmi->BOM;
     unsigned char readres = 0;
@@ -308,6 +348,7 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     if(brstmi->sample_rate == 0) {
         if(debugLevel >= 0) std::cout << "Warning: This file has an invalid sample rate, defaulting to 44100Hz.\n";
         brstmi->sample_rate = 44100;
+        brstmi->warn_invalid_sample_rate = 1;
     }
     
     if(brstmi->total_samples == 0) {
@@ -382,9 +423,11 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
     
     if(trackinfo_fail == 1) {
         if(debugLevel >= 0) std::cout << "Warning: This file has invalid track information and it was corrected.\n";
+        brstmi->warn_invalid_track_info = 1;
     }
     else if(trackinfo_fail == 2) {
         if(debugLevel >= 0) std::cout << "Warning: This file has invalid track information, track information is guessed.\n";
+        brstmi->warn_invalid_track_info = 1;
         
         //Erase current track information
         brstmi->num_tracks = 0;
@@ -483,7 +526,13 @@ unsigned char brstm_read(Brstm* brstmi,const unsigned char* fileData,signed int 
         brstmi->loop_start = 0;
         brstmi->loop_flag = 0;
         if(debugLevel >= 0) std::cout << "Warning: This file has an invalid loop point and it was removed.\n";
+        brstmi->warn_invalid_loop = 1;
     }
+    
+    //Set return code
+    readres = 0;
+    if(brstmi->warn_unsupported_chunk || brstmi->warn_unsupported_channels || brstmi->warn_guessed_track_info || brstmi->warn_realtime_decoding) readres = 1;
+    if(brstmi->warn_invalid_track_info || brstmi->warn_invalid_sample_rate || brstmi->warn_invalid_loop) readres = 2;
     
     return readres;
 }
@@ -912,4 +961,12 @@ void brstm_close(Brstm* brstmi) {
     }
     brstmi->PCM_blockbuffer_currentBlock = -1;
     brstmi->audio_stream_format = 0;
+    
+    brstmi->warn_invalid_track_info = 0;
+    brstmi->warn_invalid_sample_rate = 0;
+    brstmi->warn_invalid_loop = 0;
+    brstmi->warn_unsupported_chunk = 0;
+    brstmi->warn_unsupported_channels = 0;
+    brstmi->warn_guessed_track_info = 0;
+    brstmi->warn_realtime_decoding = 0;
 }

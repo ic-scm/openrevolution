@@ -70,6 +70,7 @@ unsigned char brstm_formats_read_wav(Brstm* brstmi,const unsigned char* fileData
         if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
     }
     if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: Track information is guessed\n";}
+    brstmi->warn_guessed_track_info = 1;
     
     if(decodeAudio == 1) {
         //Read audio from wav file

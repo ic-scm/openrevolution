@@ -59,6 +59,7 @@ unsigned char brstm_formats_multi_read_bcwav_bfwav(Brstm* brstmi, const unsigned
                 if(debugLevel>=0) {
                     std::cout << "Warning: Unrecognized chunk with code 0x" << std::hex << chunk_marker << std::dec << ".\n";
                 }
+                brstmi->warn_unsupported_chunk = 1;
                 break;
             }
         }
@@ -175,6 +176,7 @@ unsigned char brstm_formats_multi_read_bcwav_bfwav(Brstm* brstmi, const unsigned
         if(track_num_channels == 2 && c%2 == 1) brstmi->track_rchannel_id[c/track_num_channels] = c;
     }
     if(brstmi->num_tracks>1 && debugLevel>=0) {std::cout << "Warning: " << eformat_s[eformat] << " track information is guessed\n";}
+    brstmi->warn_guessed_track_info = 1;
     
     
     //DATA chunk
@@ -194,6 +196,7 @@ unsigned char brstm_formats_multi_read_bcwav_bfwav(Brstm* brstmi, const unsigned
         if(awrite_res > 128) return awrite_res;
     } else {
         if(debugLevel>=0) {std::cout << "Warning: Realtime decoding works like full decoding for this format\n";}
+        brstmi->warn_realtime_decoding = 1;
     }
     
     return 0;
