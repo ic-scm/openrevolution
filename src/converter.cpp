@@ -14,7 +14,7 @@
 
 //-------------------######### STRINGS
 
-const char* helpString = "OpenRevolution file converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\n--mix-tracks [0/1 for all tracks] - Mix the specified tracks from the input file into a single stereo track\n(example: --mix-tracks 1010 will mix the first and third track from a 4-track file)\nIf necessary, this option can also be used to duplicate a single mono track.\n\n--mix-tracks-mono - Use together with --mix-tracks to mix into a single mono track\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
+const char* helpString = "OpenRevolution file converter\nCopyright (C) 2020 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\n--mix-tracks [0/1 for all tracks] - Mix the specified tracks from the input file into a single stereo track\n(example: --mix-tracks 1010 will mix the first and third track from a 4-track file)\nIf necessary, this option can also be used to duplicate a single mono track.\n\n--mix-tracks-mono - Use together with --mix-tracks to mix into a single mono track\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM, or 'same' to use the same codec as the input file\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
 
 //------------------ Command line arguments
 
@@ -482,7 +482,13 @@ int main(int argc, char** args) {
     //Extend / cut
     if(optused[6]) {extendSampleCount = atoi(optargstr[6]);}
     //Output file codec
-    if(optused[7]) {userCodec = atoi(optargstr[7]);}
+    if(optused[7]) {
+        if(strcmp(optargstr[7], "same") == 0) {
+            userCodec = -2;
+        } else {
+            userCodec = atoi(optargstr[7]);
+        }
+    }
     //Keep channels
     if(optused[8]) {
         unsigned char len = strlen(optargstr[8]);
@@ -524,9 +530,6 @@ int main(int argc, char** args) {
     }
     //Enable reencoding if we want to extend or cut samples
     if(extendSampleCount) reencode = 1;
-    //Enable reencoding if the user requested an output codec that isn't ADPCM (the rebuilder is meant for ADPCM data)
-    if(userCodec != -1 && userCodec != 2) reencode = 1; 
-    
     
     //Check file extensions
     inputFileExt = getFileExt(inputFileName);
@@ -570,6 +573,9 @@ int main(int argc, char** args) {
         //Change from rebuilding to reencoding if the codec is not ADPCM
         if(outputFileExt > 0 && brstm->codec != 2) reencode=1;
     }
+    
+    //Enable reencoding if the user requested an output codec that isn't ADPCM (the rebuilder is meant for ADPCM data)
+    if( userCodec != -1 && !(userCodec == 2 || (userCodec == -2 && brstm->codec == 2)) ) reencode = 1;
     
     //Run conversions
     //Decoder BRSTM/other -> WAV
@@ -644,7 +650,10 @@ int main(int argc, char** args) {
             //Set other BRSTM data
             brstm->file_format = outputFileExt;
             brstm->codec = 2;
+            
             if(userCodec != -1) brstm->codec = userCodec;
+            if(userCodec == -2) brstm->codec = 1;
+            
             if(userLoop) {
                 brstm->loop_flag  = userLoopFlag;
                 brstm->loop_start = userLoopPoint;
@@ -709,7 +718,7 @@ int main(int argc, char** args) {
     else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 0) {
         //check for unsupported opts
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in rebuilder mode.\n"; exit(255);}
-        if(userCodec != -1) {std::cout << "You cannot use the output codec option in rebuilder mode.\n"; exit(255);}
+        if( userCodec != -1 && !(userCodec == 2 || (userCodec == -2 && brstm->codec == 2)) ) {std::cout << "You cannot use the output codec option in rebuilder mode.\n"; exit(255);}
         if(userTrackMixing) {std::cout << "You cannot mix tracks when losslessly converting files.\n"; exit(255);}
         //print conversion details
         if(saveFile) printConversionDetails();
@@ -916,8 +925,9 @@ int main(int argc, char** args) {
         
         //Set format and codec
         brstm->file_format = outputFileExt;
-        brstm->codec = 2;
-        if(userCodec != -1) brstm->codec = userCodec;
+        
+        if(userCodec == -1) brstm->codec = 2;
+        if(userCodec != -1 && userCodec != -2) brstm->codec = userCodec;
         
         if(saveFile) {
             //Apply new loop setting
