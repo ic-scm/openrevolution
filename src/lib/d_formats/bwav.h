@@ -35,15 +35,18 @@ unsigned char brstm_formats_read_bwav(Brstm* brstmi,const unsigned char* fileDat
     //Write compatible block information
     brstmi->total_blocks = 1;
     
-    brstmi->blocks_size = brstmi->num_channels > 1 ? (brstm_getSliceAsNumber(fileData,0x8C,4,BOM) - brstmi->audio_offset) :
-    // ---------------------------------------------- ^ Offset to second channel audio data - Offset to first channel = Block size that has the first byte of the next channel data after the end
-    //In order: 16-bit PCM, 4-bit DSPADPCM
-    (brstmi->codec == 1 ? brstmi->total_samples*2 : brstm_getBytesForAdpcmSamples(brstmi->total_samples));
+    //Calculate block size based on sample count and codec
+    brstmi->blocks_size = (brstmi->codec == 1 ? brstmi->total_samples*2 : brstm_getBytesForAdpcmSamples(brstmi->total_samples));
+    
+    //Block size with padding
+    brstmi->final_block_size_p = brstmi->num_channels > 1 ? (brstm_getSliceAsNumber(fileData,0x8C,4,BOM) - brstmi->audio_offset) :
+    // ----------------------------------------------------- ^ Offset to second channel audio data - Offset to first channel = Block size that has the first byte of the next channel data after the end
+    // Normal block size in single channel files
+    brstmi->blocks_size;
     
     brstmi->blocks_samples = brstmi->total_samples;
     brstmi->final_block_size = brstmi->blocks_size;
     brstmi->final_block_samples = brstmi->blocks_samples;
-    brstmi->final_block_size_p = brstmi->final_block_size;
     
     //Read channel pan values for better track information guessing
     unsigned int channelPans[2];
