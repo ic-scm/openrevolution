@@ -64,7 +64,7 @@ void* uinput_thread(void* arg) {
                 }
                 case 'C': /*RIGHT - Fast Forward*/ {
                     pstate->playback_current_sample += pstate->brstm->sample_rate;
-                    if(pstate->playback_current_sample > pstate->brstm->total_samples) pstate->playback_current_sample = pstate->brstm->total_samples;
+                    if(pstate->playback_current_sample > pstate->brstm->total_samples) pstate->playback_current_sample = pstate->brstm->total_samples - 1;
                     break;
                 }
                 case 'D': /*LEFT - Rewind*/ {
