@@ -1,7 +1,7 @@
 echo "Building player..."
-g++ -O2 src/rt_player/main.cpp -o brstm_rt -lrtaudio -lpthread
+g++ -O2 src/rt_player/main.cpp -o brstm_rt -lrtaudio -lpthread -Wall
 echo "Building converter..."
-g++ -O2 -std=c++0x src/converter.cpp -o brstm_converter
+g++ -O2 -std=c++0x src/converter.cpp -o brstm_converter -Wall
 #echo "Building decoder..."
 #g++ -O2 src/decoder.cpp -o brstm_decoder
 #echo "Building encoder..."
