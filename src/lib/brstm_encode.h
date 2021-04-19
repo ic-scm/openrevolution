@@ -107,7 +107,7 @@ unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeA
     //Validate track information
     for(unsigned int t=0; t<brstmi->num_tracks; t++) {
         //Invalid channel count
-        if(brstmi->track_num_channels[t] > 2 || brstmi->track_num_channels == 0) {
+        if(brstmi->track_num_channels[t] > 2 || brstmi->track_num_channels[t] == 0) {
             if(debugLevel>=0) {
                 std::cout << "Invalid track channel count in track " << t << ".\n";
                 if(brstmi->track_num_channels[t] > 2) {
