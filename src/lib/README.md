@@ -80,6 +80,12 @@ Create your BRSTM struct:
 ```cpp
 Brstm* brstm = new Brstm;
 ```
+
+Initialize the BRSTM struct (always do this after creating it):
+```cpp
+brstm_init(brstm);
+```
+
 Read a file:
 ```
 brstm_read (
@@ -262,6 +268,7 @@ track_panning[track] = Left to right panning of the track. (0x00 to 0x7F)
 // Example - standard stereo BRSTM
 
 Brstm* brstm = new Brstm;
+brstm_init(brstm);
 
 brstm->file_format   = 1;
 brstm->codec         = 2;

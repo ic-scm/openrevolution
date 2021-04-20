@@ -909,20 +909,13 @@ unsigned char brstm_getBaseInformation(Brstm* brstmi, unsigned char* data, unsig
 
 
 /* 
- * Close the BRSTM file (reset variables and free memory)
+ * Initialize all struct variables to default values
  */
-void brstm_close(Brstm* brstmi) {
+void brstm_init(Brstm* brstmi) {
     for(unsigned char i=0;i<16;i++) {
         for(unsigned char j=0;j<16;j++) {
             brstmi->ADPCM_coefs[i][j] = 0;
         }
-        delete[] brstmi->ADPCM_hsamples_1[i];
-        delete[] brstmi->ADPCM_hsamples_2[i];
-        delete[] brstmi->PCM_samples[i];
-        delete[] brstmi->PCM_buffer[i];
-        delete[] brstmi->PCM_blockbuffer[i];
-        delete[] brstmi->ADPCM_data[i];
-        delete[] brstmi->ADPCM_buffer[i];
         brstmi->ADPCM_hsamples_1[i] = nullptr;
         brstmi->ADPCM_hsamples_2[i] = nullptr;
         brstmi->PCM_samples[i] = nullptr;
@@ -931,7 +924,7 @@ void brstm_close(Brstm* brstmi) {
         brstmi->ADPCM_data[i] = nullptr;
         brstmi->ADPCM_buffer[i] = nullptr;
     }
-    delete[] brstmi->encoded_file;
+    
     brstmi->encoded_file = nullptr;
     
     brstmi->file_format = 0;
@@ -969,4 +962,23 @@ void brstm_close(Brstm* brstmi) {
     brstmi->warn_unsupported_channels = 0;
     brstmi->warn_guessed_track_info = 0;
     brstmi->warn_realtime_decoding = 0;
+}
+
+/* 
+ * Close the BRSTM file (reset variables and free memory)
+ */
+void brstm_close(Brstm* brstmi) {
+    for(unsigned char i=0;i<16;i++) {
+        delete[] brstmi->ADPCM_hsamples_1[i];
+        delete[] brstmi->ADPCM_hsamples_2[i];
+        delete[] brstmi->PCM_samples[i];
+        delete[] brstmi->PCM_buffer[i];
+        delete[] brstmi->PCM_blockbuffer[i];
+        delete[] brstmi->ADPCM_data[i];
+        delete[] brstmi->ADPCM_buffer[i];
+    }
+    
+    delete[] brstmi->encoded_file;
+    
+    brstm_init(brstmi);
 }

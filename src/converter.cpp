@@ -543,6 +543,7 @@ int main(int argc, char** args) {
     
     //Create BRSTM struct and open files
     Brstm* brstm = new Brstm;
+    brstm_init(brstm);
     std::ifstream ifile;
     std::ofstream ofile;
     std::streampos ifsize;

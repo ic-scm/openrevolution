@@ -272,6 +272,7 @@ int main(int argc, char** args) {
     
     //Allocate brstm struct
     Brstm* brstm = new Brstm;
+    brstm_init(brstm);
     player_state->brstm = brstm;
     
     //Read the file
