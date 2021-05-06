@@ -46,6 +46,7 @@ Usage guides:
 - [jackoalan/gc-dspadpcm-encode](https://github.com/jackoalan/gc-dspadpcm-encode): DSPADPCM encoder
 - [gota7](https://gota7.github.io/Citric-Composer/specs/binaryWav.html): BWAV file structure reference
 - [mk8.tockdom.com](http://mk8.tockdom.com/wiki/Main_Page) ([\[1\]](http://mk8.tockdom.com/wiki/BFSTM_\(File_Format\))[\[2\]](http://mk8.tockdom.com/wiki/BFWAV_\(File_Format\))) and [3dbrew.org](https://www.3dbrew.org/wiki/Main_Page) ([\[1\]](https://www.3dbrew.org/wiki/BCSTM)[\[2\]](https://www.3dbrew.org/wiki/BCWAV)): BCSTM, BFSTM, BCWAV, BFWAV file structure references
+- [FreeApp2014](https://github.com/FreeApp2014): Windows brstm_converter builds
 - [Gianmarco Gargiulo](https://gianmarco.ga/): Icon/Logo
 - [RtAudio](https://github.com/thestk/rtaudio): RtAudio library
 
