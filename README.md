@@ -16,6 +16,7 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 | BRWAV        | No                  | No                  |
 | BCWAV        | Yes                 | No                  |
 | BFWAV        | Yes                 | No                  |
+| IDSP         | Yes                 | No                  |
 
 ## Usage
 Compile everything by running build.sh or using another compiler with the correct options.
