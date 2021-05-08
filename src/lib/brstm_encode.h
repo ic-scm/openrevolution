@@ -168,6 +168,9 @@ unsigned char brstm_encode(Brstm* brstmi, signed int debugLevel, uint8_t encodeA
     } else if(brstmi->file_format == 8) {
         //BFWAV
         encres = brstm_formats_encode_bfwav(brstmi,debugLevel,encodeADPCM);
+    } else if(brstmi->file_format == 9) {
+        //IDSP
+        encres = brstm_formats_encode_idsp (brstmi,debugLevel,encodeADPCM);
     } else {
         //Invalid
         if(debugLevel>=0) std::cout << "Invalid file format.\n";
