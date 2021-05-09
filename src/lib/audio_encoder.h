@@ -109,10 +109,11 @@ void brstm_encode_adpcm(Brstm* brstmi,unsigned char** ADPCMdata,signed int debug
             brstm_encoder_writebytes(ADPCMdata[c],block,brstm_getBytesForAdpcmSamples(numSamples),ADPCMdataPos);
             
             //console output
-            if(!(p%512) && debugLevel>0) std::cout << "\r" << "Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          ";
+            if(!(p%16384) && debugLevel>0) std::cout << "\r" << "Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/"
+                << brstmi->num_channels << " " << floor(((float)p/packetCount) * 100) << "%)          " << std::flush;
         }
         
-        if(debugLevel>0) std::cout << "\r" << "Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " 100%)          ";
+        if(debugLevel>0) std::cout << "\r" << "Encoding DSPADPCM data... (CH " << (unsigned int)c+1 << "/" << brstmi->num_channels << " 100%)          " << std::flush;
     }
 }
 
@@ -142,9 +143,12 @@ void brstm_encoder_doStandardAudioWrite(Brstm* brstmi, uint8_t* buffer, unsigned
                         brstm_encoder_writebytes(
                             buffer,brstm_encoder_getByteInt16(brstmi->PCM_samples[c][b*brstmi->blocks_samples+i],BOM),2,bufpos
                         );
-                        if(!(b%4) && debugLevel>0) std::cout << "\r" << "Writing PCM data... ("
-                            << floor(((float)(b*brstmi->blocks_samples+i)/brstmi->total_samples) * 100) << "%)            ";
                     }
+                    
+                    //Progress display (needed only because our PCM writing method is slow)
+                    if(!(b%10) && debugLevel>0) std::cout << "\r" << "Writing PCM data... ("
+                            << floor(((float)(b*brstmi->blocks_samples)/brstmi->total_samples) * 100) << "%)          " << std::flush;
+                    
                     break;
                 }
             }
@@ -173,6 +177,10 @@ void brstm_encoder_doStandardAudioWrite(Brstm* brstmi, uint8_t* buffer, unsigned
                     brstm_encoder_writebytes(
                         buffer,brstm_encoder_getByteInt16(brstmi->PCM_samples[c][(brstmi->total_blocks-1)*brstmi->blocks_samples+i],BOM),2,bufpos
                     );
+                    
+                    //This progress display is only used and needed for single-block file formats
+                    if(!(i % 196608) && debugLevel>0) std::cout << "\r" << "Writing PCM data... ("
+                            << floor(((float)i/brstmi->total_samples) * (float)(100 / brstmi->num_channels) + (c * (100 / brstmi->num_channels))) << "%)            " << std::flush;
                 }
                 break;
             }
