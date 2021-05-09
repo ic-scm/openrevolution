@@ -153,14 +153,15 @@ unsigned char brstm_formats_multi_read_bcwav_bfwav(Brstm* brstmi, const unsigned
     
     //Calculate compatible block information
     brstmi->total_blocks = 1;
-    brstmi->blocks_size = brstmi->num_channels > 1 ? (ch_audio_offsets[1] - ch_audio_offsets[0]) :
-    //In order: 8-bit PCM, 16-bit PCM, 4-bit DSPADPCM
-    (brstmi->codec == 0 ? brstmi->total_samples : brstmi->codec == 1 ? brstmi->total_samples*2 : brstm_getBytesForAdpcmSamples(brstmi->total_samples));
+    //Calculate block size based on sample count and codec - In order: 8-bit PCM, 16-bit PCM, 4-bit DSPADPCM
+    brstmi->blocks_size = (brstmi->codec == 0 ? brstmi->total_samples : brstmi->codec == 1 ? brstmi->total_samples*2 : brstm_getBytesForAdpcmSamples(brstmi->total_samples));
+    
+    //Block size with padding in multi-channel files
+    brstmi->final_block_size_p = brstmi->num_channels > 1 ? (ch_audio_offsets[1] - ch_audio_offsets[0]) : brstmi->blocks_size;
     
     brstmi->blocks_samples = brstmi->total_samples;
     brstmi->final_block_size = brstmi->blocks_size;
     brstmi->final_block_samples = brstmi->blocks_samples;
-    brstmi->final_block_size_p = brstmi->final_block_size;
     
     //Write standard track information
     brstmi->num_tracks = (brstmi->num_channels > 1 && brstmi->num_channels%2 == 0) ? brstmi->num_channels/2 : brstmi->num_channels;
