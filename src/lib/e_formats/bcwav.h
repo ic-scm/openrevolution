@@ -12,7 +12,7 @@ unsigned char brstm_formats_encode_bcwav(Brstm* brstmi, signed int debugLevel, u
 
 //bool eformat: 0 = BCWAV, 1 = BFWAV.
 unsigned char brstm_formats_multi_encode_bcwav_bfwav(Brstm* brstmi, signed int debugLevel, uint8_t encodeADPCM, bool eformat) {
-    if(debugLevel>=0) printf("Warning: BCWAV and BFWAV encoding is untested\n");
+    if(eformat == 1 && debugLevel>=0) printf("Warning: BFWAV encoding is untested\n");
     
     
     //Strings and other things that change from BCWAV to BFWAV.
