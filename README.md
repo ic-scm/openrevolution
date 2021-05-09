@@ -13,9 +13,8 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 | BCSTM        | Yes                 | Yes                 |
 | BFSTM        | Yes                 | Yes                 |
 | BWAV         | Yes                 | Yes                 |
-| BRWAV        | No                  | No                  |
-| BCWAV        | Yes                 | No                  |
-| BFWAV        | Yes                 | No                  |
+| BCWAV        | Yes                 | Yes                 |
+| BFWAV        | Yes                 | Yes                 |
 | IDSP         | Yes                 | No                  |
 
 ## Usage
