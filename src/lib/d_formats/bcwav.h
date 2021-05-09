@@ -125,8 +125,8 @@ unsigned char brstm_formats_multi_read_bcwav_bfwav(Brstm* brstmi, const unsigned
             
             if(offsets[i] != -1) {
                 //Read channel data at offset
-                //Audio data offset for this channel in DATA chunk
-                ch_audio_offsets[i] = brstm_getSliceAsNumber(fileData,offsets[i]+INFO_channel_offset+0x04,4,BOM) + DATA_offset;
+                //Audio data offset for this channel in DATA chunk data
+                ch_audio_offsets[i] = brstm_getSliceAsNumber(fileData,offsets[i]+INFO_channel_offset+0x04,4,BOM) + DATA_offset + 8;
                 
                 //DSPADPCM channel data
                 if(brstmi->codec == 2) {
