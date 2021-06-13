@@ -133,21 +133,21 @@ int getFileExt(const char* filename) {
 void printConversionDetails() {
     std::cout << "Conversion: ";
     if(inputFileExt > 0 && outputFileExt == 0) {
-        std::cout << "BRSTM/other -> WAV";
+        std::cout << BRSTM_formats_short_usr_str[inputFileExt] << " -> WAV";
     } else if(inputFileExt == 0 && outputFileExt > 0) {
-        std::cout << "WAV -> BRSTM/other";
+        std::cout << "WAV -> " << BRSTM_formats_short_usr_str[outputFileExt];
     } else if(inputFileExt == 0 && outputFileExt == 0) {
         //This should never happen
         std::cout << "WAV -> WAV";
     } else if(inputFileExt > 0 && outputFileExt > 0) {
-        std::cout << "BRSTM/other -> ";
+        std::cout << BRSTM_formats_short_usr_str[inputFileExt] << " -> ";
         if(reencode) {
             std::cout << "PCM -> ";
             if(useFFMPEG) {
                 std::cout << "FFMPEG -> PCM -> ";
             }
         }
-        std::cout << "BRSTM/other";
+        std::cout << BRSTM_formats_short_usr_str[outputFileExt];
         if(!reencode) {
             std::cout << " (Lossless)";
         }
