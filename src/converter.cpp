@@ -1,6 +1,6 @@
 //C++ BRSTM converter
 //Decoder, encoder, reencoder and rebuilder merged into one program
-//Copyright (C) 2020 IC
+//Copyright (C) 2021 IC
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -132,26 +132,22 @@ int getFileExt(const char* filename) {
 
 void printConversionDetails() {
     std::cout << "Conversion: ";
-    if(inputFileExt > 0 && outputFileExt == 0) {
-        std::cout << BRSTM_formats_short_usr_str[inputFileExt] << " -> WAV";
-    } else if(inputFileExt == 0 && outputFileExt > 0) {
-        std::cout << "WAV -> " << BRSTM_formats_short_usr_str[outputFileExt];
-    } else if(inputFileExt == 0 && outputFileExt == 0) {
-        //This should never happen
-        std::cout << "WAV -> WAV";
-    } else if(inputFileExt > 0 && outputFileExt > 0) {
-        std::cout << BRSTM_formats_short_usr_str[inputFileExt] << " -> ";
-        if(reencode) {
-            std::cout << "PCM -> ";
-            if(useFFMPEG) {
-                std::cout << "FFMPEG -> PCM -> ";
-            }
-        }
-        std::cout << BRSTM_formats_short_usr_str[outputFileExt];
-        if(!reencode) {
-            std::cout << " (Lossless)";
+    
+    std::cout << BRSTM_formats_short_usr_str[inputFileExt] << " -> ";
+    
+    if(reencode) {
+        std::cout << "PCM -> ";
+        if(useFFMPEG) {
+            std::cout << "FFMPEG -> PCM -> ";
         }
     }
+    
+    std::cout << BRSTM_formats_short_usr_str[outputFileExt];
+    
+    if(!reencode) {
+        std::cout << " (Lossless)";
+    }
+    
     std::cout << '\n';
 }
 
@@ -565,7 +561,7 @@ int main(int argc, char** args) {
     ifile.seekg(0);
     
     //Read input file base information
-    if(inputFileExt > 0) {
+    if(inputFileExt >= 0) {
         unsigned char res = brstm_fstream_getBaseInformation(brstm,ifile,0);
         if(res>127) {
             std::cout << "Input file error. (" << (int)res << ")\n";
@@ -580,7 +576,7 @@ int main(int argc, char** args) {
     
     //Run conversions
     //Decoder BRSTM/other -> WAV
-    if(inputFileExt > 0 && outputFileExt == 0) {
+    if(inputFileExt >= 0 && outputFileExt == 0) {
         //check for unsupported opts
         if(userLoop)  {std::cout << "You cannot use the loop option in decoding mode.\n"; exit(255);}
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in decoding mode.\n"; exit(255);}
@@ -636,7 +632,8 @@ int main(int argc, char** args) {
     }
     
     //Encoder WAV -> BRSTM/other
-    else if(inputFileExt == 0 && outputFileExt > 0) {
+    //Disabled, testing support with builtin openrevolution WAV reader
+    /*else if(inputFileExt == 0 && outputFileExt > 0) {
         //check for unsupported opts
         if(useFFMPEG) {std::cout << "You cannot use the FFMPEG option in encoding mode.\n"; exit(255);}
         if(userTrackMixing) {std::cout << "Track mixing cannot be done on WAV files.\n"; exit(255);};
@@ -713,7 +710,7 @@ int main(int argc, char** args) {
                 if(!ofile.good()) {perror(outputFileName); exit(255);}
             }
         }
-    }
+    }*/
     
     //Lossless rebuilder
     else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 0) {
@@ -803,7 +800,7 @@ int main(int argc, char** args) {
     }
     
     //Reencoder
-    else if(inputFileExt > 0 && outputFileExt > 0 && reencode == 1) {
+    else if(inputFileExt >= 0 && outputFileExt > 0 && reencode == 1) {
         //print conversion details
         if(saveFile) printConversionDetails();
         
