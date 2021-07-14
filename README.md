@@ -22,7 +22,7 @@ Compile everything by running build.sh or using another compiler with the correc
 
 **MacOS**: Install with Homebrew through [freeapp2014/stuff](https://github.com/FreeApp2014/homebrew-stuff) (instructions in repository).
 
-**Arch Linux**: Install [openrevolution-git](https://aur.archlinux.org/openrevolution-git/) from AUR.
+**Arch Linux**: Install [openrevolution-git](https://aur.archlinux.org/packages/openrevolution-git/) from AUR.
 
 Dependencies for library:
 - None
