@@ -132,8 +132,13 @@ unsigned char* brstm_encoder_getByteUint(uint64_t num,uint8_t bytes,bool BOM) {
     return brstm_encoder_ByteInt;
 }
 
+//LE system only
+unsigned char brstm_illegal_arr[2];
 unsigned char* brstm_encoder_getByteInt16(int16_t num, bool BOM) {
-    return brstm_encoder_getByteUint((uint16_t)num,2,BOM);
+    brstm_illegal_arr[BOM] = num&0xFF;
+    brstm_illegal_arr[!BOM] = (num>>8)&0xFF;
+    
+    return brstm_illegal_arr;
 }
 
 char brstm_encoder_nextspinner(char& spinner) {
