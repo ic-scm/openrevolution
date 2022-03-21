@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <math.h>
+#include <unistd.h>
 
 #include "lib/brstm.h"
 #include "lib/brstm_encode.h"
@@ -396,10 +397,11 @@ void writeWAV(Brstm* brstm,std::ofstream& stream) {
 }
 
 //Used in reencoder
-void delete_ffmpeg_files() {
+void delete_ffmpeg_files(bool in, bool out) {
     int tmp;
-    tmp = system("rm .brstm-ffmpeg-i.wav &> /dev/null");
-    tmp = system("rm .brstm-ffmpeg-o.wav &> /dev/null");
+    if(in) tmp = system("rm .brstm-ffmpeg-i.wav &> /dev/null");
+    if(out) tmp = system("rm .brstm-ffmpeg-o.wav &> /dev/null");
+    usleep(250);
 }
 
 int main(int argc, char** args) {
@@ -834,12 +836,12 @@ int main(int argc, char** args) {
         
         //FFMPEG: save audio to WAV file, run ffmpeg on it, and read the output
         if(useFFMPEG) {
-            delete_ffmpeg_files();
+            delete_ffmpeg_files(0, 1);
             //Create WAV file
             std::ofstream ffmpeg_ofile (".brstm-ffmpeg-i.wav",std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ffmpeg_ofile.is_open()) {
                 perror("Unable to open FFMPEG input file");
-                delete_ffmpeg_files();
+                delete_ffmpeg_files(1, 1);
                 exit(255);
             }
             writeWAV(brstm,ffmpeg_ofile);
@@ -865,7 +867,7 @@ int main(int argc, char** args) {
                         exit(255);
                     }
                     ffmpeg_ifile.close();
-                } else {perror("Unable to open FFMPEG output file"); delete_ffmpeg_files(); exit(255);}
+                } else {perror("Unable to open FFMPEG output file"); delete_ffmpeg_files(1, 1); exit(255);}
                 
                 
                 //Read the WAV file data
@@ -915,11 +917,11 @@ int main(int argc, char** args) {
                     delete[] memblock;
                 }
             }
-            delete_ffmpeg_files();
+            delete_ffmpeg_files(1, 1);
             goto ffmpegSuccess;
             
             ffmpegOutputError:
-            delete_ffmpeg_files();
+            delete_ffmpeg_files(1, 1);
             std::cout << "Invalid FFMPEG output file.\n"; exit(255);
             ffmpegSuccess:;
         }
