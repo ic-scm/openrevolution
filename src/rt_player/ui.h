@@ -1,5 +1,5 @@
 //brstm_rt user interface
-//Copyright (C) 2020 I.C.
+//Copyright (C) 2022 I.C.
 
 //UI state
 struct uoutput_state_t {
@@ -49,17 +49,14 @@ void* uinput_thread(void* arg) {
             getch();
             input=getch();
             switch(input) {
-                case 'A': /*UP - Switch track*/ {
-                    if(!pstate->track_mixing_enabled) {
-                        pstate->current_track++;
-                        if(pstate->current_track >= pstate->brstm->num_tracks) pstate->current_track = pstate->brstm->num_tracks-1;
-                    }
+                case 'A': /*UP - Ffwd. ten times*/ {
+                    pstate->playback_current_sample += pstate->brstm->sample_rate * 10;
+                    if(pstate->playback_current_sample > pstate->brstm->total_samples) pstate->playback_current_sample = pstate->brstm->total_samples - 1;
                     break;
                 }
-                case 'B': /*DOWN - Switch track*/ {
-                    if(!pstate->track_mixing_enabled && pstate->current_track > 0) {
-                        pstate->current_track--;
-                    }
+                case 'B': /*DOWN - Rwd. ten times*/ {
+                    if(pstate->playback_current_sample >= pstate->brstm->sample_rate * 10) pstate->playback_current_sample -= pstate->brstm->sample_rate * 10;
+                    else pstate->playback_current_sample = 0;
                     break;
                 }
                 case 'C': /*RIGHT - Fast Forward*/ {
@@ -122,12 +119,13 @@ void drawPlayerUI(uoutput_state_t* state) {
             // Pause
             << (pstate->paused ? "Paused " : "")
             // Time
-            << "(" << secondsToMString(state->playback_seconds_string, 10, state->playback_seconds) << "/" << state->total_seconds_string;
+            << "(" << secondsToMString(state->playback_seconds_string, 10, state->playback_seconds) << " / " << state->total_seconds_string;
             // Tracks
             if(!pstate->track_mixing_enabled) {
-                std::cout << " Track: " << pstate->current_track+1;
+                // Removed - track mixing always enabled
+                //std::cout << " Track: " << pstate->current_track+1;
             } else {
-                std::cout << " Tracks:";
+                std::cout << " | Tracks:";
                 for(unsigned int t=0; t<pstate->brstm->num_tracks; t++) {
                     std::cout << ' ' << t+1 << '[' << (pstate->tracks_enabled[t] ? 'X' : ' ') << ']';
                 }
@@ -137,9 +135,9 @@ void drawPlayerUI(uoutput_state_t* state) {
             if(pstate->track_mixing_enabled) {
                 std::cout << "1-" << pstate->brstm->num_tracks << ":Toggle tracks";
             } else {
-                std::cout << "/\\ \\/:Switch track";
+                std::cout << "/\\ \\/:Seek x10";
             }
-            std::cout << "):\033[0m        "
+            std::cout << ")\033[0m        "
             // End
             << (!pstate->paused ? "       " : "") << "\r";
             

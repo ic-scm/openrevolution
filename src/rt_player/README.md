@@ -10,8 +10,6 @@ C++ RtAudio BRSTM player
 
 --force-sample-rate [sample rate] - Force playback sample rate
 
---enable-mixer - Enable track mixing for multi-track files
-
 -l - Always loop files with no loop
 
 **Memory modes**
@@ -24,9 +22,9 @@ C++ RtAudio BRSTM player
 
 **Controls**
 
-Left and right arrow keys: Seek 1 second
+Arrow keys: Seek 1 or 10 seconds
 
-Up/down arrow keys or number keys: Switch tracks (for multi-track files)
+Number keys: Toggle tracks (for multi-track files)
 
 Space: Pause
 

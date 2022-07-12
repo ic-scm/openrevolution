@@ -1,5 +1,5 @@
 //OpenRevolution RtAudio player (brstm_rt)
-//Copyright (C) 2020 IC
+//Copyright (C) 2022 IC
 #include <iostream>
 #include <fstream>
 #include <cstdio>
@@ -201,7 +201,7 @@ int RtAudioCb( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames
 
 //-------------------######### STRINGS
 
-const char* helpString = "OpenRevolution audio player\nCopyright (C) 2021 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_rt [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Enable track mixing for multi-track files\n-l --loop - Always loop files with no loop\n--classic-ui - Classic brstm_rt appearance\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
+const char* helpString = "OpenRevolution audio player\nCopyright (C) 2022 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_rt [file to open] [options...]\nOptions:\n-v - Verbose output\n-q - Quiet output (no player UI)\n--force-sample-rate [sample rate] - Force playback sample rate\n--enable-mixer - Deprecated - track mixing for multi-track files is always enabled\n-l --loop - Always loop files with no loop\n--classic-ui - Classic brstm_rt appearance\n\nMemory modes:\n-m - Load the file into memory and decode it in real time\n-s - Stream the audio data from disk (lower memory usage, recommended for large files)\n-d - Decode the entire file before playing it (high memory usage, not recommended)\nDefault mode is chosen depending on the file size.\n";
 
 const char* opts[] = {"-v","-m","-s","-d","-force-sample-rate","-q","-enable-mixer","-classic-ui","-l"};
 const char* opts_alt[] = {"--verbose","--memory","--streaming","--decode","--force-sample-rate","--quiet","--enable-mixer","--classic-ui","--loop"};
@@ -266,7 +266,8 @@ int main(int argc, char** args) {
     if(optused[3]) player_state->memoryMode = 2;
     if(optused[4]) forcedSampleRate = atoi(optargstr[4]);
     if(optused[5]) uoutput_state->quietOutput = 1;
-    if(optused[6]) player_state->track_mixing_enabled = 1;
+    //Always enabled since v2.8.0
+    if(optused[6] || true) player_state->track_mixing_enabled = 1;
     if(optused[7]) uoutput_state->classic_noflush = 1;
     if(optused[8]) loop_force = 1;
     
