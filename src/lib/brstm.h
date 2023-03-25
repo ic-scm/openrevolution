@@ -20,9 +20,9 @@ const char* BRSTM_formats_str[BRSTM_formats_count] = {"RIFF", "RSTM", "CSTM", "F
 //Offset to the audio offset information in each format (32 bit integer)
 //(doesn't have to be accurate, just enough to fit the entire file header before it)
 //Can be set to 0, a default offset (0x2000) will be used in that case.
-const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00, 0x70, 0x30, 0x30, 0x40, 0x10, 0x00, 0x24, 0x24, 0x28};
+const unsigned int BRSTM_formats_audio_off_off[BRSTM_formats_count] = {0x00, 0x70, 0x30, 0x30, 0x40, 0x10, 0x18, 0x24, 0x24, 0x28};
 //Offset to the codec information and their sizes in each format
-const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14, 0x60, 0x60, 0x60, 0x10, 0x00, 0x00, 0x48, 0x48, 0x04};
+const unsigned int BRSTM_formats_codec_off  [BRSTM_formats_count] = {0x14, 0x60, 0x60, 0x60, 0x10, 0x00, 0x28, 0x48, 0x48, 0x04};
 const unsigned int BRSTM_formats_codec_bytes[BRSTM_formats_count] = {1, 1, 1, 1, 2, 1, 1, 1, 1, 1};
 //Flags for which formats have a standard byte order mark, getBaseInformation will use BRSTM_formats_default_endian if set to 0
 const bool BRSTM_formats_has_bom[BRSTM_formats_count] = {0, 1, 1, 1, 1, 1, 1, 1, 1, 0};
@@ -208,8 +208,8 @@ unsigned int brstm_getStandardCodecNum(Brstm* brstmi,unsigned int num) {
             //WAV (PCM16 only)
             return 1;
         }
-        case 1: {
-            //BRSTM
+        case 1: case 6: {
+            //BRSTM, BRWAV
             if(num < 3) {
                 return num;
             }

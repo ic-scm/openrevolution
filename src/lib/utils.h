@@ -91,6 +91,14 @@ unsigned int brstm_getBytesForAdpcmSamples(int samples) {
     return PACKET_BYTES * packets + extraBytes;
 }
 
+int32_t brstm_getSamplesForAdpcmNibbles(int32_t nibbles) {
+    int32_t whole_frames = nibbles/16;
+    int32_t remainder = nibbles%16;
+
+    if (remainder>0) return whole_frames*14+remainder-2;
+    else return whole_frames*14;
+}
+
 //Encoder utils
 
 void brstm_encoder_writebytes(unsigned char* buf,const unsigned char* data,unsigned int bytes,unsigned long& off) {
