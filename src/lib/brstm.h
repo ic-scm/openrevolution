@@ -7,6 +7,7 @@
 #include <fstream>
 #include <cstring>
 #include <errno.h>
+#include <cstdint>
 
 //Bool endian: 0 = little endian, 1 = big endian
 
