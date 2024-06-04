@@ -20,7 +20,7 @@ Supports lossless conversion between supported formats and up to 8 tracks/16 cha
 ## Usage
 Compile everything by running build.sh or using another compiler with the correct options.
 
-**Windows**: Builds available [here](https://s.neofetch.win/openrevolution/).
+**Windows**: Builds available [here](https://st.eol.pw/openrevolution/).
 
 **MacOS**: Install with Homebrew through [freeapp2014/stuff](https://github.com/FreeApp2014/homebrew-stuff) (instructions in repository).
 
