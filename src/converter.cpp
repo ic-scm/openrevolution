@@ -14,14 +14,14 @@
 
 //-------------------######### STRINGS
 
-const char* helpString = "OpenRevolution file converter\nCopyright (C) 2021 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\n--mix-tracks [0/1 for all tracks] - Mix the specified tracks from the input file into a single stereo track\n(example: --mix-tracks 1010 will mix the first and third track from a 4-track file)\nIf necessary, this option can also be used to duplicate a single mono track.\n\n--mix-tracks-mono - Use together with --mix-tracks to mix into a single mono track\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM, or 'same' to use the same codec as the input file\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
+const char* helpString = "OpenRevolution file converter\nCopyright (C) 2021 I.C.\nThis program is free software, see the license file for more information.\nUsage:\nbrstm_converter [file to open.type] [options...]\nOptions:\n\n-o [output file name.type] - If this is not used the output will not be saved.\n\n-v - Verbose output\n\n--ffmpeg \"[ffmpeg arguments]\" - Use ffmpeg in the middle of reencoding to change the audio data with the passed ffmpeg arguments (as a single argument!)\nRequires FFMPEG to be installed and it may not work on non-unix systems.\nOnly usable in BRSTM/other -> BRSTM/other conversion.\n\n--reencode - Always reencode instead of doing lossless conversion\n\n--extend [sample count] - Extend the audio to the specified sample count (for games that require an exact length)\nYou can also cut with the same option by entering a number smaller than the sample count of the input file.\n\n-rsb --remove-silent-beginning - Cut all silence at the beginning of the audio stream while automatically adjusting the loop points.\n!!! This option is in testing state !!!\n\n--mix-tracks [0/1 for all tracks] - Mix the specified tracks from the input file into a single stereo track\n(example: --mix-tracks 1010 will mix the first and third track from a 4-track file)\nIf necessary, this option can also be used to duplicate a single mono track.\n\n--mix-tracks-mono - Use together with --mix-tracks to mix into a single mono track\n\nBRSTM/other output options:\n  -l --loop [loop point] - Set loop point or -1 for no loop\n  -c --track-channels [1 or 2] - Number of channels for each track (default is 2)\n  -kc --keep-channels [0/1 repeated for all channels] - Keep only the specified channels\n    (example: -kc 1100 keeps only 2 first channels out of a 4 channel file)\n  Advanced:\n  --oCodec [number] - Output codec, supported codecs: 0 = PCM8, 1 = PCM16, 2 = DSPADPCM, or 'same' to use the same codec as the input file\n  --oEndian [number] - Custom byte order of the output file, 0 = Little endian, 1 = Big endian\n";
 
 //------------------ Command line arguments
 
-const char* opts[] = {"-v","-o","-l","-c","-ffmpeg","-reencode","-extend","-oCodec","-kc","-oEndian","-mix-tracks","-mix-tracks-mono"};
-const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels","--oEndian","--mix-tracks","--mix-tracks-mono"};
-const unsigned int optcount = 12;
-const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1,1,1,0};
+const char* opts[] = {"-v","-o","-l","-c","-ffmpeg","-reencode","-extend","-oCodec","-kc","-oEndian","-mix-tracks","-mix-tracks-mono","-rsb"};
+const char* opts_alt[] = {"--verbose","--output","--loop","--track-channels","--ffmpeg","--reencode","--extend","--oCodec","--keep-channels","--oEndian","--mix-tracks","--mix-tracks-mono","--remove-silent-beginning"};
+const unsigned int optcount = 13;
+const bool optrequiredarg[optcount] = {0,1,1,1,1,0,1,1,1,1,1,0,0};
 bool  optused  [optcount];
 char* optargstr[optcount];
 //____________________________________
@@ -54,6 +54,8 @@ bool useFFMPEG = 0;
 const char* ffmpegArgs;
 
 unsigned long extendSampleCount = 0;
+
+bool removeSilentBeginning = 0;
 
 int userCodec = -1;
 
@@ -153,6 +155,52 @@ void printConversionDetails() {
         }
     }
     std::cout << '\n';
+}
+
+//Silent beginning remover
+void remove_PCM_silent_beginning(Brstm* brstm) {
+    if(brstm->loop_flag && brstm->loop_start < 2) return; //Don't bother. There is nothing useful to do.
+    
+    unsigned long first_non_silent_sample = brstm->total_samples - 1;
+    
+    unsigned long i;
+    unsigned int c;
+    
+    int16_t sample;
+    
+    //Look for the first non silent sample
+    for(i=0; i<first_non_silent_sample; i++) {
+        for(c=0; c<brstm->num_channels; c++) {
+            sample = brstm->PCM_samples[c][i];
+            // Not just checking for non-0, so that a tiny bit of extremely silent noise will still pass through as silence. This threshold can be changed here.
+            if( sample > 1 || sample < -1 ) {
+                first_non_silent_sample = i;
+                break;
+            }
+        }
+    }
+    
+    //Make sure we don't break the loop point. Even if the loop start is in the silence... we have to keep everything after the loop start point.
+    if(brstm->loop_flag && first_non_silent_sample > brstm->loop_start) { first_non_silent_sample = brstm->loop_start; }
+    
+    if(first_non_silent_sample < 2) return; //Don't bother. There is nothing useful to do.
+    
+    
+    
+    
+    printf("Removing %lu silent samples from the beginning. Total samples: %lu -> %lu", first_non_silent_sample, brstm->total_samples, brstm->total_samples - first_non_silent_sample);
+    if(brstm->loop_flag) printf(", loop start: %lu -> %lu", brstm->loop_start, brstm->loop_start - first_non_silent_sample);
+    printf("\n");
+    
+    brstm->total_samples -= first_non_silent_sample;
+    if(brstm->loop_flag) brstm->loop_start -= first_non_silent_sample;
+    
+    //Remove the silence.
+    for(c=0; c<brstm->num_channels; c++) {
+        for(i=0; i<brstm->total_samples; i++) {
+            brstm->PCM_samples[c][i] = brstm->PCM_samples[c][i + first_non_silent_sample];
+        }
+    }
 }
 
 //Extender
@@ -516,6 +564,12 @@ int main(int argc, char** args) {
     if(optused[11]) {
         userTrackMixingMono = 1;
     }
+    //Remove silent beginning
+    if(optused[12]) {
+        removeSilentBeginning = 1;
+        //Not going to work without reencoding, for now :( It could be possible to do it losslessly by removing in whole ADPCM chunks.
+        reencode = 1;
+    }
     
     
     //Safety
@@ -624,6 +678,9 @@ int main(int argc, char** args) {
                 extendPCMSamples(brstm,extendSampleCount);
             }
             
+            //Remove silent beginning
+            if(removeSilentBeginning) remove_PCM_silent_beginning(brstm);
+            
             //Open output file
             ofile.open(outputFileName,std::ios::out|std::ios::binary|std::ios::trunc);
             if(!ofile.is_open()) {perror(outputFileName); exit(255);}
@@ -689,6 +746,9 @@ int main(int argc, char** args) {
                     << " from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
                 extendPCMSamples(brstm,extendSampleCount);
             }
+            
+            //Remove silent beginning
+            if(removeSilentBeginning) remove_PCM_silent_beginning(brstm);
             
             if(verb) std::cout
                 << "Looping BRSTM: " << brstm->loop_flag
@@ -966,6 +1026,9 @@ int main(int argc, char** args) {
                     << " from " << brstm->total_samples << " samples to " << extendSampleCount << " samples...\n";
                 extendPCMSamples(brstm,extendSampleCount);
             }
+            
+            //Remove silent beginning
+            if(removeSilentBeginning) remove_PCM_silent_beginning(brstm);
             
             if(verb) std::cout
                 << "Output:"
